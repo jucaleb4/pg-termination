@@ -5,6 +5,14 @@ import os
 import numpy as np
 
 from wbmdp import GridWorldWithTraps
+from wbmdp import Taxi
+from wbmdp import Random
+from wbmdp import Small
+from wbmdp import Chain
+from wbmdp import GridWorldWithTrapsAndHills
+
+from utils import set_greedy_policy
+
 from logger import BasicLogger
 
 TOL = 1e-10
@@ -16,17 +24,6 @@ EUCLIDEAN_LINEAR_ADAPTIVE = 3
 
 EUCLIDEAN_UPDATE = 100
 KL_UPDATE = 101
-
-def set_greedy_policy(greedy_pi, psi):
-    """ 
-    :param greedy_pi: policy that be updated in place to the greedy policy 
-    :param psi: advantage function
-    :param states: index of states (to prevent memory reallocation)
-    """
-    greedy_pi[:,:] = 0
-    (n_states,_) = psi.shape
-    greedy_as = np.argmin(psi, axis=1)
-    greedy_pi[greedy_as, np.arange(n_states)] = 1.
 
 def simplex_projection(x):
     """ Strongly polynomial time for projecting onto simplex.
@@ -60,7 +57,7 @@ def parallel_simplex_projection(X):
     X_sorted_proj = np.maximum(0, X_sorted-np.outer(np.ones(n_actions), T[I, np.arange(n_states)], ))
     X_proj = X_sorted_proj[X_sorted_index_inverse, np.arange(n_states)]
 
-    assert np.max(np.abs(np.sum(X_proj, axis=0) - 1)) <= TOL, "Sum of sum(x)=%.4e != 1.0" % np.max(np.sum(x_proj, axis=0))
+    assert np.max(np.abs(np.sum(X_proj, axis=0) - 1)) <= TOL, "Sum of sum(x)=%.11e != 1.0" % np.max(np.sum(X_proj, axis=0))
 
     return X_proj
 
@@ -109,17 +106,23 @@ class StepsizeSchedule():
             eta = 2**(1+np.floor(t/self.N) % self.T)/self.Delta
             return eta
 
-def main():
+def pmd():
     args = dict({
-        # "stepsize_rule": KL_LINEAR_GEOMETRIC,
+        "stepsize_rule": KL_LINEAR_GEOMETRIC,
         # "stepsize_rule": KL_LINEAR_ADAPTIVE, 
-        "stepsize_rule": EUCLIDEAN_LINEAR_ADAPTIVE,
-        # "update_rule": KL_UPDATE, 
-        "update_rule": EUCLIDEAN_UPDATE,
+        # "stepsize_rule": EUCLIDEAN_LINEAR_ADAPTIVE,
+        "update_rule": KL_UPDATE, 
+        # "update_rule": EUCLIDEAN_UPDATE,
         "n_iters": 10000,
-        "fname": os.path.join("logs", "gridworld.csv")
+        "fname": os.path.join("logs", "gridworld_euclidean_pmd.csv")
     })
-    env = GridWorldWithTraps(10, 10, 0.99, seed=1104)
+    # env = GridWorldWithTraps(20, 20, 0.99, seed=1104, ergodic=True)
+    env = GridWorldWithTrapsAndHills(30, 30, 0.5, seed=1104, ergodic=True)
+    # env = Taxi(0.995, ergodic=True)
+    # env = Random(100, 100, 0.996, seed=1101)
+    # env = Small(100, 0.99995, eps=1e-8, seed=1104)
+    # env = Chain(100, 0.995, eps=1e-3, seed=1104)
+
     logger = BasicLogger(
         fname=args["fname"], 
         keys=["iter", "average value", "advantage gap", "greedy advantage gap"], 
@@ -129,16 +132,16 @@ def main():
     pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
     pi_t = pi_0
     greedy_pi_t = np.copy(pi_0)
+    next_greedy_pi_t = np.copy(pi_0)
 
     stepsize_scheduler = StepsizeSchedule(env, args["stepsize_rule"])
 
     s_time = time.time()
     # tolerance for optimality (due to floating point error)
-    eps_tol = 1e-12 
+    eps_tol = 1e-14
 
     for t in range(args["n_iters"]):
         (psi_t, V_t) = env.get_advantage(pi_t)
-
 
         # check termination of greedy
         set_greedy_policy(greedy_pi_t, psi_t)
@@ -146,11 +149,25 @@ def main():
 
         if t <= 9 or (t <= 99 and (t+1) % 5 == 0) or (t+1) % 100 == 0:
             print("Iter %d: f=%.2e (gap=%.2e) (ggap=%.2e)" % (t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t)))
+        if t <= 99 or ((t+1) % 10 == 0):
             logger.log(t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t))
+            
+        if np.max(-psi_t) < eps_tol:
+            print("Terminate at %d: f=%.2e (gap=%.2e)" % (t+1, np.mean(V_t), np.max(-psi_t)))
+            logger.log(t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t))
+            break
+        if np.max(-greedy_psi_t) < eps_tol:
+            print("Terminate at %d: gf=%.2e (ggap=%.2e)" % (t+1, np.mean(greedy_V_t), np.max(-greedy_psi_t)))
+            logger.log(t+1, np.mean(greedy_V_t), np.max(-psi_t), np.max(-greedy_psi_t))
+            break
 
-        if np.max(-psi_t) < eps_tol or np.max(-greedy_psi_t) < eps_tol:
-            print("Terminate at %d: f=%.2e (gap=%.2e) (ggap=%.2e)" % (t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t)))
-            logger.log(t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t))
+        # same termination rule as policy iteration (due to floating point errors)
+        (greedy_psi_t, greedy_V_t) = env.get_advantage(greedy_pi_t)
+        set_greedy_policy(next_greedy_pi_t, greedy_psi_t)
+        if np.allclose(next_greedy_pi_t, greedy_pi_t):
+            rho = env.get_steadystate(greedy_pi_t)
+            print("Terminate at %d: greedy-f=%.2e (greedy-gap=%.2e)" % (t+1, np.mean(greedy_V_t), np.max(-greedy_psi_t)))
+            logger.log(t+1, np.mean(greedy_V_t), np.max(-psi_t), np.max(-greedy_psi_t))
             break
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
@@ -160,6 +177,3 @@ def main():
     print("Total runtime: %.2fs" % (time.time() - s_time))
 
     logger.save()
-
-if __name__ == '__main__':
-    main()
