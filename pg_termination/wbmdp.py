@@ -90,7 +90,7 @@ class GridWorldWithTraps(MDPModel):
         rng = np.random.default_rng(seed)
         rnd_pts = rng.choice(length*length, replace=False, size=n_traps+1)
         traps = rnd_pts[:-1]
-        target = rnd_pts[-1]
+        self.target = target = rnd_pts[-1]
         print("Target at index %d" % target)
 
         P = np.zeros((n_states, n_states, n_actions), dtype=float)
@@ -163,6 +163,9 @@ class GridWorldWithTraps(MDPModel):
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
+    def get_target(self):
+        return self.target
+
 class GridWorldWithTrapsAndHills(MDPModel):
 
     def __init__(self, length, n_traps, gamma, eps=0.05, seed=None, ergodic=False):
@@ -183,7 +186,7 @@ class GridWorldWithTrapsAndHills(MDPModel):
         rng = np.random.default_rng(seed)
         rnd_pts = rng.choice(length*length, replace=False, size=n_traps+1)
         traps = rnd_pts[:-1]
-        target = rnd_pts[-1]
+        self.target = target = rnd_pts[-1]
         target_x = target % length
         target_y = target // length
         print("Target at index %d" % target)
@@ -265,6 +268,9 @@ class GridWorldWithTrapsAndHills(MDPModel):
         c[target,:] = 0
 
         super().__init__(n_states, n_actions, c, P, gamma)
+
+    def get_target(self):
+        return self.target
 
 class Taxi(MDPModel):
 
@@ -501,3 +507,21 @@ class Chain(MDPModel):
                 c[s,a] = rng.normal()
 
         super().__init__(n_states, n_actions, c, P, gamma)
+
+def get_env(name, gamma, seed=None):
+    if name == "gridworld_small":
+        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True)
+    elif name == "gridworld_big":
+        env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True)
+    elif name == "gridworld_hill_small":
+        env = GridWorldWithTrapsAndHills(20, 20, gamma, seed=seed, ergodic=True)
+    elif name == "gridworld_hill_big":
+        env = GridWorldWithTrapsAndHills(50, 50, gamma, seed=seed, ergodic=True)
+    elif name == "taxi":
+        env = Taxi(gamma, ergodic=True)
+    elif name == "random":
+        env = Random(100, 100, gamma, seed=seed)
+    elif name == "chain":
+        env = Chain(100, gamma, eps=1e-3, seed=seed)
+
+    return env
