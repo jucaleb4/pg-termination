@@ -1,7 +1,7 @@
 import argparse
 import yaml
 
-from pg_termination import pmd
+from pg_termination import pmd, policyiter
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -14,4 +14,9 @@ if __name__ == "__main__":
         except yaml.YAMLError as exc:
             print(exc)
 
-    pmd.train(settings)
+    if settings['alg'] == 'pmd':
+        pmd.train(settings)
+    elif settings['alg'] == 'policyiter':
+        policyiter.train(settings)
+    else:
+        print("Unknown alg %s" % settings['alg'])

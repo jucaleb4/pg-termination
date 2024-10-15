@@ -112,7 +112,7 @@ def _train(settings):
             f.write("target\n%d" % env.get_target())
 
     logger = BasicLogger(
-        fname=os.path.join(settings["log_folder"], "pmd_seed=%d.csv" % seed), 
+        fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
         keys=["iter", "average value", "advantage gap", "greedy advantage gap"], 
         dtypes=['d', 'f', 'f', 'f']
     )
@@ -167,10 +167,10 @@ def _train(settings):
 
     print("Total runtime: %.2fs" % (time.time() - s_time))
 
-    with open(os.path.join(settings["log_folder"], "pi_star_seed=%d.csv" % seed), "w+") as f:
+    with open(os.path.join(settings["log_folder"], "pi_seed=%d.csv" % seed), "w+") as f:
         np.savetxt(f, pi_star, fmt="%1.4e")
 
-    with open(os.path.join(settings["log_folder"], "rho_star_seed=%d.csv" % seed), "w+") as f:
+    with open(os.path.join(settings["log_folder"], "rho_seed=%d.csv" % seed), "w+") as f:
         rho = env.get_steadystate(pi_star)
         np.savetxt(f, np.atleast_2d(rho).T, fmt="%1.5e")
 

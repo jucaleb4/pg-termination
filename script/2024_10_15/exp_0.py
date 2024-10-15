@@ -9,7 +9,7 @@ sys.path.insert(0, parent_dir)
 
 from pg_termination import pmd
 
-MAX_RUNS = 42
+MAX_RUNS = 63
 DATE = "2024_10_15"
 EXP_ID  = 0
 
@@ -46,9 +46,10 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
 
     gammas = [0.9, 0.99, 0.999]
 
-    pmd_settings = [
-        (pmd.StepSize.KL_LINEAR_GEOMETRIC, pmd.Update.KL_UPDATE),
-        (pmd.StepSize.EUCLIDEAN_LINEAR_ADAPTIVE, pmd.Update.EUCLIDEAN_UPDATE),
+    alg_settings = [
+        ("pmd", pmd.StepSize.KL_LINEAR_GEOMETRIC, pmd.Update.KL_UPDATE),
+        ("pmd", pmd.StepSize.EUCLIDEAN_LINEAR_ADAPTIVE, pmd.Update.EUCLIDEAN_UPDATE),
+        ("policyiter", 0, 0),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -60,11 +61,12 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         os.makedirs(setting_folder_base)
 
     ct = 0
-    for (env_name, gamma, pmd_setting) in itertools.product(env_names, gammas, pmd_settings):
+    for (env_name, gamma, alg_setting) in itertools.product(env_names, gammas, alg_settings):
         od["env_name"] = env_name
         od["gamma"] = gamma
-        od["stepsize_rule"] = int(pmd_setting[0])
-        od["update_rule"] = int(pmd_setting[1])
+        od["alg"] = alg_setting[0]
+        od["stepsize_rule"] = int(alg_setting[1])
+        od["update_rule"] = int(alg_setting[2])
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
