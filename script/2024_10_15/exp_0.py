@@ -60,6 +60,13 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
     if not(os.path.exists(setting_folder_base)):
         os.makedirs(setting_folder_base)
 
+    # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
+    exp_metadata = ["Exp id", "Env name", "gamma", "Algm", "Stepsize", "Update"]
+    row_format ="{:>10}|{:>25}|" + "{:>15}|" * (len(exp_metadata)-3) + "{:>15}"
+    print("")
+    print(row_format.format(*exp_metadata))
+    print("-" * (10+25+15*(len(exp_metadata)-3) + 15+len(exp_metadata)-1))
+
     ct = 0
     for (env_name, gamma, alg_setting) in itertools.product(env_names, gammas, alg_settings):
         od["env_name"] = env_name
@@ -70,6 +77,8 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
+
+        print(row_format.format(ct, od["env_name"], od["gamma"], od["alg"], od["stepsize_rule"], od["update_rule"]))
 
         if not(os.path.exists(od["log_folder"])):
             os.makedirs(od["log_folder"])
@@ -114,6 +123,7 @@ if __name__ == "__main__":
 
         for i in range(start_run_id, end_run_id):
             settings_file = os.path.join(folder_name, "run_%i.yaml" % i)
+            os.system('echo "Running exp id %d"' % i)
             os.system("python run.py --settings %s%s" % (
                 settings_file, 
                 " --parallel" if args.parallel else "",
