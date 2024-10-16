@@ -163,19 +163,19 @@ def _train(settings):
             break
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
-        
         policy_update(pi_t, psi_t, eta_t, settings["update_rule"]) 
 
     print("Total runtime: %.2fs" % (time.time() - s_time))
 
+    logger.save()
+
+    if pi_star is None: pi_star = pi_t
     with open(os.path.join(settings["log_folder"], "pi_seed=%d.csv" % seed), "w+") as f:
         np.savetxt(f, pi_star, fmt="%1.4e")
 
     with open(os.path.join(settings["log_folder"], "rho_seed=%d.csv" % seed), "w+") as f:
         rho = env.get_steadystate(pi_star)
         np.savetxt(f, np.atleast_2d(rho).T, fmt="%1.5e")
-
-    logger.save()
 
 def train(settings):
     seed_0 = settings["seed_0"]
