@@ -97,6 +97,8 @@ if __name__ == "__main__":
         type=str, 
         help="Which experiments to run. Must be given as two integers separate by a comma with no space"
     )
+    parser.add_argument("--parallel", action="store_true", help="Run seeds in parallel")
+
     args = parser.parse_args()
     seed_0 = 0
     n_seeds = 1
@@ -112,6 +114,9 @@ if __name__ == "__main__":
 
         for i in range(start_run_id, end_run_id):
             settings_file = os.path.join(folder_name, "run_%i.yaml" % i)
-            os.system("python run.py --settings %s" % settings_file)
+            os.system("python run.py --settings %s%s" % (
+                settings_file, 
+                " --parallel" if args.parallel else "",
+            ))
     else:
         print("Neither setup nor run passed. Shutting down...")

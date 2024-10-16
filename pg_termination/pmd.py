@@ -2,6 +2,7 @@
 import time
 import os
 from enum import IntEnum
+import multiprocessing as mp
 
 import numpy as np
 
@@ -179,7 +180,34 @@ def _train(settings):
 def train(settings):
     seed_0 = settings["seed_0"]
     n_seeds = settings["n_seeds"]
+    parallel = settings["parallel"]
+
+    try:
+        num_workers = min(n_seeds, len(os.sched_getaffinity(0))-1)
+        print("Parallel PO experiements with %d workers (%d jobs, %d max cpu)" % (
+            num_workers, n_seeds, mp.cpu_count())
+        )
+    except:
+        if 'sched_getffinity' not in dir(os):
+            print("Function `os.sched_getaffinity(0)` not available on current OS.\nSetting parallel=False.\nSee https://stackoverflow.com/questions/42658331/python-3-on-macos-how-to-set-process-affinity")
+            parallel = False
+
+    worker_queue = []
 
     for seed in range(seed_0, seed_0+n_seeds):
-        settings["seed"] = seed
-        _train(settings)
+        customized_settings = settings.copy()
+        customized_settings["seed"] = seed
+
+        if not parallel:
+            _train(customized_settings)
+            continue
+
+        if len(worker_queue) == num_workers:
+            # wait for all workers to finish
+            for p in worker_queue:
+                p.join()
+            worker_queue = []
+        p = mp.Process(target=_train, args=(customized_settings,))
+        p.start()
+        worker_queue.append(p)
+
