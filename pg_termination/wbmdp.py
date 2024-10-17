@@ -10,7 +10,7 @@ DIRS = [(1,0), (0,1), (-1,0), (0,-1)]
 
 class MDPModel():
     """ Base MDP class """
-    def __init__(self, n_states, n_actions, c, P, gamma):
+    def __init__(self, n_states, n_actions, c, P, gamma, seed=None):
         assert len(c.shape) == 2, "Input cost vector c must be a 2-D vector, recieved %d dimensions" % len(c.shape)
         assert len(P.shape) == 3, "Input cost vector c must be a 3-D tensor, recieved %d dimensions" % len(P.shape)
 
@@ -40,6 +40,10 @@ class MDPModel():
         self.P = P
         self.gamma = gamma
 
+        # initialize a 
+        self.rng = np.random.default_rng(seed)
+        self.s = rng.integers(0, self.n_states)
+
     def get_advantage(self, pi):
         assert pi.shape[0] == self.n_actions, "1st dimension of pi must equal n_actions=%d, was instead %d" % (self.n_actions, pi.shape[0])
         assert pi.shape[1] == self.n_states, "2nd dimension of pi must equal n_states=%d, was instead %d" % (self.n_states, pi.shape[1])
@@ -54,6 +58,49 @@ class MDPModel():
         psi = Q_pi - np.outer(V_pi, np.ones(self.n_actions))
 
         return (psi, V_pi)
+
+    def estimate_advantage(self, pi, T, threshold=0):
+        """
+        https://arxiv.org/pdf/2303.04386
+
+        :param T: duration to run Monte Carlo simulation
+        :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again
+        :return visited_state_action: whether a state-action pair was visited
+        """
+        costs = np.zeros(T, dtype=float)
+        states = np.zeros(T, dtype=int)
+        actions = np.zeros(T, dtype=int)
+
+        for t in range(T):
+            states[t] = self.s
+            actions[t] = a_t = self.rng.choice(p=pi[:,states[t]])
+            self.s = self.rng.choice(p=self.P[:,states[t],actions[t]])
+
+            costs[t] = c[states[t], actions[t]]
+
+        cumulative_discounted_costs = np.zeros(T, dtype=float)
+        cumulative_discounted_costs[-1] = costs[-1]
+        for t in range(T-2,-1,-1):
+            cumulative_discounted_costs[t] = costs[t] + self.gamma*cumulative_discounted_costs[t+1]
+
+        # form advantage (dp style)
+        Q = np.zeros((self.n_states, self.n_actions), dtype=float)
+        visited_state_action = np.zeros(self.n_states, self.n_actions, dtype=bool)
+        for t in range(T):
+            (s,a) = states[t], actions[t]
+            if visited_state_action[s,a]:
+                continue
+            Q[s,a] = cumulative_discounted_costs[t]
+
+        # for proabibilities that are very low, set Q value to be high
+        (poor_sa_s, poor_sa_a) = np.where(pi <= threshold)
+        Q_max = np.max(np.abs(self.c))/(1.-self.gamma)
+        Q[poor_sa_s,poor_sa_a] = Q_max
+
+        V_pi = np.einsum('sa,as->s', Q, pi)
+        psi = Q - np.outer(V_pi, np.ones(self.n_actions, type=float))
+
+        return (psi, V_pi, visited_state_action)
 
     def get_steadystate(self, pi):
         P_pi = np.einsum('psa,as->ps', self.P, pi)
