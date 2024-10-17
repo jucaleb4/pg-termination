@@ -133,7 +133,7 @@ def _train(settings):
     stepsize_scheduler = StepsizeSchedule(env, settings["stepsize_rule"], settings.get("eta",1))
     s_time = time.time()
     # tolerance for optimality (due to floating point error)
-    eps_tol = 1e-14
+    eps_tol = 1e-12
 
     for t in range(settings["n_iters"]):
         (psi_t, V_t) = env.get_advantage(pi_t)
