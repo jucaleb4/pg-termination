@@ -34,7 +34,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("n_iters", n_iters),
     ])
 
-    env_names = [
+    env_name_arr = [
         "gridworld_small", 
         "gridworld_large", 
         "gridworld_hill_small", 
@@ -44,9 +44,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         "chain",
     ]
 
-    gammas = [0.9, 0.99, 0.999]
+    gamma_arr = [0.9, 0.99, 0.999]
 
-    alg_settings = [
+    alg_setting_arr = [
         ("pmd", pmd.StepSize.KL_LINEAR_GEOMETRIC, pmd.Update.KL_UPDATE),
         ("pmd", pmd.StepSize.EUCLIDEAN_LINEAR_ADAPTIVE, pmd.Update.EUCLIDEAN_UPDATE),
         ("policyiter", 0, 0),
@@ -68,7 +68,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
     print("-" * (10+25+15*(len(exp_metadata)-3) + 15+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, gamma, alg_setting) in itertools.product(env_names, gammas, alg_settings):
+    for (env_name, gamma, alg_setting) in itertools.product(env_name_arr, gamma_arr, alg_setting_arr):
         od["env_name"] = env_name
         od["gamma"] = gamma
         od["alg"] = alg_setting[0]
