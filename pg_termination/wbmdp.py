@@ -42,7 +42,7 @@ class MDPModel():
 
         # initialize a 
         self.rng = np.random.default_rng(seed)
-        self.s = rng.integers(0, self.n_states)
+        self.s = self.rng.integers(0, self.n_states)
 
     def get_advantage(self, pi):
         assert pi.shape[0] == self.n_actions, "1st dimension of pi must equal n_actions=%d, was instead %d" % (self.n_actions, pi.shape[0])
@@ -64,7 +64,7 @@ class MDPModel():
         https://arxiv.org/pdf/2303.04386
 
         :param T: duration to run Monte Carlo simulation
-        :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again
+        :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again (rec: (1-gamma)**2/|A|)
         :return visited_state_action: whether a state-action pair was visited
         """
         costs = np.zeros(T, dtype=float)
@@ -73,10 +73,10 @@ class MDPModel():
 
         for t in range(T):
             states[t] = self.s
-            actions[t] = a_t = self.rng.choice(p=pi[:,states[t]])
-            self.s = self.rng.choice(p=self.P[:,states[t],actions[t]])
+            actions[t] = a_t = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,states[t],actions[t]])
 
-            costs[t] = c[states[t], actions[t]]
+            costs[t] = self.c[states[t], actions[t]]
 
         cumulative_discounted_costs = np.zeros(T, dtype=float)
         cumulative_discounted_costs[-1] = costs[-1]
@@ -85,7 +85,7 @@ class MDPModel():
 
         # form advantage (dp style)
         Q = np.zeros((self.n_states, self.n_actions), dtype=float)
-        visited_state_action = np.zeros(self.n_states, self.n_actions, dtype=bool)
+        visited_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
         for t in range(T):
             (s,a) = states[t], actions[t]
             if visited_state_action[s,a]:
@@ -93,12 +93,12 @@ class MDPModel():
             Q[s,a] = cumulative_discounted_costs[t]
 
         # for proabibilities that are very low, set Q value to be high
-        (poor_sa_s, poor_sa_a) = np.where(pi <= threshold)
+        (poor_sa_a, poor_sa_s) = np.where(pi <= threshold)
         Q_max = np.max(np.abs(self.c))/(1.-self.gamma)
         Q[poor_sa_s,poor_sa_a] = Q_max
 
         V_pi = np.einsum('sa,as->s', Q, pi)
-        psi = Q - np.outer(V_pi, np.ones(self.n_actions, type=float))
+        psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
         return (psi, V_pi, visited_state_action)
 

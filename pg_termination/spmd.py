@@ -1,4 +1,4 @@
-""" Basic PMD """
+""" Basic stochastic PMD """
 import time
 import os
 from enum import IntEnum
@@ -82,10 +82,11 @@ class StepsizeSchedule():
         self.gamma = env.gamma
         self.stepsize_rule = stepsize_rule
 
-        self.eta = eta
         self.N = np.ceil(4./(1-self.gamma))
         self.T = np.ceil(np.log(self.n_states**3*self.n_actions/(1.-self.gamma)**2/np.log(2)))
         self.Delta = 0
+
+        self.eta = eta
 
         if stepsize_rule in [StepSize.EUCLIDEAN_LINEAR_ADAPTIVE]:
             print("Worse case iteration complexity: %d" % (self.n_states*(self.n_actions-1)*self.N*self.T))
@@ -114,14 +115,10 @@ def _train(settings):
 
     env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
 
-    if "gridworld" in settings['env_name']:
-        with open(os.path.join(settings["log_folder"], "gridworld_target_seed=%d.csv" % seed), "w+") as f:
-            f.write("target\n%d" % env.get_target())
-
     logger = BasicLogger(
         fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
-        keys=["iter", "average value", "advantage gap", "greedy advantage gap"], 
-        dtypes=['d', 'f', 'f', 'f']
+        keys=["iter", "average value", "advantage gap", "true value", "true advantage gap"], 
+        dtypes=['d', 'f', 'f', 'f', 'f']
     )
 
     pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
@@ -131,41 +128,19 @@ def _train(settings):
     pi_star = None
 
     stepsize_scheduler = StepsizeSchedule(env, settings["stepsize_rule"], settings.get("eta",1))
+
     s_time = time.time()
-    # tolerance for optimality (due to floating point error)
-    eps_tol = 1e-14
 
     for t in range(settings["n_iters"]):
-        (psi_t, V_t) = env.get_advantage(pi_t)
-
-        # check termination of greedy
-        utils.set_greedy_policy(greedy_pi_t, psi_t)
-        (greedy_psi_t, greedy_V_t) = env.get_advantage(greedy_pi_t)
+        (true_psi_t, true_V_t) = env.get_advantage(pi_t)
+        (psi_t, V_t, _) = env.estimate_advantage(pi_t, settings["mc_T"], settings["pi_threshold"])
 
         if t <= 9 or (t <= 99 and (t+1) % 5 == 0) or (t+1) % 100 == 0:
-            print("Iter %d: f=%.2e (gap=%.2e) (ggap=%.2e)" % (t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t)))
+            print("Iter %d: f=%.2e (gap=%.2e) | true_f=%.2e (true_gap=%.2e)" % (
+                t+1, np.mean(V_t), np.max(-psi_t), np.mean(true_V_t), np.max(-true_psi_t)
+            ))
         if t <= 99 or ((t+1) % 10 == 0):
-            logger.log(t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t))
-            
-        if np.max(-psi_t) < eps_tol:
-            print("Terminate at %d: f=%.2e (gap=%.2e)" % (t+1, np.mean(V_t), np.max(-psi_t)))
-            logger.log(t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t))
-            pi_star = pi
-            break
-        if np.max(-greedy_psi_t) < eps_tol:
-            print("Terminate at %d: gf=%.2e (ggap=%.2e)" % (t+1, np.mean(greedy_V_t), np.max(-greedy_psi_t)))
-            logger.log(t+1, np.mean(greedy_V_t), np.max(-psi_t), np.max(-greedy_psi_t))
-            pi_star = greedy_pi_t
-            break
-
-        # same termination rule as policy iteration (due to floating point errors)
-        (greedy_psi_t, greedy_V_t) = env.get_advantage(greedy_pi_t)
-        utils.set_greedy_policy(next_greedy_pi_t, greedy_psi_t)
-        if np.allclose(next_greedy_pi_t, greedy_pi_t):
-            print("Terminate at %d: greedy-f=%.2e (greedy-gap=%.2e)" % (t+1, np.mean(greedy_V_t), np.max(-greedy_psi_t)))
-            logger.log(t+1, np.mean(greedy_V_t), np.max(-psi_t), np.max(-greedy_psi_t))
-            pi_star = greedy_pi_t
-            break
+            logger.log(t+1, np.mean(V_t), np.max(-psi_t), np.mean(true_V_t), np.max(-true_psi_t))
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
         policy_update(pi_t, psi_t, eta_t, settings["update_rule"]) 
@@ -173,14 +148,6 @@ def _train(settings):
     print("Total runtime: %.2fs" % (time.time() - s_time))
 
     logger.save()
-
-    if pi_star is None: pi_star = pi_t
-    with open(os.path.join(settings["log_folder"], "pi_seed=%d.csv" % seed), "w+") as f:
-        np.savetxt(f, pi_star, fmt="%1.4e")
-
-    with open(os.path.join(settings["log_folder"], "rho_seed=%d.csv" % seed), "w+") as f:
-        rho = env.get_steadystate(pi_star)
-        np.savetxt(f, np.atleast_2d(rho).T, fmt="%1.5e")
 
 def train(settings):
     seed_0 = settings["seed_0"]

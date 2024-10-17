@@ -1,7 +1,7 @@
 import argparse
 import yaml
 
-from pg_termination import pmd, policyiter
+from pg_termination import pmd, policyiter, spmd
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -19,6 +19,8 @@ if __name__ == "__main__":
 
     if settings['alg'] == 'pmd':
         pmd.train(settings)
+    if settings['alg'] == 'spmd':
+        spmd.train(settings)
     elif settings['alg'] == 'policyiter':
         policyiter.train(settings)
     else:

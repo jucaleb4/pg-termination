@@ -33,8 +33,8 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("n_seeds", n_seeds), 
         ("n_iters", n_iters),
         ("alg", "spmd"),
-        ("stepsize_rule", pmd.StepSize.SUBLINEAR), 
-        ("update_rule", pmd.Update.KL_UPDATE),
+        ("stepsize_rule", int(pmd.StepSize.SUBLINEAR)), 
+        ("update_rule", int(pmd.Update.KL_UPDATE)),
     ])
 
     env_name_arr = ["gridworld_small", "taxi"]
@@ -105,10 +105,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seed_0 = 0
     n_seeds = 1
-    n_iters = 200
+    n_iters = 100
 
     if args.setup:
         if args.mode == "full":
+            n_iters = 1_000
             n_seeds = 10
         setup_setting_files(seed_0, n_seeds, n_iters)
     elif args.run:
