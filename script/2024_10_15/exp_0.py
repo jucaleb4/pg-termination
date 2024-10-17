@@ -31,7 +31,6 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
     od = dict([
         ("seed_0", seed_0), 
         ("n_seeds", n_seeds), 
-        ("n_iters", n_iters),
     ])
 
     env_name_arr = [
@@ -74,6 +73,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         od["alg"] = alg_setting[0]
         od["stepsize_rule"] = int(alg_setting[1])
         od["update_rule"] = int(alg_setting[2])
+        od["n_iters"] = 10*n_iters if (gamma == 0.999) else n_iters
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
