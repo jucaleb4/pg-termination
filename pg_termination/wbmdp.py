@@ -558,11 +558,11 @@ class Chain(MDPModel):
 def get_env(name, gamma, seed=None):
     if name == "gridworld_small":
         env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True)
-    elif name == "gridworld_big":
+    elif name == "gridworld_large":
         env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_hill_small":
         env = GridWorldWithTrapsAndHills(20, 20, gamma, seed=seed, ergodic=True)
-    elif name == "gridworld_hill_big":
+    elif name == "gridworld_hill_large":
         env = GridWorldWithTrapsAndHills(50, 50, gamma, seed=seed, ergodic=True)
     elif name == "taxi":
         env = Taxi(gamma, ergodic=True)
@@ -570,5 +570,7 @@ def get_env(name, gamma, seed=None):
         env = Random(100, 100, gamma, seed=seed)
     elif name == "chain":
         env = Chain(100, gamma, eps=1e-3, seed=seed)
+    else:
+        raise Exception("Unknown env_name=%s" % name)
 
     return env
