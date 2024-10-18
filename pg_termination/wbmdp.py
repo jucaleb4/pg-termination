@@ -44,6 +44,9 @@ class MDPModel():
         self.rng = np.random.default_rng(seed)
         self.s = self.rng.integers(0, self.n_states)
 
+        # initialize rbf for solving with linear function approx
+        self.init_linear = False
+
     def get_advantage(self, pi):
         assert pi.shape[0] == self.n_actions, "1st dimension of pi must equal n_actions=%d, was instead %d" % (self.n_actions, pi.shape[0])
         assert pi.shape[1] == self.n_states, "2nd dimension of pi must equal n_states=%d, was instead %d" % (self.n_states, pi.shape[1])
@@ -85,13 +88,13 @@ class MDPModel():
 
         return (psi, V_pi)
                     
-    def estimate_advantage_online(self, pi, T, threshold=0):
+    def estimate_advantage_online_mc(self, pi, T, threshold=0):
         """
         https://arxiv.org/pdf/2303.04386
 
         :param T: duration to run Monte Carlo simulation
         :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again (rec: (1-gamma)**2/|A|)
-        :return visited_state_action: whether a state-action pair was visited
+        :return visit_len_state_action: how long the Monte carlo estimate is at every state-aciton pair
         """
         costs = np.zeros(T, dtype=float)
         states = np.zeros(T, dtype=int)
@@ -111,12 +114,13 @@ class MDPModel():
 
         # form advantage (dp style)
         Q = np.zeros((self.n_states, self.n_actions), dtype=float)
-        visited_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
+        visit_len_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
         for t in range(T):
             (s,a) = states[t], actions[t]
-            if visited_state_action[s,a]:
+            if visit_len_state_action[s,a] > 0:
                 continue
             Q[s,a] = cumulative_discounted_costs[t]
+            visit_len_state_action[s,a] = T-t
 
         # for proabibilities that are very low, set Q value to be high
         (poor_sa_a, poor_sa_s) = np.where(pi <= threshold)
@@ -126,50 +130,99 @@ class MDPModel():
         V_pi = np.einsum('sa,as->s', Q, pi)
         psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
-        return (psi, V_pi, visited_state_action)
+        return (psi, V_pi, visit_len_state_action)
+
+    def init_estimate_advantage_online_linear(self, X, linear_settings):
+        """ 
+        Prepares radial basis functions for linear function approximation:
+
+            https://scikit-learn.org/stable/modules/generated/sklearn.kernel_approximation.RBFSampler.html
+
+        See also: https://github.com/dennybritz/reinforcement-learning/blob/master/FA/Q-Learning%20with%20Value%20Function%20Approximation%20Solution.ipynb
+
+        :param X: Nxn array of inputs, where N is the number of datapoints and n is the size of the state space
+	"""
+
+	self.featurizer = sklearn.pipeline.FeatureUnion([
+	    # ("rbf0", RBFSampler(gamma=5.0, n_components=100)),
+	    ("rbf1", RBFSampler(gamma=1.0, n_components=100)),
+	    # ("rbf2", RBFSampler(gamma=0.1, n_components=100)),
+	])
+
+	self.featurizer.fit(X)
+        self.model = SGDRegressor(
+            learning_rate=linear_settings["linear_stepsize_type"],
+            eta0=linear_settings["linear_stepsize_base"],
+            max_iter=linear_settings["linear_stepsize_n_epochs"],
+            alpha=linear_settings["linear_alpha"],
+            warm_start=True, 
+            tol=0.0,
+            n_iter_no_change=linear_settings["linear_stepsize_n_epochs"],
+            fit_intercept=True,
+    	)
+
+        # We need to call partial_fit once to initialize the model or we get a
+        # NotFittedError when trying to make a prediction This is quite hacky.
+        self.model.partial_fit(self.featurize([X[0]]), [0])
+        self.init_linear = True
+
+    def featurize(self, X):
+        return self.featurizer.transform(X).astype('float64')
+
+    def predict(self, x):
+        features = self.featurize(x)
+        output = np.squeeze(self.model.predict(features))
+        return output
+
+    def get_all_sa_pairs_for_finite(self):
+        X_all_sa = np.vstack((
+            np.kron(np.arange(self.n_states), np.ones(self.n_actions)),
+            np.kron(np.ones(self.n_states), np.arange(self.n_actions)),
+        )).T
+        return X_all_sa
 
     def estimate_advantage_online_linear(self, pi, T):
         """
-        https://arxiv.org/pdf/2303.04386
+        Use Monte Carlo simulation to obtain partial Q function.  We use linear
+        function approximation with bootstrap to update sampled sa pairs and
+        fill in missing sa pairs.
 
         :param T: duration to run Monte Carlo simulation
         """
-        costs = np.zeros(T, dtype=float)
-        states = np.zeros(T, dtype=int)
-        actions = np.zeros(T, dtype=int)
+        assert self.init_linear, "Run `init_estimate_advantage_online_linear` before estimating"
 
-        for t in range(T):
-            states[t] = self.s
-            actions[t] = a_t = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
-            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,states[t],actions[t]])
+        # use monte carlo estimate to estimate truncated psi (threshold=0
+        # ensures non-visited sa have zero value, i.e., Q[s,a]=0)
+        output = self.estimate_advantage_online_mc(self, pi, T, threshold=0)
+        (psi, V_pi, visit_len_state_action) = output
+        Q = psi + np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
-            costs[t] = self.c[states[t], actions[t]]
+        # bootstrap remaining cost-to-go values
+        X_all_sa = self.get_all_sa_pairs_for_finite()
+        y = self.predict(X_all_sa)
 
-        cumulative_discounted_costs = np.zeros(T, dtype=float)
-        cumulative_discounted_costs[-1] = costs[-1]
-        for t in range(T-2,-1,-1):
-            cumulative_discounted_costs[t] = costs[t] + self.gamma*cumulative_discounted_costs[t+1]
+        # visited_sa_s, visited_sa_a = np.where(visit_len_state_action >= 1)
+        # X_visited_sa = np.vstack((visited_sa_s, visited_sa_a)).T
+        # state-action pair index in 1D
+        # visited_idxs = self.n_actions * visited_sa_s + visited_sa_a
 
-        # form advantage (dp style)
-        Q = np.zeros((self.n_states, self.n_actions), dtype=float)
-        visited_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
-        for t in range(T):
-            (s,a) = states[t], actions[t]
-            if visited_state_action[s,a]:
-                continue
-            Q[s,a] = cumulative_discounted_costs[t]
+        y = Q.flatten() + np.multiply(np.power(self.gamma, visit_len_state_action.flatten()), y)
+        # for i, (s,a) in zip(visited_idxs, X_visited_sa):
+        #     y[i] = Q[s,a] + self.gamma**visit_len_state_action[s,a]*y[i]
 
-        # for proabibilities that are very low, set Q value to be high
-        (poor_sa_a, poor_sa_s) = np.where(pi <= threshold)
-        Q_max = np.max(np.abs(self.c))/(1.-self.gamma)
-        Q[poor_sa_s,poor_sa_a] = Q_max
+        # training update
+        # features = self.featurize(X_visited_sa)
+        # self.model.fit(features, y[visited_idxs])
+        features = self.featurize(X_all_sa)
+        self.model.fit(features, y)
 
-        V_pi = np.einsum('sa,as->s', Q, pi)
-        psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
+        # predict psi_pi
+        q_pred = self.predict(X_all_sa)
+        Q_pred = np.reshape(q_pred, newshape=(self.n_state, self.n_actions))
+        V_pred = np.einsum('sa,as->s', Q_pred, pi)
+        psi_pred = Q_pred - np.outer(V_pred, np.ones(self.n_actions, dtype=float))
 
-        # TODO: Add rbf random features
-
-        return (psi, V_pi, visited_state_action)
+        return (psi_pred, V_pred)
 
     def get_steadystate(self, pi):
         P_pi = np.einsum('psa,as->ps', self.P, pi)
