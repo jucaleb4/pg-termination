@@ -133,7 +133,13 @@ def _train(settings):
 
     for t in range(settings["n_iters"]):
         (true_psi_t, true_V_t) = env.get_advantage(pi_t)
-        (psi_t, V_t, _) = env.estimate_advantage(pi_t, settings["mc_T"], settings["pi_threshold"])
+
+        if settings["estimate_Q"] == "online":
+            (psi_t, V_t, _) = env.estimate_advantage_online(pi_t, settings["mc_T"], settings["pi_threshold"])
+        elif settings["estimate_Q"] == "generative":
+            (psi_t, V_t) = env.estimate_advantage_generative(pi_t, settings["N"], settings["T"])
+        else: 
+            raise Exception("Unknown estimate_Q setting %s" % settings["estimate_Q"])
 
         if t <= 9 or (t <= 99 and (t+1) % 5 == 0) or (t+1) % 100 == 0:
             print("Iter %d: f=%.2e (gap=%.2e) | true_f=%.2e (true_gap=%.2e)" % (

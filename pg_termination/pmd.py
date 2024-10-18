@@ -88,7 +88,7 @@ class StepsizeSchedule():
         self.Delta = 0
 
         if stepsize_rule in [StepSize.EUCLIDEAN_LINEAR_ADAPTIVE]:
-            print("Worse case iteration complexity: %d" % (self.n_states*(self.n_actions-1)*self.N*self.T))
+            print("Worst case iteration complexity: %d" % (self.n_states*(self.n_actions-1)*self.N*self.T))
 
     def get_stepsize(self, t, psi):
         if self.stepsize_rule == StepSize.SUBLINEAR:

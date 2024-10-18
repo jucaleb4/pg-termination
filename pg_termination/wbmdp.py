@@ -59,7 +59,33 @@ class MDPModel():
 
         return (psi, V_pi)
 
-    def estimate_advantage(self, pi, T, threshold=0):
+    def estimate_advantage_generative(self, pi, N, T):
+        """
+        :param N: number of Monte Carlo simulations to run per state-action pair
+        :param T: duration to for each Monte Carlo simulation
+        """
+        Q = np.zeros((self.n_states, self.n_actions), dtype=float)
+
+        for s in range(self.n_states):
+            for a in range(self.n_actions):
+                costs = 0.
+                for i in range(N):
+                    s_t = s
+                    a_t = a
+                    for t in range(T):
+                        Q[s,a] += self.gamma**t * self.c[s_t,a_t]
+                        s_t_next = self.rng.choice(self.P.shape[0], p=self.P[:,s_t,a_t])
+                        a_t = self.rng.choice(pi.shape[0], p=pi[:,s_t])
+                        s_t = s_t_next
+
+                Q[s,a] /= N
+
+        V_pi = np.einsum('sa,as->s', Q, pi)
+        psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
+
+        return (psi, V_pi)
+                    
+    def estimate_advantage_online(self, pi, T, threshold=0):
         """
         https://arxiv.org/pdf/2303.04386
 
@@ -99,6 +125,49 @@ class MDPModel():
 
         V_pi = np.einsum('sa,as->s', Q, pi)
         psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
+
+        return (psi, V_pi, visited_state_action)
+
+    def estimate_advantage_online_linear(self, pi, T):
+        """
+        https://arxiv.org/pdf/2303.04386
+
+        :param T: duration to run Monte Carlo simulation
+        """
+        costs = np.zeros(T, dtype=float)
+        states = np.zeros(T, dtype=int)
+        actions = np.zeros(T, dtype=int)
+
+        for t in range(T):
+            states[t] = self.s
+            actions[t] = a_t = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,states[t],actions[t]])
+
+            costs[t] = self.c[states[t], actions[t]]
+
+        cumulative_discounted_costs = np.zeros(T, dtype=float)
+        cumulative_discounted_costs[-1] = costs[-1]
+        for t in range(T-2,-1,-1):
+            cumulative_discounted_costs[t] = costs[t] + self.gamma*cumulative_discounted_costs[t+1]
+
+        # form advantage (dp style)
+        Q = np.zeros((self.n_states, self.n_actions), dtype=float)
+        visited_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
+        for t in range(T):
+            (s,a) = states[t], actions[t]
+            if visited_state_action[s,a]:
+                continue
+            Q[s,a] = cumulative_discounted_costs[t]
+
+        # for proabibilities that are very low, set Q value to be high
+        (poor_sa_a, poor_sa_s) = np.where(pi <= threshold)
+        Q_max = np.max(np.abs(self.c))/(1.-self.gamma)
+        Q[poor_sa_s,poor_sa_a] = Q_max
+
+        V_pi = np.einsum('sa,as->s', Q, pi)
+        psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
+
+        # TODO: Add rbf random features
 
         return (psi, V_pi, visited_state_action)
 
@@ -205,8 +274,8 @@ class GridWorldWithTraps(MDPModel):
 
         # apply trap cost
         c[:,:] = 1.
-        c[traps,:] = 5.
-        c[target,:] = 0
+        c[traps,:] = 10.
+        c[target,:] = -10.
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
