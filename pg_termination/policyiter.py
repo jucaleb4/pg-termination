@@ -19,8 +19,9 @@ def _train(settings):
         dtypes=['d', 'f', 'f']
     )
 
-    pi_0 = np.zeros((env.n_actions, env.n_states), dtype=float)
-    pi_0[0,:] = 1.
+    # pi_0 = np.zeros((env.n_actions, env.n_states), dtype=float)
+    # pi_0[0,:] = 1.
+    pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
     pi_t = pi_0
     next_pi_t = np.copy(pi_0)
 

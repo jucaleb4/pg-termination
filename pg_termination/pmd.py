@@ -67,6 +67,7 @@ def policy_update(pi, psi, eta, update_rule):
         pi[:] = parallel_simplex_projection(pi_gd)
     elif update_rule == Update.KL_UPDATE:
         pi *= np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
+        # pi *= np.exp(-eta*(psi - np.outer(np.max(psi, axis=1), np.ones(n_actions)))).T
         pi /= np.outer(np.ones(n_actions), np.sum(pi, axis=0))
 
 class StepsizeSchedule():
@@ -106,7 +107,8 @@ class StepsizeSchedule():
             # dynamically update
             if t % (self.N * self.T) == 0:
                 self.Delta = np.max(-psi)/(1.-self.gamma)
-            eta = 2**(1+np.floor(t/self.N) % self.T)/self.Delta
+            # eta = 4**(1+np.floor(t/self.N) % self.T)/self.Delta
+            eta = 2**t/self.Delta
             return eta
 
 def _train(settings):
