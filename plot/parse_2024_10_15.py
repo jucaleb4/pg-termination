@@ -1,11 +1,25 @@
 import os
+import sys
+
+import argparse
 import numpy as np
 import pandas as pd
+
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, parent_dir)
+
+from pg_termination import wbmdp 
 
 DATE = "2024_10_15"
 EXP_ID = 0
 N_RUNS = 63
 N_SEEDS = 10
+
+def print_worse_case_complexity(env_name, gamma):
+    env = wbmdp.get_env(env_name, 0.9, 0)
+    N = np.ceil(4./(1-gamma))
+    T = np.ceil(np.log(env.n_states**3*env.n_actions/(1.-gamma)**2/np.log(2)))+1
+    print("Worst case iteration complexity: %d" % (env.n_states*(env.n_actions-1)*N*T))
 
 def read_alg_performance(fname):
     if not os.path.exists(fname):
@@ -43,7 +57,7 @@ def read_all_final_alg_performances():
                 # pmd uses either randomized or greedy to termiante
                 use_greedy = exp_data[-1,2] >= exp_data[-1,3]
                 data[run_id, seed_id,:2] = exp_data[-1,:2]
-                data[run_id, seed_id,3] = exp_data[-1,3 if use_greedy else 2]
+                data[run_id, seed_id,2] = exp_data[-1,3 if use_greedy else 2]
                 data[run_id, seed_id,3] = use_greedy
 
         if missing_files:
@@ -78,38 +92,44 @@ def print_final_convergence_result(env_name):
 
     if not found_env_name:
         print("Unknown env_name=%s" % env_name)
+        return
 
     exp_metadata = ["Alg", "Iter", "f(pi)", "gap", "#final greedy"]
-    row_format ="{:>15}|" + "{:>25}|" * (len(exp_metadata)-2) + "{:>15}"
-    dashed_msg = "-" * (2*15+25*(len(exp_metadata)-2) + len(exp_metadata) - 1)
+    row_format ="{:>15}|" + "{:>25}|" * (len(exp_metadata)-2) + "{:>10}"
+    dashed_msg = "-" * (15+25*(len(exp_metadata)-2) + 10 + len(exp_metadata) - 1)
     z = 1.96
     ct = 0
 
-    mean_iter_arr = np.mean(data[:,:,0],axis=1)
-    std_iter_arr  = np.std(data[:,:,0], axis=1)
+    min_iter_arr  = np.min(data[:,:,0],axis=1)
+    max_iter_arr  = np.max(data[:,:,0], axis=1)
     mean_f_pi_arr = np.mean(data[:,:,1],axis=1)
     std_f_pi_arr  = np.std(data[:,:,1], axis=1)
     mean_gap_arr  = np.mean(data[:,:,2],axis=1)
     std_gap_arr   = np.std(data[:,:,2], axis=1)
-    num_greedy_arr = np.sum(data[:,:,3], axis=1) 
+    num_greedy_arr = np.sum(data[:,:,3],axis=1) 
 
     for gamma in gamma_arr:
-        print(dashed_msg)
-        print("Env %s with gamma: %.4f" % (env_name, gamma))
-        print(dashed_msg)
         print("")
+        print("Env %s with gamma: %.4f" % (env_name, gamma))
+        print_worse_case_complexity(env_name, gamma)
+        print("")
+        # print(dashed_msg)
         print(row_format.format(*exp_metadata))
         print(dashed_msg)
 
         for i in range(3):
             print(row_format.format(
                 alg_name_arr[i], 
-                "%.1f +/ %.2e" % (mean_iter_arr[ct], std_iter_arr[ct]),
-                "%.1f +/ %.2e" % (mean_f_pi_arr[ct], std_f_pi_arr[ct]),
-                "%.1f +/ %.2e" % (mean_gap_arr[ct], std_gap_arr[ct]),
+                "[%d,%d]" % (min_iter_arr[ct], max_iter_arr[ct]),
+                "%.2e +/- %.2e" % (mean_f_pi_arr[ct], std_f_pi_arr[ct]),
+                "%.2e +/- %.2e" % (mean_gap_arr[ct], std_gap_arr[ct]),
                 "%d" % num_greedy_arr[ct],
             ))
             ct += 1
+        print(dashed_msg)
 
 if __name__ == "__main__":
-    print_final_convergence_result("gridworld_small")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--env_name", type=str, required=True)
+    args = parser.parse_args()
+    print_final_convergence_result(args.env_name)
