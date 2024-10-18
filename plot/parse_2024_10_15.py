@@ -70,9 +70,7 @@ def print_final_convergence_result(env_name):
 
     env_name_arr = [
         "gridworld_small", 
-        "gridworld_large",  # not ready yet
         "gridworld_hill_small", 
-        "gridworld_hill_large", # not ready yet
         "taxi",
         "random",
         "chain",
