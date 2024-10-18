@@ -133,7 +133,7 @@ def _train(settings):
     stepsize_scheduler = StepsizeSchedule(env, settings["stepsize_rule"], settings.get("eta",1))
     s_time = time.time()
     # tolerance for optimality (due to floating point error)
-    eps_tol = 1e-12
+    eps_tol = 1e-14/(1.-env.gamma)
 
     for t in range(settings["n_iters"]):
         (psi_t, V_t) = env.get_advantage(pi_t)
@@ -150,7 +150,7 @@ def _train(settings):
         if np.max(-psi_t) < eps_tol:
             print("Terminate at %d: f=%.2e (gap=%.2e)" % (t+1, np.mean(V_t), np.max(-psi_t)))
             logger.log(t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t))
-            pi_star = pi
+            pi_star = pi_t
             break
         if np.max(-greedy_psi_t) < eps_tol:
             print("Terminate at %d: gf=%.2e (ggap=%.2e)" % (t+1, np.mean(greedy_V_t), np.max(-greedy_psi_t)))
@@ -199,6 +199,12 @@ def train(settings):
 
     worker_queue = []
 
+    print("Parallel mode=%s" % parallel)
+    if parallel:
+        # See: https://stackoverflow.com/questions/15414027/multiprocessing-pool-makes-numpy-matrix-multiplication-slower
+        # See also: https://stackoverflow.com/questions/47380366/dramatic-slow-down-using-multiprocess-and-numpy-in-python
+        pass
+
     for seed in range(seed_0, seed_0+n_seeds):
         customized_settings = settings.copy()
         customized_settings["seed"] = seed
@@ -212,7 +218,12 @@ def train(settings):
             for p in worker_queue:
                 p.join()
             worker_queue = []
+
+        print("Start seed %d" % seed)
         p = mp.Process(target=_train, args=(customized_settings,))
         p.start()
         worker_queue.append(p)
+
+    for p in worker_queue:
+        p.join()
 
