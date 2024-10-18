@@ -141,15 +141,15 @@ class MDPModel():
         See also: https://github.com/dennybritz/reinforcement-learning/blob/master/FA/Q-Learning%20with%20Value%20Function%20Approximation%20Solution.ipynb
 
         :param X: Nxn array of inputs, where N is the number of datapoints and n is the size of the state space
-	"""
+	    """
 
-	self.featurizer = sklearn.pipeline.FeatureUnion([
-	    # ("rbf0", RBFSampler(gamma=5.0, n_components=100)),
-	    ("rbf1", RBFSampler(gamma=1.0, n_components=100)),
-	    # ("rbf2", RBFSampler(gamma=0.1, n_components=100)),
-	])
+        self.featurizer = sklearn.pipeline.FeatureUnion([
+            # ("rbf0", RBFSampler(gamma=5.0, n_components=100)),
+            ("rbf1", RBFSampler(gamma=1.0, n_components=100)),
+            # ("rbf2", RBFSampler(gamma=0.1, n_components=100)),
+        ])
 
-	self.featurizer.fit(X)
+        self.featurizer.fit(X)
         self.model = SGDRegressor(
             learning_rate=linear_settings["linear_stepsize_type"],
             eta0=linear_settings["linear_stepsize_base"],
@@ -159,7 +159,7 @@ class MDPModel():
             tol=0.0,
             n_iter_no_change=linear_settings["linear_stepsize_n_epochs"],
             fit_intercept=True,
-    	)
+        )
 
         # We need to call partial_fit once to initialize the model or we get a
         # NotFittedError when trying to make a prediction This is quite hacky.
