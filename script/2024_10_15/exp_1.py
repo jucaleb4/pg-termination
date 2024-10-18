@@ -9,7 +9,7 @@ sys.path.insert(0, parent_dir)
 
 from pg_termination import pmd
 
-MAX_RUNS = 45
+MAX_RUNS = 12
 DATE = "2024_10_15"
 EXP_ID  = 1
 
@@ -34,14 +34,11 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
     ])
 
     env_name_arr = [
-        "gridworld_small", 
-        "gridworld_hill_small", 
-        "taxi", 
-        "random",
-        "chain",
+        "gridworld_large", 
+        "gridworld_hill_large", 
     ]
 
-    gamma_arr = [0.9, 0.99, 0.999]
+    gamma_arr = [0.9, 0.99]
 
     alg_setting_arr = [
         ("pmd", pmd.StepSize.KL_LINEAR_GEOMETRIC, pmd.Update.KL_UPDATE),
@@ -71,7 +68,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         od["alg"] = alg_setting[0]
         od["stepsize_rule"] = int(alg_setting[1])
         od["update_rule"] = int(alg_setting[2])
-        od["n_iters"] = 10*n_iters if (gamma == 0.999) else n_iters
+        od["n_iters"] = n_iters 
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)

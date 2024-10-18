@@ -179,6 +179,12 @@ class MDPModel():
         ones = np.ones(dim)
         Q = np.c_[Q,ones]
         QTQ = np.dot(Q, Q.T)
+
+        # check singular
+        if la.matrix_rank(QTQ) < QTQ.shape[0]:
+            print("Singular matrix when computing stationary distribution, return zero vector")
+            return np.zeros(QTQ.shape[0], dtype=float)
+
         bQT = np.ones(dim)
         return np.linalg.solve(QTQ,bQT)
 

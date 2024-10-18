@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     if settings['alg'] == 'pmd':
         pmd.train(settings)
-    if settings['alg'] == 'spmd':
+    elif settings['alg'] == 'spmd':
         spmd.train(settings)
     elif settings['alg'] == 'policyiter':
         policyiter.train(settings)
