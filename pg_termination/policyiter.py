@@ -26,6 +26,7 @@ def _train(settings):
     next_pi_t = np.copy(pi_0)
 
     s_time = time.time()
+    eps_tol = 1e-14/(1.-env.gamma)
 
     for t in range(settings["n_iters"]):
         (psi_t, V_t) = env.get_advantage(pi_t)
@@ -38,7 +39,7 @@ def _train(settings):
         if t <= 99 or ((t+1) % 10 == 0):
             logger.log(t+1, np.mean(V_t), np.max(-psi_t))
 
-        if np.allclose(next_pi_t, pi_t):
+        if np.allclose(next_pi_t, pi_t) or (np.max(-psi_t) < eps_tol):
             print("Terminate at %d: f=%.2e (gap=%.2e)" % (t+1, np.mean(V_t), np.max(-psi_t)))
             logger.log(t+1, np.mean(V_t), np.max(-psi_t))
             break

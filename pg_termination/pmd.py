@@ -54,21 +54,31 @@ def parallel_simplex_projection(X):
     X_sorted_proj = np.maximum(0, X_sorted-np.outer(np.ones(n_actions), T[I, np.arange(n_states)], ))
     X_proj = X_sorted_proj[X_sorted_index_inverse, np.arange(n_states)]
 
-    assert np.max(np.abs(np.sum(X_proj, axis=0) - 1)) <= TOL, "Sum of sum(x)=%.11e != 1.0" % np.max(np.sum(X_proj, axis=0))
+    # assert np.max(np.abs(np.sum(X_proj, axis=0) - 1)) <= TOL, "Sum of sum(x)=%.11e != 1.0" % np.max(np.sum(X_proj, axis=0))
+    if np.max(np.abs(np.sum(X_proj, axis=0) - 1)) > TOL: 
+        print("Sum of sum(x)=%.11e != 1.0, prematurely terminating" % np.max(np.sum(X_proj, axis=0)))
+        return X_proj, False
 
-    return X_proj
+    return X_proj, True
 
 def policy_update(pi, psi, eta, update_rule):
     """ Projection onto simplex with Euclidean or closed-form solution with KL """
     (n_states, n_actions) = psi.shape
 
+    succeeded = True
+
     if update_rule == Update.EUCLIDEAN_UPDATE:
         pi_gd = pi - eta*psi.T
-        pi[:] = parallel_simplex_projection(pi_gd)
+        pi[:], succeeded = parallel_simplex_projection(pi_gd)
     elif update_rule == Update.KL_UPDATE:
-        pi *= np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
+        g_exp = np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
+        if np.isnan(g_exp).any():
+            return False
         # pi *= np.exp(-eta*(psi - np.outer(np.max(psi, axis=1), np.ones(n_actions)))).T
+        pi *= g_exp
         pi /= np.outer(np.ones(n_actions), np.sum(pi, axis=0))
+
+    return succeeded
 
 class StepsizeSchedule():
     """ Returns steps size """
@@ -170,7 +180,9 @@ def _train(settings):
             break
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
-        policy_update(pi_t, psi_t, eta_t, settings["update_rule"]) 
+        succeeded = policy_update(pi_t, psi_t, eta_t, settings["update_rule"]) 
+        if not succeeded:
+            break
 
     print("Total runtime: %.2fs" % (time.time() - s_time))
 
