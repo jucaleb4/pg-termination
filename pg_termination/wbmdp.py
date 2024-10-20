@@ -3,6 +3,14 @@
 import numpy as np
 import numpy.linalg as la
 
+import sklearn
+import sklearn.pipeline
+import sklearn.kernel_approximation 
+import sklearn.linear_model
+
+from sklearn.exceptions import ConvergenceWarning
+from sklearn.utils._testing import ignore_warnings
+
 TOL = 1e-10
 
 # Right (0), Down (1), Left (2), Up (3)
@@ -62,7 +70,7 @@ class MDPModel():
 
         return (psi, V_pi)
 
-    def estimate_advantage_generative(self, pi, N, T):
+    def estimate_advantage_generative_slow(self, pi, N, T):
         """
         :param N: number of Monte Carlo simulations to run per state-action pair
         :param T: duration to for each Monte Carlo simulation
@@ -82,6 +90,41 @@ class MDPModel():
                         s_t = s_t_next
 
                 Q[s,a] /= N
+
+        V_pi = np.einsum('sa,as->s', Q, pi)
+        psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
+
+        return (psi, V_pi)
+
+    def estimate_advantage_generative(self, pi, N, T):
+        """
+        :param N: number of Monte Carlo simulations to run per state-action pair
+        :param T: duration to for each Monte Carlo simulation
+        """
+        # A x S
+        pi_sum = np.cumsum(pi, axis=0)
+        # A x (SA)
+        Pi_sum = np.kron(pi_sum, np.ones((1, self.n_actions)))
+        # S x (SA)
+        P_reshape = np.reshape(self.P, newshape=(self.P.shape[0], self.P.shape[1]*self.P.shape[2]))
+
+        # SA
+        q = np.zeros(self.n_states*self.n_actions, dtype=float)
+
+        for i in range(N):
+            s_arr = np.kron(np.arange(self.n_states), np.ones(self.n_actions, dtype=int))
+            a_arr = np.kron(np.ones(self.n_states, dtype=int), np.arange(self.n_actions))
+            for t in range(T):
+                q += self.gamma**t * self.c[s_arr, a_arr]
+
+                u = self.rng.uniform(size=len(q))
+                a_arr = np.argmax(np.outer(u, np.ones(self.n_actions)) < Pi_sum.T, axis=1)
+
+                u = self.rng.uniform(size=len(q))
+                s_arr = np.argmax(np.outer(u, np.ones(self.n_states)) < P_reshape.T, axis=1)
+
+        q /= N
+        Q = np.reshape(q, newshape=(self.n_states, self.n_actions))
 
         V_pi = np.einsum('sa,as->s', Q, pi)
         psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
@@ -132,7 +175,8 @@ class MDPModel():
 
         return (psi, V_pi, visit_len_state_action)
 
-    def init_estimate_advantage_online_linear(self, X, linear_settings):
+    # def init_estimate_advantage_online_linear(self, X, linear_settings):
+    def init_estimate_advantage_online_linear(self, linear_settings):
         """ 
         Prepares radial basis functions for linear function approximation:
 
@@ -145,19 +189,24 @@ class MDPModel():
 
         self.featurizer = sklearn.pipeline.FeatureUnion([
             # ("rbf0", RBFSampler(gamma=5.0, n_components=100)),
-            ("rbf1", RBFSampler(gamma=1.0, n_components=100)),
+            ("rbf1", sklearn.kernel_approximation.RBFSampler(gamma=1.0, n_components=100)),
             # ("rbf2", RBFSampler(gamma=0.1, n_components=100)),
         ])
 
+        X = np.vstack((
+            np.kron(np.arange(self.n_states), np.ones(self.n_actions)),
+            np.kron(np.ones(self.n_states), np.arange(self.n_actions)),
+        )).T
+
         self.featurizer.fit(X)
-        self.model = SGDRegressor(
-            learning_rate=linear_settings["linear_stepsize_type"],
-            eta0=linear_settings["linear_stepsize_base"],
-            max_iter=linear_settings["linear_stepsize_n_epochs"],
+        self.model = sklearn.linear_model.SGDRegressor(
+            learning_rate=linear_settings["linear_learning_rate"],
+            eta0=linear_settings["linear_eta0"],
+            max_iter=linear_settings["linear_max_iter"],
             alpha=linear_settings["linear_alpha"],
             warm_start=True, 
             tol=0.0,
-            n_iter_no_change=linear_settings["linear_stepsize_n_epochs"],
+            n_iter_no_change=linear_settings["linear_max_iter"],
             fit_intercept=True,
         )
 
@@ -181,6 +230,8 @@ class MDPModel():
         )).T
         return X_all_sa
 
+    # https://scikit-learn.org/stable/auto_examples/linear_model/plot_sgd_early_stopping.html#sphx-glr-auto-examples-linear-model-plot-sgd-early-stopping-py
+    @ignore_warnings(category=ConvergenceWarning)
     def estimate_advantage_online_linear(self, pi, T):
         """
         Use Monte Carlo simulation to obtain partial Q function.  We use linear
@@ -193,7 +244,7 @@ class MDPModel():
 
         # use monte carlo estimate to estimate truncated psi (threshold=0
         # ensures non-visited sa have zero value, i.e., Q[s,a]=0)
-        output = self.estimate_advantage_online_mc(self, pi, T, threshold=0)
+        output = self.estimate_advantage_online_mc(pi, T, threshold=0)
         (psi, V_pi, visit_len_state_action) = output
         Q = psi + np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
@@ -218,7 +269,7 @@ class MDPModel():
 
         # predict psi_pi
         q_pred = self.predict(X_all_sa)
-        Q_pred = np.reshape(q_pred, newshape=(self.n_state, self.n_actions))
+        Q_pred = np.reshape(q_pred, newshape=(self.n_states, self.n_actions))
         V_pred = np.einsum('sa,as->s', Q_pred, pi)
         psi_pred = Q_pred - np.outer(V_pred, np.ones(self.n_actions, dtype=float))
 

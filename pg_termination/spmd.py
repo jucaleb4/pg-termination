@@ -19,6 +19,7 @@ def policy_update(pi, psi, eta):
     pi *= np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
     pi /= np.outer(np.ones(n_actions), np.sum(pi, axis=0))
 
+def _train(settings):
     seed = settings['seed']
 
     env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
@@ -38,14 +39,18 @@ def policy_update(pi, psi, eta):
     eta = settings["eta"]
 
     s_time = time.time()
+    if settings["estimate_Q"] == "linear":
+        env.init_estimate_advantage_online_linear(settings)
 
     for t in range(settings["n_iters"]):
         (true_psi_t, true_V_t) = env.get_advantage(pi_t)
 
-        if settings["estimate_Q"] == "online":
-            (psi_t, V_t, _) = env.estimate_advantage_online(pi_t, settings["mc_T"], settings["pi_threshold"])
-        elif settings["estimate_Q"] == "generative":
+        if settings["estimate_Q"] == "generative":
             (psi_t, V_t) = env.estimate_advantage_generative(pi_t, settings["N"], settings["T"])
+        elif settings["estimate_Q"] == "online":
+            (psi_t, V_t, _) = env.estimate_advantage_online_mc(pi_t, settings["T"], settings["pi_threshold"])
+        elif settings["estimate_Q"] == "linear":
+            (psi_t, V_t) = env.estimate_advantage_online_linear(pi_t, settings["T"])
         else: 
             raise Exception("Unknown estimate_Q setting %s" % settings["estimate_Q"])
 

@@ -9,8 +9,8 @@ sys.path.insert(0, parent_dir)
 
 from pg_termination import pmd
 
-MAX_RUNS = 72
-DATE = "2024_10_16"
+MAX_RUNS = 3
+DATE = "2024_10_19"
 EXP_ID  = 0
 
 def parse_sub_runs(sub_runs):
@@ -35,14 +35,20 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("alg", "spmd"),
         ("stepsize_rule", int(pmd.StepSize.SUBLINEAR)), 
         ("update_rule", int(pmd.Update.KL_UPDATE)),
+        ("estimate_Q", "online"),
+        ("env_name", "gridworld_small"),
+        ("gamma", 0.9),
+        ("N", 5),
+        ("T", 50),
+        ("pi_threshold", 1e-4),
+        ("eta", 1),
+        ("linear_learning_rate", "constant"), # constant, optimal
+        ("linear_eta0", 1e-3), # 1e-2, 1e-3
+        ("linear_max_iter", 10), # 10, 100, 1000
+        ("linear_alpha", 1e-4), # 1e-3, 1e-4
     ])
 
-    env_name_arr = ["gridworld_small", "taxi"]
-
-    gamma_arr = [0.9, 0.99]
-    mc_T_arr = [1000, 5000, 10000]
-    pi_threshold_arr = [0.005, 0.0005]
-    eta_arr = [1e-3, 1e-1, 10]
+    estimate_Q_arr = ["generative", "online", "linear"]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
@@ -53,26 +59,20 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         os.makedirs(setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "mc_T", "pi_thresh", "eta"]
-    row_format ="{:>10}|{:>25}|" + "{:>15}|" * (len(exp_metadata)-3) + "{:>15}"
+    exp_metadata = ["Exp id", "estimate_Q"]
+    row_format ="{:>10}|{:>25}"
     print("")
     print(row_format.format(*exp_metadata))
-    print("-" * (10+25+15*(len(exp_metadata)-3) + 15+len(exp_metadata)-1))
+    print("-" * (10+25+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, gamma, mc_T, pi_threshold, eta) in itertools.product(
-            env_name_arr, gamma_arr, mc_T_arr, pi_threshold_arr, eta_arr
-        ):
-        od["env_name"] = env_name
-        od["gamma"] = gamma
-        od["mc_T"] = mc_T
-        od["pi_threshold"] = pi_threshold
-        od["eta"] = eta
+    for (estimate_Q,) in itertools.product(estimate_Q_arr):
+        od["estimate_Q"] = estimate_Q
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
-        print(row_format.format(ct, od["env_name"], od["gamma"], od["mc_T"], od["pi_threshold"], od["eta"]))
+        print(row_format.format(ct, od["estimate_Q"]))
 
         if not(os.path.exists(od["log_folder"])):
             os.makedirs(od["log_folder"])
