@@ -101,12 +101,11 @@ class MDPModel():
         :param N: number of Monte Carlo simulations to run per state-action pair
         :param T: duration to for each Monte Carlo simulation
         """
-        # A x S
+        # 1 x S
         pi_sum = np.cumsum(pi, axis=0)
-        # A x (SA)
-        Pi_sum = np.kron(pi_sum, np.ones((1, self.n_actions)))
         # S x (SA)
         P_reshape = np.reshape(self.P, newshape=(self.P.shape[0], self.P.shape[1]*self.P.shape[2]))
+        P_reshape_sum = np.cumsum(P_reshape, axis=0)
 
         # SA
         q = np.zeros(self.n_states*self.n_actions, dtype=float)
@@ -118,10 +117,11 @@ class MDPModel():
                 q += self.gamma**t * self.c[s_arr, a_arr]
 
                 u = self.rng.uniform(size=len(q))
-                a_arr = np.argmax(np.outer(u, np.ones(self.n_actions)) < Pi_sum.T, axis=1)
+                z_arr = s_arr * self.n_actions + a_arr
+                s_arr = np.argmax(np.outer(u, np.ones(self.n_states)) < P_reshape_sum[:,z_arr].T, axis=1)
 
                 u = self.rng.uniform(size=len(q))
-                s_arr = np.argmax(np.outer(u, np.ones(self.n_states)) < P_reshape.T, axis=1)
+                a_arr = np.argmax(np.outer(u, np.ones(self.n_actions)) < pi_sum[:,s_arr].T, axis=1)
 
         q /= N
         Q = np.reshape(q, newshape=(self.n_states, self.n_actions))
@@ -131,7 +131,7 @@ class MDPModel():
 
         return (psi, V_pi)
                     
-    def estimate_advantage_online_mc(self, pi, T, threshold=0):
+    def estimate_advantage_online_mc(self, pi, T, threshold=0, bootstrap=False):
         """
         https://arxiv.org/pdf/2303.04386
 
@@ -145,17 +145,21 @@ class MDPModel():
 
         for t in range(T):
             states[t] = self.s
-            actions[t] = a_t = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            actions[t] = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            costs[t] = self.c[states[t], actions[t]]
             self.s = self.rng.choice(self.P.shape[0], p=self.P[:,states[t],actions[t]])
 
-            costs[t] = self.c[states[t], actions[t]]
-
+        # check bootstrap
+        if bootstrap and self.init_linear:
+            a_t = self.rng.choice(pi.shape[0], p=pi[:,self.s])
+            costs[-1] += self.gamma * self.predict([[self.s,a_t]])
+            
+        # form advantage (dp style); 
         cumulative_discounted_costs = np.zeros(T, dtype=float)
         cumulative_discounted_costs[-1] = costs[-1]
         for t in range(T-2,-1,-1):
             cumulative_discounted_costs[t] = costs[t] + self.gamma*cumulative_discounted_costs[t+1]
 
-        # form advantage (dp style)
         Q = np.zeros((self.n_states, self.n_actions), dtype=float)
         visit_len_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
         for t in range(T):
@@ -175,7 +179,6 @@ class MDPModel():
 
         return (psi, V_pi, visit_len_state_action)
 
-    # def init_estimate_advantage_online_linear(self, X, linear_settings):
     def init_estimate_advantage_online_linear(self, linear_settings):
         """ 
         Prepares radial basis functions for linear function approximation:
@@ -244,7 +247,7 @@ class MDPModel():
 
         # use monte carlo estimate to estimate truncated psi (threshold=0
         # ensures non-visited sa have zero value, i.e., Q[s,a]=0)
-        output = self.estimate_advantage_online_mc(pi, T, threshold=0)
+        output = self.estimate_advantage_online_mc(pi, T, threshold=0, bootstrap=True)
         (psi, V_pi, visit_len_state_action) = output
         Q = psi + np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
@@ -257,7 +260,9 @@ class MDPModel():
         # state-action pair index in 1D
         # visited_idxs = self.n_actions * visited_sa_s + visited_sa_a
 
-        y = Q.flatten() + np.multiply(np.power(self.gamma, visit_len_state_action.flatten()), y)
+        # y = Q.flatten() + np.multiply(np.power(self.gamma, visit_len_state_action.flatten()), y)
+        visited_idxs = np.where(visit_len_state_action.flatten() > 0)[0]
+        y[visited_idxs] = Q.flatten()[visited_idxs]
         # for i, (s,a) in zip(visited_idxs, X_visited_sa):
         #     y[i] = Q[s,a] + self.gamma**visit_len_state_action[s,a]*y[i]
 
