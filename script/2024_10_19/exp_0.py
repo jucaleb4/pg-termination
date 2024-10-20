@@ -38,13 +38,13 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("estimate_Q", "online"),
         ("env_name", "gridworld_small"),
         ("gamma", 0.9),
-        ("N", 5),
-        ("T", 50),
+        ("N", 2),
+        ("T", 5000),
         ("pi_threshold", 1e-4),
         ("eta", 1),
         ("linear_learning_rate", "constant"), # constant, optimal
-        ("linear_eta0", 1e-3), # 1e-2, 1e-3
-        ("linear_max_iter", 10), # 10, 100, 1000
+        ("linear_eta0", 1e-2), # 1e-2, 1e-3
+        ("linear_max_iter", 10), # 1000, 100, 10
         ("linear_alpha", 1e-4), # 1e-3, 1e-4
     ])
 

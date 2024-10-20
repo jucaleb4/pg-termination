@@ -17,6 +17,7 @@ class StepSize(IntEnum):
     KL_LINEAR_GEOMETRIC = 1
     KL_LINEAR_ADAPTIVE = 2
     EUCLIDEAN_LINEAR_ADAPTIVE = 3
+    SUBLINEAR_ADAPTIVE = 4
 
 class Update(IntEnum):
     EUCLIDEAN_UPDATE = 100
@@ -104,6 +105,8 @@ class StepsizeSchedule():
     def get_stepsize(self, t, psi):
         if self.stepsize_rule == StepSize.SUBLINEAR:
             return self.eta
+        elif self.stepsize_rule == StepSize.SUBLINEAR_ADAPTIVE:
+            return self.eta/((t+1)**0.5)
         elif self.stepsize_rule == StepSize.KL_LINEAR_GEOMETRIC:
             return (1./self.gamma)**t
         elif self.stepsize_rule == StepSize.KL_LINEAR_ADAPTIVE:

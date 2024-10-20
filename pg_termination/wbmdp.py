@@ -233,6 +233,45 @@ class MDPModel():
         )).T
         return X_all_sa
 
+    def custom_SGD(solver, X, y, minibatch=32):
+        n_epochs = solver.max_iter
+        n_consec_regress_epochs = 0
+        max_regress = solver.n_iter_no_change
+        frac_validation = solver.validation_fraction
+        tol = solver.tol
+        early_stopping = solver.early_stopping
+
+        train_losses = []
+        test_losses = []
+
+        for i in range(n_epochs):
+            X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=i, shuffle=True, test_size=frac_validation)
+            num_batches = int(np.ceil(len(X_train)/ minibatch))
+            for j in range(num_batches):
+                k_s = minibatch*j
+                k_e = min(len(X_train), minibatch*(j+1))
+                # mini-batch update
+                solver.partial_fit(X_train[k_s:k_e], y_train[k_s:k_e])
+
+            y_train_pred = solver.predict(X_train)
+            y_test_pred = solver.predict(X_test)
+
+            train_losses.append(la.norm(y_train_pred - y_train)**2/len(y_train))
+            test_losses.append(la.norm(y_test_pred - y_test)**2/len(y_test))
+
+            if early_stopping and len(test_losses) > 1 and test_losses[-1] > np.min(test_losses)-tol:
+                n_consec_regress_epochs += 1
+            else:
+                n_consec_regress_epochs = 0
+            if n_consec_regress_epochs == max_regress:
+                print("Early stopping (stagnate)")
+                break
+            if train_losses[-1] <= tol:
+                print("Early stopping (train loss small)")
+                break
+
+        return np.array(train_losses), np.array(test_losses)
+
     # https://scikit-learn.org/stable/auto_examples/linear_model/plot_sgd_early_stopping.html#sphx-glr-auto-examples-linear-model-plot-sgd-early-stopping-py
     @ignore_warnings(category=ConvergenceWarning)
     def estimate_advantage_online_linear(self, pi, T):
@@ -252,27 +291,30 @@ class MDPModel():
         Q = psi + np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
         # bootstrap remaining cost-to-go values
-        X_all_sa = self.get_all_sa_pairs_for_finite()
-        y = self.predict(X_all_sa)
+        # X_all_sa = self.get_all_sa_pairs_for_finite()
+        # y = self.predict(X_all_sa)
 
-        # visited_sa_s, visited_sa_a = np.where(visit_len_state_action >= 1)
-        # X_visited_sa = np.vstack((visited_sa_s, visited_sa_a)).T
+        visited_sa_s, visited_sa_a = np.where(visit_len_state_action >= 1)
+        X_visited_sa = np.vstack((visited_sa_s, visited_sa_a)).T
         # state-action pair index in 1D
-        # visited_idxs = self.n_actions * visited_sa_s + visited_sa_a
+        visited_idxs = self.n_actions * visited_sa_s + visited_sa_a
 
         # y = Q.flatten() + np.multiply(np.power(self.gamma, visit_len_state_action.flatten()), y)
-        visited_idxs = np.where(visit_len_state_action.flatten() > 0)[0]
-        y[visited_idxs] = Q.flatten()[visited_idxs]
+        # visited_idxs = np.where(visit_len_state_action.flatten() > 0)[0]
+        y = Q.flatten()[visited_idxs]
         # for i, (s,a) in zip(visited_idxs, X_visited_sa):
         #     y[i] = Q[s,a] + self.gamma**visit_len_state_action[s,a]*y[i]
 
         # training update
         # features = self.featurize(X_visited_sa)
         # self.model.fit(features, y[visited_idxs])
-        features = self.featurize(X_all_sa)
+        # features = self.featurize(X_all_sa)
+        # self.model.fit(features, y)
+        features = self.featurize(X_visited_sa)
         self.model.fit(features, y)
 
         # predict psi_pi
+        X_all_sa = self.get_all_sa_pairs_for_finite()
         q_pred = self.predict(X_all_sa)
         Q_pred = np.reshape(q_pred, newshape=(self.n_states, self.n_actions))
         V_pred = np.einsum('sa,as->s', Q_pred, pi)

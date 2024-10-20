@@ -6,6 +6,7 @@ import multiprocessing as mp
 
 import numpy as np
 
+from pg_termination import pmd
 from pg_termination import wbmdp 
 from pg_termination import utils
 from pg_termination.logger import BasicLogger
@@ -36,7 +37,7 @@ def _train(settings):
     next_greedy_pi_t = np.copy(pi_0)
     pi_star = None
 
-    eta = settings["eta"]
+    stepsize_scheduler = pmd.StepsizeSchedule(env, settings["stepsize_rule"], settings.get("eta",1))
 
     s_time = time.time()
     if settings["estimate_Q"] == "linear":
@@ -61,7 +62,8 @@ def _train(settings):
         if t <= 99 or ((t+1) % 10 == 0):
             logger.log(t+1, np.mean(V_t), np.max(-psi_t), np.mean(true_V_t), np.max(-true_psi_t))
 
-        policy_update(pi_t, psi_t, eta) 
+        eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
+        policy_update(pi_t, psi_t, eta_t) 
 
     print("Total runtime: %.2fs" % (time.time() - s_time))
 
