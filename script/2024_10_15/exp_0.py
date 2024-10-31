@@ -9,7 +9,7 @@ sys.path.insert(0, parent_dir)
 
 from pg_termination import pmd
 
-MAX_RUNS = 45
+MAX_RUNS = 27
 DATE = "2024_10_15"
 EXP_ID  = 0
 
@@ -37,15 +37,15 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         "gridworld_small", 
         "gridworld_hill_small", 
         "taxi", 
-        "random",
-        "chain",
+        # "random",
+        # "chain",
     ]
 
     gamma_arr = [0.9, 0.99, 0.999]
 
     alg_setting_arr = [
-        ("pmd", pmd.StepSize.KL_LINEAR_GEOMETRIC, pmd.Update.KL_UPDATE),
         ("pmd", pmd.StepSize.EUCLIDEAN_LINEAR_ADAPTIVE, pmd.Update.EUCLIDEAN_UPDATE),
+        ("pmd", pmd.StepSize.EUCLIDEAN_LINEAR_AGGRESSIVE, pmd.Update.EUCLIDEAN_UPDATE),
         ("policyiter", 0, 0),
     ]
 
