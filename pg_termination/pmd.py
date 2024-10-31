@@ -17,7 +17,8 @@ class StepSize(IntEnum):
     KL_LINEAR_GEOMETRIC = 1
     KL_LINEAR_ADAPTIVE = 2
     EUCLIDEAN_LINEAR_ADAPTIVE = 3
-    SUBLINEAR_ADAPTIVE = 4
+    EUCLIDEAN_LINEAR_AGGRESSIVE = 4
+    SUBLINEAR_ADAPTIVE = 5
 
 class Update(IntEnum):
     EUCLIDEAN_UPDATE = 100
@@ -120,7 +121,12 @@ class StepsizeSchedule():
             # dynamically update
             if t % (self.N * self.T) == 0:
                 self.Delta = np.max(-psi)/(1.-self.gamma)
-            # eta = 4**(1+np.floor(t/self.N) % self.T)/self.Delta
+            eta = 4**(1+np.floor(t/self.N) % self.T)/self.Delta
+            return eta
+        elif self.stepsize_rule == StepSize.EUCLIDEAN_LINEAR_AGGRESSIVE:
+            # dynamically update
+            if t % (self.N * self.T) == 0:
+                self.Delta = np.max(-psi)/(1.-self.gamma)
             eta = 2**t/self.Delta
             return eta
 
