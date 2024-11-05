@@ -39,7 +39,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("env_name", "gridworld_small"),
         ("gamma", 0.99),
         ("N", 1),
-        ("T", 250), 
+        ("T", 225), 
         ("validation_k", 200),
         ("pi_threshold", 1e-4),
         ("eta", 0.1),

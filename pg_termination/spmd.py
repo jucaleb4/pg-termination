@@ -67,7 +67,7 @@ def _train(settings):
 
     logger = BasicLogger(
         fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
-        keys=["iter", "point value", "point agap", "agg value", "agg agap", "true value", "true advantage gap"], 
+        keys=["iter", "point value", "point opt_lb", "agg value", "agg opt_lb", "true value", "true opt_lb"], 
         dtypes=['d', 'f', 'f', 'f', 'f', 'f', 'f']
     )
     logger_point_adv = BasicLogger(
@@ -81,7 +81,7 @@ def _train(settings):
         dtypes=['d'] + ['f'] * (env.n_states*env.n_actions),
     )
     logger_point_V = BasicLogger(
-        fname=os.path.join(settings["log_folder"], "pt_agap_seed=%d.csv" % seed), 
+        fname=os.path.join(settings["log_folder"], "point_agap_seed=%d.csv" % seed), 
         keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
         dtypes=['d'] + ['f'] * env.n_states,
     )
@@ -128,23 +128,23 @@ def _train(settings):
         agg_V_t = (1.-alpha_t)*agg_V_t + alpha_t*V_t
 
         if ((t+1) <= 100 and (t+1) % 5 == 0) or (t+1) % 100==0:
-            print("Iter %d: f=%.2e (gap=%.2e) | ag_f=%.2e (ag_gap=%.2e) | true_f=%.2e (true_gap=%.2e)" % (
+            print("Iter %d: f=%.2e (fstar_lb=%.2e) | ag_f=%.2e (ag_fstar_lb=%.2e) | true_f=%.2e (true_fstar_lb=%.2e)" % (
                 t+1, 
                 np.dot(env.rho, V_t), 
-                np.max(-psi_t), 
+                np.dot(env.rho, V_t - np.max(-psi_t, axis=1)/(1.-env.gamma)), 
                 np.dot(env.rho, agg_V_t), 
-                np.max(-agg_psi_t), 
+                np.dot(env.rho, agg_V_t - np.max(-agg_psi_t, axis=1)/(1.-env.gamma)), 
                 np.dot(env.rho, true_V_t), 
-                np.max(-true_psi_t)
+                np.dot(env.rho, true_V_t - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
             ))
         logger.log(
             t+1, 
             np.dot(env.rho, V_t), 
-            np.max(-psi_t), 
+            np.dot(env.rho, V_t - np.max(-psi_t, axis=1)/(1.-env.gamma)), 
             np.dot(env.rho, agg_V_t), 
-            np.max(-agg_psi_t), 
+            np.dot(env.rho, agg_V_t - np.max(-agg_psi_t, axis=1)/(1.-env.gamma)), 
             np.dot(env.rho, true_V_t), 
-            np.max(-true_psi_t)
+            np.dot(env.rho, true_V_t - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
         )
         logger_point_adv.log(t+1, *list(psi_t.ravel()))
         logger_agg_adv.log(t+1, *list(agg_psi_t.ravel()))

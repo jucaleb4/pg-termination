@@ -369,8 +369,11 @@ class GridWorldWithTraps(MDPModel):
         if n_origins == -1:
             n_origins = n_states-n_traps-1
 
-        rng = np.random.default_rng(seed)
+        # have the same set of traps, origins, and traps
+        rng = np.random.default_rng(0)
         rnd_pts = rng.choice(length*length, replace=False, size=n_traps+1+n_origins)
+
+        rng = np.random.default_rng(seed)
         traps = rnd_pts[:n_traps]
         origins = rnd_pts[n_traps:n_traps+n_origins]
         self.target = target = rnd_pts[-1]
