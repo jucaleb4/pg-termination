@@ -82,8 +82,8 @@ def print_final_convergence_result(env_name):
     ]
 
     alg_name_arr = [
-        "pmd-kl",
-        "pmd-eu",
+        "pmd-eu-basic",
+        "pmd-eu-agg",
         "policyiter",
     ]
     gamma_arr = [0.9, 0.99, 0.999]
