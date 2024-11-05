@@ -9,9 +9,9 @@ sys.path.insert(0, parent_dir)
 
 from pg_termination import pmd
 
-MAX_RUNS = 6
+MAX_RUNS = 1
 DATE = "2024_10_19"
-EXP_ID  = 0
+EXP_ID  = 1
 
 def parse_sub_runs(sub_runs):
     start_run_id, end_run_id = 0, MAX_RUNS
@@ -39,24 +39,15 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("env_name", "gridworld_small"),
         ("gamma", 0.99),
         ("N", 1),
-        ("T", 150), # approximately log(5)/log(1/0.99)
-        ("validation_k", 50),
+        ("T", 250), 
+        ("validation_k", 200),
         ("pi_threshold", 1e-4),
-        ("eta", 1),
+        ("eta", 0.1),
         ("linear_learning_rate", "constant"), # constant, optimal
         ("linear_eta0", 1e-2), # 1e-2, 1e-3
         ("linear_max_iter", 10), # 1000, 100, 10
         ("linear_alpha", 1e-4), # 1e-3, 1e-4
     ])
-
-    stepsize_pairs_arr = [
-        (int(pmd.StepSize.SUBLINEAR), 0.01), 
-        (int(pmd.StepSize.SUBLINEAR), 0.1), 
-        (int(pmd.StepSize.SUBLINEAR), 1), 
-        (int(pmd.StepSize.SUBLINEAR_ADAPTIVE), 0.1), 
-        (int(pmd.StepSize.SUBLINEAR_ADAPTIVE), 1), 
-        (int(pmd.StepSize.SUBLINEAR_ADAPTIVE), 5), 
-    ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
@@ -66,29 +57,16 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
     if not(os.path.exists(setting_folder_base)):
         os.makedirs(setting_folder_base)
 
-    # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "stepsize", "eta"]
-    row_format ="{:>10}|{:>10}|{:>10}"
-    print("")
-    print(row_format.format(*exp_metadata))
-    print("-" * (30+len(exp_metadata)-1))
-
     ct = 0
-    for ((stepsize_rule, eta),) in itertools.product(stepsize_pairs_arr):
-        od["stepsize_rule"] = stepsize_rule
-        od["eta"] = eta
+    setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
+    od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
-        setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
-        od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
-
-        print(row_format.format(ct, od["stepsize_rule"], od["eta"]))
-
-        if not(os.path.exists(od["log_folder"])):
-            os.makedirs(od["log_folder"])
-        with open(setting_fname, 'w') as f:
-            # https://stackoverflow.com/questions/42518067/how-to-use-ordereddict-as-an-input-in-yaml-dump-or-yaml-safe-dump
-            yaml.dump(od, f, default_flow_style=False, sort_keys=False)
-        ct += 1
+    if not(os.path.exists(od["log_folder"])):
+        os.makedirs(od["log_folder"])
+    with open(setting_fname, 'w') as f:
+        # https://stackoverflow.com/questions/42518067/how-to-use-ordereddict-as-an-input-in-yaml-dump-or-yaml-safe-dump
+        yaml.dump(od, f, default_flow_style=False, sort_keys=False)
+    ct += 1
 
     assert ct == MAX_RUNS, "Number of created exps (%i) does not match MAX_RUNS (%i)" % (ct, MAX_RUNS)
 
@@ -101,7 +79,7 @@ if __name__ == "__main__":
         "--mode", 
         type=str, 
         default="work", 
-        choices=["work"],
+        choices=["full", "work"],
         help="Set up number of trials and max_step for various testing reasons"
     )
     parser.add_argument(
@@ -113,8 +91,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     seed_0 = 0
-    n_seeds = 1
-    n_iters = 50
+    n_seeds = 1 if args.mode == "work" else 10
+    n_iters = 500
 
     if args.setup:
         setup_setting_files(seed_0, n_seeds, n_iters)
