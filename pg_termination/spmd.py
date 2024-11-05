@@ -31,7 +31,8 @@ def policy_validation(env, pi, settings):
     """
     agg_psi = np.zeros((env.n_states, env.n_actions), dtype=float)
     agg_V = np.zeros(env.n_states, dtype=float)
-    total_err = 0
+    total_V_err = 0.
+    total_psi_err = 0.
 
     (true_psi, true_V) = env.get_advantage(pi)
 
@@ -45,20 +46,22 @@ def policy_validation(env, pi, settings):
 
         agg_psi += psi
         agg_V += V
-        total_err += np.max(np.abs(V - true_V))
+        total_psi_err += np.max(np.abs(psi - true_psi))
+        total_V_err += np.max(np.abs(V - true_V))
 
     N = float(settings["validation_k"])
     agg_psi /= N
     agg_V /= N
-    agg_agap = np.max(-agg_psi, axis=1)
-    agg_V_star = agg_V - agg_agap/(1-settings['gamma'])
 
-    agg_err = np.max(np.abs(agg_V - true_V))
-    avg_total_err = total_err / N
+    agg_psi_err = np.max(np.abs(agg_psi - true_psi))
+    agg_V_err = np.max(np.abs(agg_V - true_V))
+    avg_total_psi_err = total_psi_err / N
+    avg_total_V_err = total_V_err / N
 
-    print("Agg err: %.2e | Avg point err: %.2e" % (agg_err, avg_total_err))
+    print("Agg psi err: %.2e | Avg psi V err:   %.2e" % (agg_psi_err, avg_total_psi_err))
+    print("Agg V err:   %.2e | Avg point V err: %.2e" % (agg_V_err, avg_total_V_err))
 
-    return agg_V, agg_V_star, agg_err, avg_total_err
+    return agg_psi, agg_V, agg_psi_err, agg_V_err, avg_total_psi_err, avg_total_V_err
 
 def _train(settings):
     seed = settings['seed']
@@ -92,8 +95,9 @@ def _train(settings):
     # )
     logger_validation = BasicLogger(
         fname=os.path.join(settings["log_folder"], "validation_seed=%d.csv" % seed), 
-        keys=["estimated f", "estimated fstar", "true f", "agg err", "avg err"],
-        dtypes=['f'] * 5,
+        keys=["agg value", "agg opt_lb", "agg gap", "true value", "true opt_lb", "true gap", "agg psi_err", "agg V_err", "avg total_psi_err", "avg total_V_err"],
+
+        dtypes=['f'] * 10,
     )
 
     pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
@@ -166,22 +170,28 @@ def _train(settings):
     # logger_agg_V.save()
 
     # policy validation
-    (est_V, est_V_star, agg_err, avg_total_err) = policy_validation(env, pi_t, settings)
+    output = policy_validation(env, pi_t, settings)
+    (agg_psi, agg_V, agg_psi_err, agg_V_err, avg_total_psi_err, avg_total_V_err) = output
     (true_psi, true_V) = env.get_advantage(pi_t)
 
     print("Offline: f=%.2e (fstar=%.2e) | true_f=%.2e (est_true_f_star=%.2e)" % (
-        np.dot(env.rho, est_V), 
-        np.dot(env.rho, est_V_star), 
+        np.dot(env.rho, agg_V), 
+        np.dot(env.rho, agg_V - np.max(-agg_psi, axis=1)/(1.-env.gamma)), 
         np.dot(env.rho, true_V), 
         np.dot(env.rho, true_V - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
     ))
 
     logger_validation.log(
-        np.dot(env.rho, est_V), 
-        np.dot(env.rho, est_V_star),
-        np.dot(env.rho, true_V_t),
-        agg_err, 
-        avg_total_err,
+        np.dot(env.rho, agg_V), 
+        np.dot(env.rho, agg_V_t - np.max(-agg_psi, axis=1)/(1.-env.gamma)), 
+        np.max(np.max(-agg_psi, axis=1)),
+        np.dot(env.rho, true_V), 
+        np.dot(env.rho, true_V - np.max(-true_psi, axis=1)/(1.-env.gamma)),
+        np.max(np.max(-true_psi, axis=1)),
+        agg_psi_err,
+        agg_V_err, 
+        avg_total_psi_err,
+        avg_total_V_err,
     )
     logger_validation.save()
 
