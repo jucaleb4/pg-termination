@@ -67,8 +67,8 @@ def _train(settings):
 
     logger = BasicLogger(
         fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
-        keys=["iter", "point value", "point opt_lb", "agg value", "agg opt_lb", "true value", "true opt_lb"], 
-        dtypes=['d', 'f', 'f', 'f', 'f', 'f', 'f']
+        keys=["iter", "point value", "point opt_lb", "point gap", "agg value", "agg opt_lb", "agg gap", "true value", "true opt_lb", "true gap"], 
+        dtypes=['d'] + ['f'] * 9
     )
     # logger_point_adv = BasicLogger(
     #     fname=os.path.join(settings["log_folder"], "pt_agap_seed=%d.csv" % seed), 
@@ -141,10 +141,13 @@ def _train(settings):
             t+1, 
             np.dot(env.rho, V_t), 
             np.dot(env.rho, V_t - np.max(-psi_t, axis=1)/(1.-env.gamma)), 
+            np.max(np.max(-psi_t, axis=1)),
             np.dot(env.rho, agg_V_t), 
             np.dot(env.rho, agg_V_t - np.max(-agg_psi_t, axis=1)/(1.-env.gamma)), 
+            np.max(np.max(-agg_psi_t, axis=1)),
             np.dot(env.rho, true_V_t), 
             np.dot(env.rho, true_V_t - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
+            np.max(np.max(-true_psi_t, axis=1)),
         )
         # logger_point_adv.log(t+1, *list(psi_t.ravel()))
         # logger_agg_adv.log(t+1, *list(agg_psi_t.ravel()))
