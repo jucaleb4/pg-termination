@@ -11,7 +11,7 @@ from pg_termination.logger import BasicLogger
 def _train(settings):
     seed = settings['seed']
 
-    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
+    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
 
     logger = BasicLogger(
         fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
@@ -35,13 +35,13 @@ def _train(settings):
         utils.set_greedy_policy(next_pi_t, psi_t)
 
         if t <= 9 or (t <= 99 and (t+1) % 5 == 0) or (t+1) % 100 == 0:
-            print("Iter %d: f=%.2e (gap=%.2e)" % (t+1, np.mean(V_t), np.max(-psi_t)))
+            print("Iter %d: f=%.2e (gap=%.2e)" % (t+1, np.dot(env.rho, V_t), np.max(-psi_t)))
         if t <= 99 or ((t+1) % 10 == 0):
-            logger.log(t+1, np.mean(V_t), np.max(-psi_t))
+            logger.log(t+1, np.dot(env.rho, V_t), np.max(-psi_t))
 
         if np.allclose(next_pi_t, pi_t) or (np.max(-psi_t) < eps_tol):
-            print("Terminate at %d: f=%.2e (gap=%.2e)" % (t+1, np.mean(V_t), np.max(-psi_t)))
-            logger.log(t+1, np.mean(V_t), np.max(-psi_t))
+            print("Terminate at %d: f=%.2e (gap=%.2e)" % (t+1, np.dot(env.rho, V_t), np.max(-psi_t)))
+            logger.log(t+1, np.dot(env.rho, V_t), np.max(-psi_t))
             break
 
         pi_t[:len(pi_t),:] = next_pi_t

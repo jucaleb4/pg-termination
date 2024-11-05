@@ -18,7 +18,7 @@ DIRS = [(1,0), (0,1), (-1,0), (0,-1)]
 
 class MDPModel():
     """ Base MDP class """
-    def __init__(self, n_states, n_actions, c, P, gamma, seed=None):
+    def __init__(self, n_states, n_actions, c, P, gamma, rho=None, seed=None):
         assert len(c.shape) == 2, "Input cost vector c must be a 2-D vector, recieved %d dimensions" % len(c.shape)
         assert len(P.shape) == 3, "Input cost vector c must be a 3-D tensor, recieved %d dimensions" % len(P.shape)
 
@@ -47,6 +47,9 @@ class MDPModel():
         self.c = c
         self.P = P
         self.gamma = gamma
+        if rho is None:
+            rho = np.ones(self.n_states, dtype=float)/self.n_states
+        self.rho = rho
 
         # initialize a 
         self.rng = np.random.default_rng(seed)
@@ -345,7 +348,7 @@ class MDPModel():
 
 class GridWorldWithTraps(MDPModel):
 
-    def __init__(self, length, n_traps, gamma, eps=0.05, seed=None, ergodic=False):
+    def __init__(self, length, n_traps, gamma, n_origins=-1, eps=0.05, seed=None, ergodic=False):
         """ Creates 2D gridworld with side length @length grid world with traps.
 
         Each step incurs a cost of +1
@@ -363,12 +366,18 @@ class GridWorldWithTraps(MDPModel):
         n_states = length*length
         n_actions = 4
         n_traps = min(n_traps, n_states-1)
+        if n_origins == -1:
+            n_origins = n_states-n_traps-1
 
         rng = np.random.default_rng(seed)
-        rnd_pts = rng.choice(length*length, replace=False, size=n_traps+1)
-        traps = rnd_pts[:-1]
+        rnd_pts = rng.choice(length*length, replace=False, size=n_traps+1+n_origins)
+        traps = rnd_pts[:n_traps]
+        origins = rnd_pts[n_traps:n_traps+n_origins]
         self.target = target = rnd_pts[-1]
-        print("Target at index %d" % target)
+        print("==== ENV INFO ====")
+        print("  Target at index %d" % target)
+        print("  Traps at ", np.sort(traps))
+        print("  Origins at ", np.sort(origins))
 
         P = np.zeros((n_states, n_states, n_actions), dtype=float)
         c = np.zeros((n_states, n_actions), dtype=float)
@@ -422,12 +431,12 @@ class GridWorldWithTraps(MDPModel):
 
         # target
         if ergodic:
-            rnd_pts = rng.choice(length*length, replace=False, size=n_traps+1)
-            non_target_nor_trap = np.setdiff1d(np.arange(length*length), rnd_pts)
+            # rnd_pts = rng.choice(length*length, replace=False, size=n_traps+1)
+            # non_target_nor_trap = np.setdiff1d(np.arange(length*length), rnd_pts)
 
             P[:,target,:] = 0
             # go to random non-target non-trap location
-            P[non_target_nor_trap,target,:] = 1./len(non_target_nor_trap)
+            P[origins,target,:] = 1./len(origins)
         else:
             P[:,target,:] = 0
             # stay at target
@@ -785,15 +794,15 @@ class Chain(MDPModel):
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
-def get_env(name, gamma, seed=None):
+def get_env(name, gamma, seed=None, **kwargs):
     if name == "gridworld_small":
-        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True)
+        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, **kwargs)
     elif name == "gridworld_large":
-        env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True)
+        env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True, **kwargs)
     elif name == "gridworld_hill_small":
-        env = GridWorldWithTrapsAndHills(20, 20, gamma, seed=seed, ergodic=True)
+        env = GridWorldWithTrapsAndHills(20, 20, gamma, seed=seed, ergodic=True, **kwargs)
     elif name == "gridworld_hill_large":
-        env = GridWorldWithTrapsAndHills(50, 50, gamma, seed=seed, ergodic=True)
+        env = GridWorldWithTrapsAndHills(50, 50, gamma, seed=seed, ergodic=True, **kwargs)
     elif name == "taxi":
         env = Taxi(gamma, ergodic=True)
     elif name == "random":

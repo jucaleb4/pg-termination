@@ -133,7 +133,7 @@ class StepsizeSchedule():
 def _train(settings):
     seed = settings['seed']
 
-    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
+    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
 
     if "gridworld" in settings['env_name']:
         with open(os.path.join(settings["log_folder"], "gridworld_target_seed=%d.csv" % seed), "w+") as f:
@@ -164,18 +164,18 @@ def _train(settings):
         (greedy_psi_t, greedy_V_t) = env.get_advantage(greedy_pi_t)
 
         if t <= 9 or (t <= 99 and (t+1) % 5 == 0) or (t+1) % 100 == 0:
-            print("Iter %d: f=%.2e (gap=%.2e) (ggap=%.2e)" % (t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t)))
+            print("Iter %d: f=%.2e (gap=%.2e) (ggap=%.2e)" % (t+1, np.dot(env.rho, V_t), np.max(-psi_t), np.max(-greedy_psi_t)))
         if t <= 99 or ((t+1) % 10 == 0):
-            logger.log(t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t))
+            logger.log(t+1, np.dot(env.rho, V_t), np.max(-psi_t), np.max(-greedy_psi_t))
             
         if np.max(-psi_t) < eps_tol:
-            print("Terminate at %d: f=%.2e (gap=%.2e)" % (t+1, np.mean(V_t), np.max(-psi_t)))
-            logger.log(t+1, np.mean(V_t), np.max(-psi_t), np.max(-greedy_psi_t))
+            print("Terminate at %d: f=%.2e (gap=%.2e)" % (t+1, np.dot(env.rho, V_t), np.max(-psi_t)))
+            logger.log(t+1, np.dot(env.rho, V_t), np.max(-psi_t), np.max(-greedy_psi_t))
             pi_star = pi_t
             break
         if np.max(-greedy_psi_t) < eps_tol:
-            print("Terminate at %d: gf=%.2e (ggap=%.2e)" % (t+1, np.mean(greedy_V_t), np.max(-greedy_psi_t)))
-            logger.log(t+1, np.mean(greedy_V_t), np.max(-psi_t), np.max(-greedy_psi_t))
+            print("Terminate at %d: gf=%.2e (ggap=%.2e)" % (t+1, np.dot(env.rho, greedy_V_t), np.max(-greedy_psi_t)))
+            logger.log(t+1, np.dot(env.rho, greedy_V_t), np.max(-psi_t), np.max(-greedy_psi_t))
             pi_star = greedy_pi_t
             break
 
@@ -183,8 +183,8 @@ def _train(settings):
         (greedy_psi_t, greedy_V_t) = env.get_advantage(greedy_pi_t)
         utils.set_greedy_policy(next_greedy_pi_t, greedy_psi_t)
         if np.allclose(next_greedy_pi_t, greedy_pi_t):
-            print("Terminate at %d: greedy-f=%.2e (greedy-gap=%.2e)" % (t+1, np.mean(greedy_V_t), np.max(-greedy_psi_t)))
-            logger.log(t+1, np.mean(greedy_V_t), np.max(-psi_t), np.max(-greedy_psi_t))
+            print("Terminate at %d: greedy-f=%.2e (greedy-gap=%.2e)" % (t+1, np.dot(env.rho, greedy_V_t), np.max(-greedy_psi_t)))
+            logger.log(t+1, np.dot(env.rho, greedy_V_t), np.max(-psi_t), np.max(-greedy_psi_t))
             pi_star = greedy_pi_t
             break
 
