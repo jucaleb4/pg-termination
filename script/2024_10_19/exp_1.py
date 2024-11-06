@@ -9,7 +9,7 @@ sys.path.insert(0, parent_dir)
 
 from pg_termination import pmd
 
-MAX_RUNS = 1
+MAX_RUNS = 4
 DATE = "2024_10_19"
 EXP_ID  = 1
 
@@ -37,10 +37,10 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("update_rule", int(pmd.Update.KL_UPDATE)),
         ("estimate_Q", "generative"),
         ("env_name", "gridworld_small"),
-        ("gamma", 0.99),
+        ("gamma", 0.9),
         ("N", 1),
-        ("T", 225), 
-        ("validation_k", 200),
+        ("T", 50), 
+        ("validation_k", 50),
         ("pi_threshold", 1e-4),
         ("eta", 0.1),
         ("linear_learning_rate", "constant"), # constant, optimal
@@ -49,6 +49,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("linear_alpha", 1e-4), # 1e-3, 1e-4
     ])
 
+    env_name_eta_arr = [("gridworld_small", 1), ("gridworld_small_sparse", 1), ("taxi", 0.1), ("taxi_sparse", 0.1)]
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
 
@@ -57,16 +58,29 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
     if not(os.path.exists(setting_folder_base)):
         os.makedirs(setting_folder_base)
 
-    ct = 0
-    setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
-    od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
+    # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
+    exp_metadata = ["Exp id", "Env name", "eta"]
+    row_format ="{:>10}|{:>25}|{:>10}" 
+    print("")
+    print(row_format.format(*exp_metadata))
+    print("-" * (10+35+len(exp_metadata)-1))
 
-    if not(os.path.exists(od["log_folder"])):
-        os.makedirs(od["log_folder"])
-    with open(setting_fname, 'w') as f:
-        # https://stackoverflow.com/questions/42518067/how-to-use-ordereddict-as-an-input-in-yaml-dump-or-yaml-safe-dump
-        yaml.dump(od, f, default_flow_style=False, sort_keys=False)
-    ct += 1
+    ct = 0
+    for ((env_name, eta),) in itertools.product(env_name_eta_arr):
+        od["env_name"] = env_name
+        od["eta"] = eta
+
+        setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
+        od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
+
+        print(row_format.format(ct, od["env_name"], od["eta"]))
+
+        if not(os.path.exists(od["log_folder"])):
+            os.makedirs(od["log_folder"])
+        with open(setting_fname, 'w') as f:
+            # https://stackoverflow.com/questions/42518067/how-to-use-ordereddict-as-an-input-in-yaml-dump-or-yaml-safe-dump
+            yaml.dump(od, f, default_flow_style=False, sort_keys=False)
+        ct += 1
 
     assert ct == MAX_RUNS, "Number of created exps (%i) does not match MAX_RUNS (%i)" % (ct, MAX_RUNS)
 
@@ -92,7 +106,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seed_0 = 0
     n_seeds = 1 if args.mode == "work" else 10
-    n_iters = 500
+    n_iters = 200
 
     if args.setup:
         setup_setting_files(seed_0, n_seeds, n_iters)

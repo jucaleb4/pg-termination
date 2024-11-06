@@ -376,11 +376,14 @@ class GridWorldWithTraps(MDPModel):
         rng = np.random.default_rng(seed)
         traps = rnd_pts[:n_traps]
         origins = rnd_pts[n_traps:n_traps+n_origins]
+        rho = np.zeros(length*length, dtype=float)
+        rho[origins] = 1./len(origins)
         self.target = target = rnd_pts[-1]
         print("==== ENV INFO ====")
         print("  Target at index %d" % target)
         print("  Traps at ", np.sort(traps))
-        print("  Origins at ", np.sort(origins))
+        if len(origins) < 10:
+            print("  Origins at ", np.sort(origins))
 
         P = np.zeros((n_states, n_states, n_actions), dtype=float)
         c = np.zeros((n_states, n_actions), dtype=float)
@@ -450,7 +453,7 @@ class GridWorldWithTraps(MDPModel):
         c[traps,:] = 10.
         c[target,:] = -10.
 
-        super().__init__(n_states, n_actions, c, P, gamma)
+        super().__init__(n_states, n_actions, c, P, gamma, rho, seed)
 
     def get_target(self):
         return self.target
@@ -556,7 +559,7 @@ class GridWorldWithTrapsAndHills(MDPModel):
         c[traps,:] = 5.
         c[target,:] = 0
 
-        super().__init__(n_states, n_actions, c, P, gamma)
+        super().__init__(n_states, n_actions, c, P, gamma, seed=seed)
 
     def get_target(self):
         return self.target
@@ -569,7 +572,7 @@ class Taxi(MDPModel):
     right_wall_arr = [(1,0), (1,1), (0,3), (0,4), (2,3), (2,4)]
     left_wall_arr  = [(2,0), (2,1), (1,3), (1,4), (3,3), (3,4)]
 
-    def __init__(self, gamma, eps=0., ergodic=False):
+    def __init__(self, gamma, eps=0., n_origins=-1, ergodic=False, seed=None):
         """ Creates 2D gridworld of fixed length=5 with a passenger at one of
         the 4 locations that needs to be dropped off at one of the hotel locations.
         The map appears as (see color_arr):
@@ -597,6 +600,8 @@ class Taxi(MDPModel):
         # 5 locations for passenger (pass_loc=4 means it is in taxi), and 4 destinations
         n_states = length*length*5*4
         n_actions = 6
+        if n_origins == -1:
+            n_origins = 5*5*4*3 # all possible places except when passenger is in taxi or destination
 
         P = np.zeros((n_states, n_states, n_actions), dtype=float)
         c = np.zeros((n_states, n_actions), dtype=float)
@@ -707,6 +712,9 @@ class Taxi(MDPModel):
                 offset = passenger_loc*25 + destination_loc*125
                 starting_states = np.append(starting_states, np.arange(25)+offset)
 
+        rng = np.random.default_rng(0)
+        starting_states = rng.choice(starting_states, size=min(n_origins, len(starting_states)), replace=False)
+
         # legal passenger dropoff
         for i, (x,y) in enumerate(self.color_arr):
             s = length*y+x 
@@ -729,7 +737,7 @@ class Taxi(MDPModel):
 
             c[curr_state_arr, 5] = -20
 
-        super().__init__(n_states, n_actions, c, P, gamma)
+        super().__init__(n_states, n_actions, c, P, gamma, seed=seed)
 
 class Random(MDPModel):
     def __init__(self, n_states, n_actions, gamma, seed=None):
@@ -797,17 +805,21 @@ class Chain(MDPModel):
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
-def get_env(name, gamma, seed=None, **kwargs):
+def get_env(name, gamma, seed=None):
     if name == "gridworld_small":
-        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, **kwargs)
+        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True)
+    elif name == "gridworld_small_sparse":
+        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, n_origins=5)
     elif name == "gridworld_large":
-        env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True, **kwargs)
+        env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_hill_small":
-        env = GridWorldWithTrapsAndHills(20, 20, gamma, seed=seed, ergodic=True, **kwargs)
+        env = GridWorldWithTrapsAndHills(20, 20, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_hill_large":
-        env = GridWorldWithTrapsAndHills(50, 50, gamma, seed=seed, ergodic=True, **kwargs)
+        env = GridWorldWithTrapsAndHills(50, 50, gamma, seed=seed, ergodic=True)
     elif name == "taxi":
         env = Taxi(gamma, ergodic=True)
+    elif name == "taxi_sparse":
+        env = Taxi(gamma, ergodic=True, n_origins=5)
     elif name == "random":
         env = Random(100, 100, gamma, seed=seed)
     elif name == "chain":

@@ -9,7 +9,7 @@ sys.path.insert(0, parent_dir)
 
 from pg_termination import pmd
 
-MAX_RUNS = 6
+MAX_RUNS = 12
 DATE = "2024_10_19"
 EXP_ID  = 0
 
@@ -37,9 +37,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("update_rule", int(pmd.Update.KL_UPDATE)),
         ("estimate_Q", "generative"),
         ("env_name", "gridworld_small"),
-        ("gamma", 0.99),
+        ("gamma", 0.9),
         ("N", 1),
-        ("T", 150), # approximately log(5)/log(1/0.99)
+        ("T", 50), 
         ("validation_k", 50),
         ("pi_threshold", 1e-4),
         ("eta", 1),
@@ -58,6 +58,8 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         (int(pmd.StepSize.SUBLINEAR_ADAPTIVE), 5), 
     ]
 
+    env_name_arr = ["gridworld_small", "taxi"]
+
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
 
@@ -67,21 +69,22 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         os.makedirs(setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "stepsize", "eta"]
-    row_format ="{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "env_name", "stepsize", "eta"]
+    row_format ="{:>10}|{:>25}|{:>10}|{:>10}"
     print("")
     print(row_format.format(*exp_metadata))
-    print("-" * (30+len(exp_metadata)-1))
+    print("-" * (55+len(exp_metadata)-1))
 
     ct = 0
-    for ((stepsize_rule, eta),) in itertools.product(stepsize_pairs_arr):
+    for (env_name, (stepsize_rule, eta),) in itertools.product(env_name_arr, stepsize_pairs_arr):
+        od["env_name"] = env_name
         od["stepsize_rule"] = stepsize_rule
         od["eta"] = eta
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
-        print(row_format.format(ct, od["stepsize_rule"], od["eta"]))
+        print(row_format.format(ct, od["env_name"], od["stepsize_rule"], od["eta"]))
 
         if not(os.path.exists(od["log_folder"])):
             os.makedirs(od["log_folder"])

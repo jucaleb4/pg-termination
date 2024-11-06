@@ -11,7 +11,8 @@ from pg_termination.logger import BasicLogger
 def _train(settings):
     seed = settings['seed']
 
-    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
+    # env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
+    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
 
     logger = BasicLogger(
         fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
