@@ -84,11 +84,16 @@ def _train(settings):
     #     keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
     #     dtypes=['d'] + ['f'] * env.n_states,
     # )
-    # logger_agg_V = BasicLogger(
-    #     fname=os.path.join(settings["log_folder"], "agg_V_seed=%d.csv" % seed), 
-    #     keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
-    #     dtypes=['d'] + ['f'] * env.n_states,
-    # )
+    logger_agg_V = BasicLogger(
+        fname=os.path.join(settings["log_folder"], "agg_V_seed=%d.csv" % seed), 
+        keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
+        dtypes=['d'] + ['f'] * env.n_states,
+    )
+    logger_agg_advgap = BasicLogger(
+        fname=os.path.join(settings["log_folder"], "agg_advgap_seed=%d.csv" % seed), 
+        keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
+        dtypes=['d'] + ['f'] * env.n_states,
+    )
     logger_validation = BasicLogger(
         fname=os.path.join(settings["log_folder"], "validation_seed=%d.csv" % seed), 
         keys=["agg value", "agg opt_lb", "agg uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb", "agg V_err", "avg total_V_err"],
@@ -103,6 +108,8 @@ def _train(settings):
     pi_star = None
 
     agg_psi_t = np.zeros((env.n_states, env.n_actions), dtype=float)
+    agg_psi_t_halfway = np.zeros((env.n_states, env.n_actions), dtype=float) # only start counting halfway
+    halfway_t = settings["n_iters"]//2
     agg_V_t = np.zeros(env.n_states, dtype=float)
 
     stepsize_scheduler = pmd.StepsizeSchedule(env, settings["stepsize_rule"], settings.get("eta",1))
@@ -169,8 +176,19 @@ def _train(settings):
     output = policy_validation(env, pi_t, settings)
     (agg_psi, agg_V, agg_V_err, avg_total_V_err) = output
     alpha = float(settings["validation_k"])/(settings["validation_k"] + settings["n_iters"])
-    double_agg_V   = alpha*agg_V   + (1.-alpha)*agg_V_t
-    double_agg_psi = alpha*agg_psi + (1.-alpha)*agg_psi_t
+    # double_agg_V   = alpha*agg_V   + (1.-alpha)*agg_V_t
+    # double_agg_psi = alpha*agg_psi + (1.-alpha)*agg_psi_t
+    double_agg_V = agg_V
+    double_agg_psi = agg_psi
+
+    agg_advgap = np.max(-agg_psi, axis=1)
+
+    # logger_agg_adv.log(t+1, *list(double_agg_psi.ravel()))
+    logger_agg_V.log(t+1, *list(double_agg_V))
+    logger_agg_advgap.log(t+1, *list(agg_advgap))
+
+    logger_agg_V.save()
+    logger_agg_advgap.save()
 
     (true_psi, true_V) = env.get_advantage(pi_t)
 
