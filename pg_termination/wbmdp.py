@@ -735,7 +735,7 @@ class Taxi(MDPModel):
                 P[next_state_loc, next_state_loc, :] = 1
                 c[next_state_arr, :] = 0
 
-            c[curr_state_arr, 5] = -20
+            c[curr_state_loc, 5] = -20
 
         super().__init__(n_states, n_actions, c, P, gamma, seed=seed)
 
