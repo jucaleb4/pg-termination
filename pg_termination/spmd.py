@@ -32,7 +32,6 @@ def policy_validation(env, pi, settings):
     agg_psi = np.zeros((env.n_states, env.n_actions), dtype=float)
     agg_V = np.zeros(env.n_states, dtype=float)
     total_V_err = 0.
-    total_psi_err = 0.
 
     (true_psi, true_V) = env.get_advantage(pi)
 
@@ -46,22 +45,18 @@ def policy_validation(env, pi, settings):
 
         agg_psi += psi
         agg_V += V
-        total_psi_err += np.max(np.abs(psi - true_psi))
         total_V_err += np.max(np.abs(V - true_V))
 
     N = float(settings["validation_k"])
     agg_psi /= N
     agg_V /= N
 
-    agg_psi_err = np.max(np.abs(agg_psi - true_psi))
     agg_V_err = np.max(np.abs(agg_V - true_V))
-    avg_total_psi_err = total_psi_err / N
     avg_total_V_err = total_V_err / N
 
-    print("Agg psi err: %.2e | Avg psi V err:   %.2e" % (agg_psi_err, avg_total_psi_err))
     print("Agg V err:   %.2e | Avg point V err: %.2e" % (agg_V_err, avg_total_V_err))
 
-    return agg_psi, agg_V, agg_psi_err, agg_V_err, avg_total_psi_err, avg_total_V_err
+    return agg_psi, agg_V, agg_V_err, avg_total_V_err
 
 def _train(settings):
     seed = settings['seed']
@@ -70,34 +65,34 @@ def _train(settings):
 
     logger = BasicLogger(
         fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
-        keys=["iter", "point value", "point opt_lb", "point gap", "agg value", "agg opt_lb", "agg gap", "true value", "true opt_lb", "true gap"], 
+        keys=["iter", "point value", "point opt_lb", "point uni_opt_lb", "agg value", "agg opt_lb", "agg uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb"], 
         dtypes=['d'] + ['f'] * 9
     )
-    # logger_point_adv = BasicLogger(
-    #     fname=os.path.join(settings["log_folder"], "pt_agap_seed=%d.csv" % seed), 
-    #     keys=["iter"] + ["(s_%d,a_%d)" % (s,a) for a in range(env.n_actions) for s in range(env.n_states)],
-    #     dtypes=['d'] + ['f'] * (env.n_states*env.n_actions),
-    # )
-    # logger_agg_adv = BasicLogger(
-    #     fname=os.path.join(settings["log_folder"], "agg_agap_seed=%d.csv" % seed), 
-    #     keys=["iter"] + ["(s_%d,a_%d)" % (s,a) for a in range(env.n_actions) for s in range(env.n_states)],
-    #     dtypes=['d'] + ['f'] * (env.n_states*env.n_actions),
-    # )
-    # logger_point_V = BasicLogger(
-    #     fname=os.path.join(settings["log_folder"], "point_agap_seed=%d.csv" % seed), 
-    #     keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
-    #     dtypes=['d'] + ['f'] * env.n_states,
-    # )
-    # logger_agg_V = BasicLogger(
-    #     fname=os.path.join(settings["log_folder"], "agg_agap_seed=%d.csv" % seed), 
-    #     keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
-    #     dtypes=['d'] + ['f'] * env.n_states,
-    # )
+    logger_point_adv = BasicLogger(
+        fname=os.path.join(settings["log_folder"], "point_agap_seed=%d.csv" % seed), 
+        keys=["iter"] + ["(s_%d,a_%d)" % (s,a) for a in range(env.n_actions) for s in range(env.n_states)],
+        dtypes=['d'] + ['f'] * (env.n_states*env.n_actions),
+    )
+    logger_agg_adv = BasicLogger(
+        fname=os.path.join(settings["log_folder"], "agg_agap_seed=%d.csv" % seed), 
+        keys=["iter"] + ["(s_%d,a_%d)" % (s,a) for a in range(env.n_actions) for s in range(env.n_states)],
+        dtypes=['d'] + ['f'] * (env.n_states*env.n_actions),
+    )
+    logger_point_V = BasicLogger(
+        fname=os.path.join(settings["log_folder"], "point_V_seed=%d.csv" % seed), 
+        keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
+        dtypes=['d'] + ['f'] * env.n_states,
+    )
+    logger_agg_V = BasicLogger(
+        fname=os.path.join(settings["log_folder"], "agg_V_seed=%d.csv" % seed), 
+        keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
+        dtypes=['d'] + ['f'] * env.n_states,
+    )
     logger_validation = BasicLogger(
         fname=os.path.join(settings["log_folder"], "validation_seed=%d.csv" % seed), 
-        keys=["agg value", "agg opt_lb", "agg gap", "true value", "true opt_lb", "true gap", "agg psi_err", "agg V_err", "avg total_psi_err", "avg total_V_err"],
+        keys=["agg value", "agg opt_lb", "agg uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb", "agg V_err", "avg total_V_err"],
 
-        dtypes=['f'] * 10,
+        dtypes=['f'] * 8,
     )
 
     pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
@@ -145,18 +140,18 @@ def _train(settings):
             t+1, 
             np.dot(env.rho, V_t), 
             np.dot(env.rho, V_t - np.max(-psi_t, axis=1)/(1.-env.gamma)), 
-            np.max(np.max(-psi_t, axis=1)),
+            np.dot(env.rho, V_t - np.max(-psi_t)/(1.-env.gamma)), 
             np.dot(env.rho, agg_V_t), 
             np.dot(env.rho, agg_V_t - np.max(-agg_psi_t, axis=1)/(1.-env.gamma)), 
-            np.max(np.max(-agg_psi_t, axis=1)),
+            np.dot(env.rho, agg_V_t - np.max(-agg_psi_t)/(1.-env.gamma)), 
             np.dot(env.rho, true_V_t), 
             np.dot(env.rho, true_V_t - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
-            np.max(np.max(-true_psi_t, axis=1)),
+            np.dot(env.rho, true_V_t - np.max(-true_psi_t)/(1.-env.gamma)),
         )
-        # logger_point_adv.log(t+1, *list(psi_t.ravel()))
-        # logger_agg_adv.log(t+1, *list(agg_psi_t.ravel()))
-        # logger_point_V.log(t+1, *list(V_t))
-        # logger_agg_V.log(t+1, *list(agg_V_t))
+        logger_point_adv.log(t+1, *list(psi_t.ravel()))
+        logger_agg_adv.log(t+1, *list(agg_psi_t.ravel()))
+        logger_point_V.log(t+1, *list(V_t))
+        logger_agg_V.log(t+1, *list(agg_V_t))
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
         policy_update(pi_t, psi_t, eta_t) 
@@ -164,33 +159,35 @@ def _train(settings):
     print("Total runtime: %.2fs" % (time.time() - s_time))
 
     logger.save()
-    # logger_point_adv.save()
-    # logger_agg_adv.save()
-    # logger_point_V.save()
-    # logger_agg_V.save()
+    logger_point_adv.save()
+    logger_agg_adv.save()
+    logger_point_V.save()
+    logger_agg_V.save()
 
     # policy validation
     output = policy_validation(env, pi_t, settings)
-    (agg_psi, agg_V, agg_psi_err, agg_V_err, avg_total_psi_err, avg_total_V_err) = output
+    (agg_psi, agg_V, agg_V_err, avg_total_V_err) = output
+    alpha = float(settings["validation_k"])/(settings["validation_k"] + settings["n_iters"])
+    double_agg_V   = alpha*agg_V   + (1.-alpha)*agg_V_t
+    double_agg_psi = alpha*agg_psi + (1.-alpha)*agg_psi_t
+
     (true_psi, true_V) = env.get_advantage(pi_t)
 
     print("Offline: f=%.2e (fstar=%.2e) | true_f=%.2e (est_true_f_star=%.2e)" % (
         np.dot(env.rho, agg_V), 
-        np.dot(env.rho, agg_V - np.max(-agg_psi, axis=1)/(1.-env.gamma)), 
+        np.dot(env.rho, double_agg_V - np.max(-double_agg_psi, axis=1)/(1.-env.gamma)), 
         np.dot(env.rho, true_V), 
         np.dot(env.rho, true_V - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
     ))
 
     logger_validation.log(
         np.dot(env.rho, agg_V), 
-        np.dot(env.rho, agg_V_t - np.max(-agg_psi, axis=1)/(1.-env.gamma)), 
-        np.max(np.max(-agg_psi, axis=1)),
+        np.dot(env.rho, double_agg_V - np.max(-double_agg_psi, axis=1)/(1.-env.gamma)), 
+        np.dot(env.rho, double_agg_V - np.max(-double_agg_psi)/(1.-env.gamma)),
         np.dot(env.rho, true_V), 
         np.dot(env.rho, true_V - np.max(-true_psi, axis=1)/(1.-env.gamma)),
-        np.max(np.max(-true_psi, axis=1)),
-        agg_psi_err,
+        np.dot(env.rho, true_V - np.max(-true_psi)/(1.-env.gamma)),
         agg_V_err, 
-        avg_total_psi_err,
         avg_total_V_err,
     )
     logger_validation.save()
