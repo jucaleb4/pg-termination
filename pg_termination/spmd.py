@@ -69,26 +69,26 @@ def _train(settings):
         keys=["iter", "point value", "point opt_lb", "point uni_opt_lb", "agg value", "agg opt_lb", "agg uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb"], 
         dtypes=['d'] + ['f'] * 9
     )
-    logger_point_adv = BasicLogger(
-        fname=os.path.join(settings["log_folder"], "point_agap_seed=%d.csv" % seed), 
-        keys=["iter"] + ["(s_%d,a_%d)" % (s,a) for a in range(env.n_actions) for s in range(env.n_states)],
-        dtypes=['d'] + ['f'] * (env.n_states*env.n_actions),
-    )
-    logger_agg_adv = BasicLogger(
-        fname=os.path.join(settings["log_folder"], "agg_agap_seed=%d.csv" % seed), 
-        keys=["iter"] + ["(s_%d,a_%d)" % (s,a) for a in range(env.n_actions) for s in range(env.n_states)],
-        dtypes=['d'] + ['f'] * (env.n_states*env.n_actions),
-    )
-    logger_point_V = BasicLogger(
-        fname=os.path.join(settings["log_folder"], "point_V_seed=%d.csv" % seed), 
-        keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
-        dtypes=['d'] + ['f'] * env.n_states,
-    )
-    logger_agg_V = BasicLogger(
-        fname=os.path.join(settings["log_folder"], "agg_V_seed=%d.csv" % seed), 
-        keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
-        dtypes=['d'] + ['f'] * env.n_states,
-    )
+    # logger_point_adv = BasicLogger(
+    #     fname=os.path.join(settings["log_folder"], "point_agap_seed=%d.csv" % seed), 
+    #     keys=["iter"] + ["(s_%d,a_%d)" % (s,a) for a in range(env.n_actions) for s in range(env.n_states)],
+    #     dtypes=['d'] + ['f'] * (env.n_states*env.n_actions),
+    # )
+    # logger_agg_adv = BasicLogger(
+    #     fname=os.path.join(settings["log_folder"], "agg_agap_seed=%d.csv" % seed), 
+    #     keys=["iter"] + ["(s_%d,a_%d)" % (s,a) for a in range(env.n_actions) for s in range(env.n_states)],
+    #     dtypes=['d'] + ['f'] * (env.n_states*env.n_actions),
+    # )
+    # logger_point_V = BasicLogger(
+    #     fname=os.path.join(settings["log_folder"], "point_V_seed=%d.csv" % seed), 
+    #     keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
+    #     dtypes=['d'] + ['f'] * env.n_states,
+    # )
+    # logger_agg_V = BasicLogger(
+    #     fname=os.path.join(settings["log_folder"], "agg_V_seed=%d.csv" % seed), 
+    #     keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
+    #     dtypes=['d'] + ['f'] * env.n_states,
+    # )
     logger_validation = BasicLogger(
         fname=os.path.join(settings["log_folder"], "validation_seed=%d.csv" % seed), 
         keys=["agg value", "agg opt_lb", "agg uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb", "agg V_err", "avg total_V_err"],
@@ -149,10 +149,10 @@ def _train(settings):
             np.dot(env.rho, true_V_t - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
             np.dot(env.rho, true_V_t - np.max(-true_psi_t)/(1.-env.gamma)),
         )
-        logger_point_adv.log(t+1, *list(psi_t.ravel()))
-        logger_agg_adv.log(t+1, *list(agg_psi_t.ravel()))
-        logger_point_V.log(t+1, *list(V_t))
-        logger_agg_V.log(t+1, *list(agg_V_t))
+        # logger_point_adv.log(t+1, *list(psi_t.ravel()))
+        # logger_agg_adv.log(t+1, *list(agg_psi_t.ravel()))
+        # logger_point_V.log(t+1, *list(V_t))
+        # logger_agg_V.log(t+1, *list(agg_V_t))
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
         policy_update(pi_t, psi_t, eta_t) 
@@ -160,10 +160,10 @@ def _train(settings):
     print("Total runtime: %.2fs" % (time.time() - s_time))
 
     logger.save()
-    logger_point_adv.save()
-    logger_agg_adv.save()
-    logger_point_V.save()
-    logger_agg_V.save()
+    # logger_point_adv.save()
+    # logger_agg_adv.save()
+    # logger_point_V.save()
+    # logger_agg_V.save()
 
     # policy validation
     output = policy_validation(env, pi_t, settings)
