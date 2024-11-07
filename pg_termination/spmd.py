@@ -108,9 +108,6 @@ def _train(settings):
     pi_star = None
 
     agg_psi_t = np.zeros((env.n_states, env.n_actions), dtype=float)
-    agg_psi_t_halfway = np.zeros((env.n_states, env.n_actions), dtype=float) # only start counting halfway
-    halfway_t = 5
-    halfway_ct = 0
     agg_V_t = np.zeros(env.n_states, dtype=float)
 
     stepsize_scheduler = pmd.StepsizeSchedule(env, settings["stepsize_rule"], settings.get("eta",1))
@@ -134,10 +131,6 @@ def _train(settings):
         alpha_t = 1./(t+1)
         agg_psi_t = (1.-alpha_t)*agg_psi_t + alpha_t*psi_t
         agg_V_t = (1.-alpha_t)*agg_V_t + alpha_t*V_t
-        if t >= halfway_t:
-            alpha_t = 1./(t-halfway_t+1)
-            agg_psi_t_halfway = (1-alpha_t)*agg_psi_t_halfway + alpha_t*psi_t
-            halfway_ct += 1
 
         if ((t+1) <= 100 and (t+1) % 5 == 0) or (t+1) % 100==0:
             print("Iter %d: f=%.2e (fstar_lb=%.2e) | ag_f=%.2e (ag_fstar_lb=%.2e) | true_f=%.2e (true_fstar_lb=%.2e)" % (
@@ -180,13 +173,13 @@ def _train(settings):
     # policy validation
     output = policy_validation(env, pi_t, settings)
     (agg_psi, agg_V, agg_V_err, avg_total_V_err) = output
-    alpha = float(settings["validation_k"])/(settings["validation_k"] + halfway_ct)
-    double_agg_psi = alpha*agg_psi + (1.-alpha)*agg_psi_t_halfway
-    # double_agg_psi = agg_psi
+    alpha = float(settings["validation_k"])/(settings["validation_k"] + settings["n_iters"])
+    double_agg_V = alpha*agg_V + (1.-alpha)*agg_V_t
+    double_agg_psi = alpha*agg_psi + (1.-alpha)*agg_psi_t
 
     # logger_agg_adv.log(t+1, *list(double_agg_psi.ravel()))
-    logger_agg_V.log(t+1, *list(agg_V))
-    double_agg_advgap = np.max(-double_agg_psi, axis=1) 
+    logger_agg_V.log(t+1, *list(agg_V_t))
+    double_agg_advgap = np.max(-agg_psi_t, axis=1) 
     logger_agg_advgap.log(t+1, *list(double_agg_advgap))
 
     logger_agg_V.save()
@@ -196,15 +189,15 @@ def _train(settings):
 
     print("Offline: f=%.2e (fstar=%.2e) | true_f=%.2e (est_true_f_star=%.2e)" % (
         np.dot(env.rho, agg_V), 
-        np.dot(env.rho, agg_V - np.max(-double_agg_psi, axis=1)/(1.-env.gamma)), 
+        np.dot(env.rho, double_agg_V - np.max(-double_agg_psi, axis=1)/(1.-env.gamma)), 
         np.dot(env.rho, true_V), 
         np.dot(env.rho, true_V - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
     ))
 
     logger_validation.log(
         np.dot(env.rho, agg_V), 
-        np.dot(env.rho, agg_V - np.max(-double_agg_psi, axis=1)/(1.-env.gamma)), 
-        np.dot(env.rho, agg_V - np.max(-double_agg_psi)/(1.-env.gamma)),
+        np.dot(env.rho, double_agg_V - np.max(-double_agg_psi, axis=1)/(1.-env.gamma)), 
+        np.dot(env.rho, double_agg_V - np.max(-double_agg_psi)/(1.-env.gamma)),
         np.dot(env.rho, true_V), 
         np.dot(env.rho, true_V - np.max(-true_psi, axis=1)/(1.-env.gamma)),
         np.dot(env.rho, true_V - np.max(-true_psi)/(1.-env.gamma)),
