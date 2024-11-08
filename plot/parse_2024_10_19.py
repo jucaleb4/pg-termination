@@ -4,6 +4,8 @@ import argparse
 import numpy as np
 import pandas as pd
 
+import seaborn as sns
+from matplotlib.colors import LogNorm, Normalize
 import matplotlib.pylab as plt
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -155,8 +157,8 @@ def plot_ub_lb_convergence(env_name, gamma, fig_fname=None):
     z = 1.96
     
     # Plot 1:
-    ub_color_arr=["blue","red","green","yellow"]
-    lb_color_arr=["blue","red","green","yellow"]
+    ub_color_arr=["blue","red","green","orange"]
+    lb_color_arr=["blue","red","green","orange"]
     lss_arr = ["dashed", "dotted", "dashdot", (1,(3,5,1,5,1,5))]
     label_arr = ["point", "adapt aggregate", "true", "univ. aggregate (only lb)"]
 
@@ -230,7 +232,7 @@ def plot_ub_lb_convergence(env_name, gamma, fig_fname=None):
     if exp_id == 1:
         y_lim = (-20, 10) if env_id == 0 else (-75, 20)
     else:
-        y_lim = (-150, 80) if env_id == 0 else (-10_000, 1_000)
+        y_lim = (-150, 80) if env_id == 0 else (-200, 100)
     for i in range(2):
         axes[i].legend(loc=3)
         axes[i].set(
@@ -279,8 +281,8 @@ def plot_ub_lb_convergence2(env_name, gamma, fig_fname=None):
     z = 1.96
     
     # Plot 1:
-    ub_color_arr=["blue","red","green","yellow"]
-    lb_color_arr=["blue","red","green","yellow"]
+    ub_color_arr=["blue","red","green","orange"]
+    lb_color_arr=["blue","red","green","orange"]
     lss_arr = ["dashed", "dotted", "dashdot", (1,(3,5,1,5,1,5))]
 
     # plot OPT
@@ -296,7 +298,7 @@ def plot_ub_lb_convergence2(env_name, gamma, fig_fname=None):
     # we only want upper and lower bounds for the three labels
     label_arr = ["adapt aggregate", "univ. aggregate (only lb)", "worst-case (only lb)", "apriori (only lb)"]
     data2 = np.zeros((data.shape[1:3] + (8,)), dtype=float)
-    barQ = 10
+    barQ = 1./(1.-gamma)
     logA = np.log(4)/np.log(2)
     agg_V_ub = data[env_id,:,:,1+3*1]
     agg_V_lb = data[env_id,:,:,2+3*1]
@@ -338,7 +340,7 @@ def plot_ub_lb_convergence2(env_name, gamma, fig_fname=None):
     if exp_id == 1:
         y_lim = (-25, 15) if env_id == 0 else (-75, 20)
     else:
-        y_lim = (-200, 100) if env_id == 0 else (-10_000, 1_000)
+        y_lim = (-200, 100) if env_id == 0 else (-2_000, 500)
     ax.legend(loc=3)
     ax.set(
         xlim=(0,len(xs)),
@@ -392,17 +394,56 @@ def print_validation_results(env_name, gamma):
     print(dashed_msg)
     print(row_format.format("E|V-tilde(V)|", "%.6f" % np.mean(data[env_id,:,6]), "%.6f" % np.mean(data[env_id,:,7])))
 
+def plot_gap(metric, fig_fname=None):
+    """ Plot heatmap of gap function for gridworld gamma=0.99 """
+    exp_id = 3 # gamma = 0.99
+    run_id = 0 # gridworld
+    folder = os.path.join("logs", DATE, "exp_%d" % exp_id)
+    data = np.zeros((N_SEEDS, 20*20), dtype=float)
+
+    for seed_id in range(N_SEEDS):
+        fname = os.path.join(folder, "run_%d" % run_id, "agg_advgap_seed=%d.csv" % seed_id)
+        exp_data = np.squeeze(read_alg_seed_performance(fname))
+        data[seed_id,:] = exp_data[1:]
+
+    target = 235
+    traps = [2,9,39,42,52,54,77,79,80,93,107,132,133,141,176,216,219,263,291,336]
+    labels = np.empty((20,20), dtype=str)
+    labels[target%20,target//20] = "o"
+    for trap in traps:
+        labels[trap%20,trap//20] = "x"
+
+    # https://stackoverflow.com/questions/33282368/plotting-a-2d-heatmap
+    gap_map = np.reshape(
+        np.mean(data, axis=0) if metric=="mean" else np.std(data, axis=0), 
+        newshape=(20,20))
+    ax = sns.heatmap(gap_map, linewidth=0.5, norm=LogNorm(), annot=labels, fmt='')
+    ax.set(
+        title="%s of the empirical advantage gap for\nGridWorld, gamma=0.99 (target=o, trap=x)" % ("Mean" if metric=="mean" else "Deviation"),
+        xlabel="x-coordinate",
+        ylabel="y-coordinate",
+    )
+    plt.tight_layout()
+
+    if fig_fname is None:
+        plt.show()
+    else:
+        plt.savefig(fig_fname, dpi=240)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--plot", action="store_true")
-    parser.add_argument("--env_name", type=str, required=True, choices=["gridworld_small", "taxi"])
-    parser.add_argument("--gamma", type=float, required=True, choices=[0.9, 0.99])
+    parser.add_argument("--report", type=str, default="plot", choices=["plot", "print", "uq"])
+    parser.add_argument("--env_name", type=str, default="gridworld_small" , choices=["gridworld_small", "taxi"])
+    parser.add_argument("--gamma", type=float, default=0.9, choices=[0.9, 0.99])
     args = parser.parse_args()
 
     env_name = args.env_name
     gamma = args.gamma
-    if args.plot:
+    if args.report == "plot":
         # plot_ub_lb_convergence(env_name, gamma, "%s_convergence_%.3f.png" % (env_name, gamma))
         plot_ub_lb_convergence2(env_name, gamma, "%s_convergence_%.3f.png" % (env_name, gamma))
-    else:
+    elif args.report == "print":
         print_validation_results(env_name, gamma)
+    else:
+        metric = "mean"
+        plot_gap(metric, "gridworld_small_gamma=0.99_metric=%s.png" % metric)

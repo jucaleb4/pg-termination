@@ -145,13 +145,13 @@ def _train(settings):
         logger.log(
             t+1, 
             np.dot(env.rho, V_t), 
-            np.dot(env.rho, V_t - np.max(-psi_t, axis=1)/(1.-env.gamma)), 
+            np.dot(env.rho, V_t - np.maximum(0, np.max(-psi_t, axis=1)/(1.-env.gamma))), 
             np.dot(env.rho, V_t - np.max(-psi_t)/(1.-env.gamma)), 
             np.dot(env.rho, agg_V_t), 
-            np.dot(env.rho, agg_V_t - np.max(-agg_psi_t, axis=1)/(1.-env.gamma)), 
+            np.dot(env.rho, agg_V_t - np.maximum(0, np.max(-agg_psi_t, axis=1)/(1.-env.gamma))), 
             np.dot(env.rho, agg_V_t - np.max(-agg_psi_t)/(1.-env.gamma)), 
             np.dot(env.rho, true_V_t), 
-            np.dot(env.rho, true_V_t - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
+            np.dot(env.rho, true_V_t - np.maximum(0, np.max(-true_psi_t, axis=1)/(1.-env.gamma))),
             np.dot(env.rho, true_V_t - np.max(-true_psi_t)/(1.-env.gamma)),
         )
         # logger_point_adv.log(t+1, *list(psi_t.ravel()))
