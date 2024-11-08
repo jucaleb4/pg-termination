@@ -179,7 +179,7 @@ def _train(settings):
 
     # logger_agg_adv.log(t+1, *list(double_agg_psi.ravel()))
     logger_agg_V.log(t+1, *list(agg_V_t))
-    double_agg_advgap = np.max(-agg_psi_t, axis=1) 
+    double_agg_advgap = np.maximum(0, np.max(-agg_psi_t, axis=1))
     logger_agg_advgap.log(t+1, *list(double_agg_advgap))
 
     logger_agg_V.save()
@@ -189,17 +189,17 @@ def _train(settings):
 
     print("Offline: f=%.2e (fstar=%.2e) | true_f=%.2e (est_true_f_star=%.2e)" % (
         np.dot(env.rho, agg_V), 
-        np.dot(env.rho, double_agg_V - np.max(-double_agg_psi, axis=1)/(1.-env.gamma)), 
+        np.dot(env.rho, double_agg_V - np.maximum(0, np.max(-double_agg_psi, axis=1)/(1.-env.gamma))), 
         np.dot(env.rho, true_V), 
-        np.dot(env.rho, true_V - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
+        np.dot(env.rho, true_V - np.maximum(0, np.max(-true_psi_t, axis=1)/(1.-env.gamma))),
     ))
 
     logger_validation.log(
         np.dot(env.rho, agg_V), 
-        np.dot(env.rho, double_agg_V - np.max(-double_agg_psi, axis=1)/(1.-env.gamma)), 
+        np.dot(env.rho, double_agg_V - np.maximum(0, np.max(-double_agg_psi, axis=1)/(1.-env.gamma))), 
         np.dot(env.rho, double_agg_V - np.max(-double_agg_psi)/(1.-env.gamma)),
         np.dot(env.rho, true_V), 
-        np.dot(env.rho, true_V - np.max(-true_psi, axis=1)/(1.-env.gamma)),
+        np.dot(env.rho, true_V - np.maximum(0, np.max(-true_psi, axis=1)/(1.-env.gamma))),
         np.dot(env.rho, true_V - np.max(-true_psi)/(1.-env.gamma)),
         agg_V_err, 
         avg_total_V_err,
