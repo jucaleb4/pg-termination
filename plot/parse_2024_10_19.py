@@ -269,6 +269,7 @@ def plot_ub_lb_convergence2(env_name, gamma, fig_fname=None):
     print("gamma: %.3f" % gamma)
     print("env, exp: ", env_id, exp_id)
 
+    import ipdb; ipdb.set_trace()
     data = read_all_alg_seed_performances(exp_id)
 
     plt.style.use('ggplot')
@@ -297,6 +298,7 @@ def plot_ub_lb_convergence2(env_name, gamma, fig_fname=None):
     """
     # we only want upper and lower bounds for the three labels
     label_arr = ["adapt aggregate", "univ. aggregate (only lb)", "worst-case (only lb)", "apriori (only lb)"]
+    # keep dimension for (n_seeds, n_iters,) + (n_metrics=8,)
     data2 = np.zeros((data.shape[1:3] + (8,)), dtype=float)
     barQ = 1./(1.-gamma)
     logA = np.log(4)/np.log(2)
@@ -381,10 +383,10 @@ def print_validation_results(env_name, gamma):
     print(row_format.format(*exp_metadata))
     print(dashed_msg)
 
-    print(row_format.format("online_V_agg", "%.6f" % np.mean(alg_data[env_id,:,-1,1]), "%.6f" % np.std(alg_data[env_id,:,-1,1])))
+    print(row_format.format("online_V_agg", "%.6f" % np.mean(alg_data[env_id,:,-1,1+3]), "%.6f" % np.std(alg_data[env_id,:,-1,1])))
     print(row_format.format("offline_V_agg", "%.6f" % np.mean(data[env_id,:,0]), "%.6f" % np.std(data[env_id,:,0])))
     print(row_format.format("offline_V_true", "%.6f" % np.mean(data[env_id,:,3]), "%.6f" % np.std(data[env_id,:,3])))
-    print(row_format.format("online_V*_agg", "%.6f" % np.mean(alg_data[env_id,:,-1,5]), "%.6f" % np.std(alg_data[env_id,:,-1,5])))
+    print(row_format.format("online_V*_agg", "%.6f" % np.mean(alg_data[env_id,:,-1,2+3]), "%.6f" % np.std(alg_data[env_id,:,-1,5])))
     print(row_format.format("offline_V*_agg", "%.6f" % np.mean(data[env_id,:,1]), "%.6f" % np.std(data[env_id,:,1])))
     print(row_format.format("offline_V*_true", "%.6f" % np.mean(data[env_id,:,4]), "%.6f" % np.std(data[env_id,:,4])))
 
