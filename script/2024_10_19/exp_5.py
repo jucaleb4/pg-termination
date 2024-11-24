@@ -11,7 +11,7 @@ from pg_termination import pmd
 
 MAX_RUNS = 2
 DATE = "2024_10_19"
-EXP_ID  = 3
+EXP_ID  = 5
 
 def parse_sub_runs(sub_runs):
     start_run_id, end_run_id = 0, MAX_RUNS
@@ -37,7 +37,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("update_rule", int(pmd.Update.KL_UPDATE)),
         ("estimate_Q", "generative"),
         ("env_name", "gridworld_small"),
-        ("gamma", 0.99),
+        ("gamma", 0.95),
         ("N", 1),
         ("T", 125), 
         ("validation_k", 125),
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seed_0 = 0
     n_seeds = 1 if args.mode == "work" else 10
-    n_iters = 500
+    n_iters = 350
 
     if args.setup:
         setup_setting_files(seed_0, n_seeds, n_iters)

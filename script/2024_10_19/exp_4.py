@@ -11,7 +11,7 @@ from pg_termination import pmd
 
 MAX_RUNS = 12
 DATE = "2024_10_19"
-EXP_ID  = 2
+EXP_ID  = 4
 
 def parse_sub_runs(sub_runs):
     start_run_id, end_run_id = 0, MAX_RUNS
