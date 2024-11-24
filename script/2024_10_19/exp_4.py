@@ -37,7 +37,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("update_rule", int(pmd.Update.KL_UPDATE)),
         ("estimate_Q", "generative"),
         ("env_name", "gridworld_small"),
-        ("gamma", 0.99),
+        ("gamma", 0.95),
         ("N", 1),
         ("T", 200), 
         ("validation_k", 50),

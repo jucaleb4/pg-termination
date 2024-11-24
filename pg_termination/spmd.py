@@ -69,21 +69,6 @@ def _train(settings):
         keys=["iter", "point value", "point opt_lb", "point uni_opt_lb", "agg value", "agg opt_lb", "agg uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb"], 
         dtypes=['d'] + ['f'] * 9
     )
-    # logger_point_adv = BasicLogger(
-    #     fname=os.path.join(settings["log_folder"], "point_agap_seed=%d.csv" % seed), 
-    #     keys=["iter"] + ["(s_%d,a_%d)" % (s,a) for a in range(env.n_actions) for s in range(env.n_states)],
-    #     dtypes=['d'] + ['f'] * (env.n_states*env.n_actions),
-    # )
-    # logger_agg_adv = BasicLogger(
-    #     fname=os.path.join(settings["log_folder"], "agg_agap_seed=%d.csv" % seed), 
-    #     keys=["iter"] + ["(s_%d,a_%d)" % (s,a) for a in range(env.n_actions) for s in range(env.n_states)],
-    #     dtypes=['d'] + ['f'] * (env.n_states*env.n_actions),
-    # )
-    # logger_point_V = BasicLogger(
-    #     fname=os.path.join(settings["log_folder"], "point_V_seed=%d.csv" % seed), 
-    #     keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
-    #     dtypes=['d'] + ['f'] * env.n_states,
-    # )
     logger_agg_V = BasicLogger(
         fname=os.path.join(settings["log_folder"], "agg_V_seed=%d.csv" % seed), 
         keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
@@ -107,8 +92,11 @@ def _train(settings):
     next_greedy_pi_t = np.copy(pi_0)
     pi_star = None
 
+    # copy of aggregate and true
     agg_psi_t = np.zeros((env.n_states, env.n_actions), dtype=float)
     agg_V_t = np.zeros(env.n_states, dtype=float)
+    true_psi_t = np.zeros((env.n_states, env.n_actions), dtype=float)
+    true_V_t = np.zeros(env.n_states, dtype=float)
 
     stepsize_scheduler = pmd.StepsizeSchedule(env, settings["stepsize_rule"], settings.get("eta",1))
 
@@ -117,7 +105,8 @@ def _train(settings):
         env.init_estimate_advantage_online_linear(settings)
 
     for t in range(settings["n_iters"]):
-        (true_psi_t, true_V_t) = env.get_advantage(pi_t)
+        if not settings["skip_true_model"]:
+            (true_psi_t, true_V_t) = env.get_advantage(pi_t)
 
         if settings["estimate_Q"] == "generative":
             (psi_t, V_t) = env.estimate_advantage_generative(pi_t, settings["N"], settings["T"])

@@ -47,6 +47,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("linear_eta0", 1e-2), # 1e-2, 1e-3
         ("linear_max_iter", 10), # 1000, 100, 10
         ("linear_alpha", 1e-4), # 1e-3, 1e-4
+        ("skip_true_model", True), 
     ])
 
     stepsize_pairs_arr = [
@@ -127,6 +128,7 @@ if __name__ == "__main__":
 
         for i in range(start_run_id, end_run_id):
             settings_file = os.path.join(folder_name, "run_%i.yaml" % i)
+            os.system('echo "%s"' % ('-'*25))
             os.system('echo "Running exp id %d"' % i)
             os.system("python run.py --settings %s%s" % (
                 settings_file, 
