@@ -39,8 +39,8 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("env_name", "gridworld_small"),
         ("gamma", 0.99),
         ("N", 1),
-        ("T", 250), 
-        ("validation_k", 250),
+        ("T", 125), 
+        ("validation_k", 125),
         ("pi_threshold", 1e-4),
         ("eta", 0.1),
         ("linear_learning_rate", "constant"), # constant, optimal
@@ -50,7 +50,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("skip_true_model", True), 
     ])
 
-    env_name_eta_arr = [("gridworld_small", 0.1), ("taxi", 0.1)]
+    env_name_eta_arr = [("gridworld_small", 1), ("taxi", 0.1)]
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
 

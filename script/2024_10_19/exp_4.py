@@ -39,8 +39,8 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         ("env_name", "gridworld_small"),
         ("gamma", 0.95),
         ("N", 1),
-        ("T", 200), 
-        ("validation_k", 50),
+        ("T", 100), 
+        ("validation_k", 100),
         ("pi_threshold", 1e-4),
         ("eta", 1),
         ("linear_learning_rate", "constant"), # constant, optimal
