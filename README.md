@@ -36,11 +36,9 @@ analysis step.  Our report is given below:
 ## Run experiments
 For gamma=0.9
 ```
-python script/2024_10_19/exp_1.py --setup --mode full 
+python script/2024_10_19/exp_1.py --setup --mode full # change full->test to get it working
 python script/2024_10_19/exp_1.py --run
 ```
-If you only want to see if the code runs, change the `--mode` flag to "test".
-If you have parallel processors, add a `--parallel` flag after the `--run` flag.
 
 You can repeat the same experiment for different discount factors by changing the exp_1 to:
 - exp_3: gamma=0.99
@@ -57,7 +55,8 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99 --plot
 
 To create the tables (for offline validation analysis):
 ```
-python plot/parse_2024_10_19.py --env_name gridworld_small --gamma 0.9 --print
-python plot/parse_2024_10_19.py --env_name gridworld_small --gamma 0.95 --print
-python plot/parse_2024_10_19.py --env_name gridworld_small --gamma 0.99 --print
+python plot/parse_2024_10_19.py --env_name gridworld_small --gamma 0.9
+python plot/parse_2024_10_19.py --env_name gridworld_small --gamma 0.99
+python plot/parse_2024_10_19.py --env_name taxi --gamma 0.9
+python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 ```
