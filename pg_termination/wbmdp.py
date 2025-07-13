@@ -58,6 +58,42 @@ class MDPModel():
         # initialize rbf for solving with linear function approx
         self.init_linear = False
 
+    def get_stationary(self, pi):
+        P_pi = np.einsum('psa,as->ps', self.P, pi)
+        P_prime = np.vstack((np.eye(self.n_states) - P_pi, np.ones(self.n_states)))
+        nu = la.lstsq(P_prime, np.append(np.zeros(self.n_states), 1))[0]
+        # normalizeg
+        nu = np.maximum(nu, 0)
+        nu = nu/np.sum(nu)
+
+        # check reversibility
+        # la.norm(np.diag(nu)*(P_pi - P_pi.T))
+
+        return nu
+
+    def _get_spectral_gap(self, pi):
+        """
+        Spectral gap is 1-max(|lam_2|,|lam_n|)
+        """
+        P_pi = np.einsum('psa,as->ps', self.P, pi) 
+        eigvals = np.sort(la.eig(P_pi)[0].real)[::-1]
+        return 1. - max(abs(eigvals[1]), abs(eigvals[-1]))
+
+    def get_mixing_time_ub(self, pi):
+        """ Use
+
+            $$(t_relax-1)*ln(2) <= t_mix <= t_relax\ln(4/nu_*),$$
+
+        where nu_* is the smallest steady state distribution value and t_relax=1/(spec_gap).
+        """
+        spec_gap = self._get_spectral_gap(pi)
+        nu = self.get_stationary(pi)
+
+        if np.min(nu) == 0:
+            return np.inf
+
+        return np.log(4/np.min(nu))/spec_gap, nu
+
     def get_advantage(self, pi):
         assert pi.shape[0] == self.n_actions, "1st dimension of pi must equal n_actions=%d, was instead %d" % (self.n_actions, pi.shape[0])
         assert pi.shape[1] == self.n_states, "2nd dimension of pi must equal n_states=%d, was instead %d" % (self.n_states, pi.shape[1])
@@ -134,12 +170,14 @@ class MDPModel():
 
         return (psi, V_pi)
                     
-    def estimate_advantage_online_mc(self, pi, T, threshold=0, bootstrap=False):
+    def estimate_advantage_online_mc(self, pi, T, threshold=0, bootstrap=False, penalize_missed=False):
         """
         https://arxiv.org/pdf/2303.04386
 
         :param T: duration to run Monte Carlo simulation
         :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again (rec: (1-gamma)**2/|A|)
+        :param bootstrap: bootstrap remaining cost to go with linear predictor for last item
+        :param penalize_missed: set missed state-action pairs to 1./(1-gamma)
         :return visit_len_state_action: how long the Monte carlo estimate is at every state-aciton pair
         """
         costs = np.zeros(T, dtype=float)
@@ -164,6 +202,8 @@ class MDPModel():
             cumulative_discounted_costs[t] = costs[t] + self.gamma*cumulative_discounted_costs[t+1]
 
         Q = np.zeros((self.n_states, self.n_actions), dtype=float)
+        if penalize_missed:
+            Q[:,:] = np.max(np.abs(self.c))/(1.-self.gamma)
         visit_len_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
         for t in range(T):
             (s,a) = states[t], actions[t]
@@ -809,9 +849,11 @@ def get_env(name, gamma, seed=None):
     if name == "gridworld_small":
         env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_small_sparse":
-        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, n_origins=5)
+        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, n_origins=1)
     elif name == "gridworld_large":
         env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True)
+    elif name == "gridworld_large_sparse":
+        env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True, n_origins=1)
     elif name == "gridworld_hill_small":
         env = GridWorldWithTrapsAndHills(20, 20, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_hill_large":

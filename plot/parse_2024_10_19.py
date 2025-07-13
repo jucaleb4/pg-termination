@@ -15,7 +15,7 @@ DATE = "2024_10_19"
 N_SEEDS = 10
 N_SAMPLES_PER_STATE_PER_ITER = 50
 # first two are for gamma=0.9 (gridworld and taxi), next two are 0.99
-opt_arr = [[5.108817, -3.2235],[23.37597, -73.35445]]
+opt_arr = [[5.108817, -3.2235],[23.37597, -73.35445],[0,0]]
 
 # TODO: Show sparse? 
 env_name_map = {
@@ -32,6 +32,7 @@ env_name_map = {
 gamma_to_exp_id_map = {
     "0.9": 1,
     "0.99": 3,
+    "0.95": 5,
 }
 
 """
@@ -269,7 +270,6 @@ def plot_ub_lb_convergence2(env_name, gamma, fig_fname=None):
     print("gamma: %.3f" % gamma)
     print("env, exp: ", env_id, exp_id)
 
-    import ipdb; ipdb.set_trace()
     data = read_all_alg_seed_performances(exp_id)
 
     plt.style.use('ggplot')
@@ -436,7 +436,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", type=str, default="plot", choices=["plot", "print", "uq"])
     parser.add_argument("--env_name", type=str, default="gridworld_small" , choices=["gridworld_small", "taxi"])
-    parser.add_argument("--gamma", type=float, default=0.9, choices=[0.9, 0.99])
+    parser.add_argument("--gamma", type=float, default=0.9, choices=[0.9, 0.95, 0.99])
     args = parser.parse_args()
 
     env_name = args.env_name

@@ -85,6 +85,11 @@ def _train(settings):
 
         dtypes=['f'] * 8,
     )
+    logger_mixing = BasicLogger(
+        fname=os.path.join(settings["log_folder"], "mixing_seed=%d.csv" % seed),  
+        keys=["iter"] + ["nu_lb", "t_mix"],
+        dtypes=['d'] + ['f'] * 2,
+    )
 
     pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
     pi_t = pi_0
@@ -147,6 +152,8 @@ def _train(settings):
         # logger_agg_adv.log(t+1, *list(agg_psi_t.ravel()))
         # logger_point_V.log(t+1, *list(V_t))
         # logger_agg_V.log(t+1, *list(agg_V_t))
+        t_mix, nu = env.get_mixing_time_ub(pi_t)
+        logger_mixing.log(t, np.min(nu), t_mix)
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
         policy_update(pi_t, psi_t, eta_t) 
@@ -158,6 +165,7 @@ def _train(settings):
     # logger_agg_adv.save()
     # logger_point_V.save()
     # logger_agg_V.save()
+    logger_mixing.save()
 
     # policy validation
     output = policy_validation(env, pi_t, settings)
