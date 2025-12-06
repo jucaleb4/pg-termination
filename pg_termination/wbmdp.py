@@ -77,6 +77,8 @@ class MDPModel():
         """
         P_pi = np.einsum('psa,as->ps', self.P, pi) 
         eigvals = np.sort(la.eig(P_pi)[0].real)[::-1]
+        if len(eigvals) == 1:
+            return 1e-6
         return 1. - max(abs(eigvals[1]), abs(eigvals[-1]))
 
     def get_mixing_time_ub(self, pi):
@@ -269,7 +271,7 @@ class MDPModel():
         n_samples = T
         return (nu_est, tmix_est, n_samples)
 
-    def estimate_advantage_online_mc_dynamic(self, pi, threshold=0, eps=np.exp(-10)):
+    def estimate_advantage_online_mc_dynamic(self, pi, eps, threshold=0):
         """
 
         :param eps: accuracy threshold
@@ -306,10 +308,8 @@ class MDPModel():
                 states = np.append(states, np.zeros(len(states), dtype=int))
                 actions = np.append(actions, np.zeros(len(actions), dtype=int))
 
-        # dynamic mixing time
-        T = t
-
-        # form advantage (dp style); 
+        # form advantage (dp style)
+        T = t # dynamic mixing time
         cumulative_discounted_costs = np.zeros(T, dtype=float)
         cumulative_discounted_costs[-1] = costs[-1]
         for t in range(T-2,-1,-1):
@@ -427,6 +427,166 @@ class MDPModel():
 
         return np.array(train_losses), np.array(test_losses)
 
+    def estimate_advantage_online_ctd(self, pi, Phi, ukappa, eps, delta, 
+            ctd_N_alt, ctd_iota_alt, prev_theta=None
+    ):
+        """
+        Forms nearly unbiased TD estimator that is bounded w.h.p.
+
+        :params pi: policy
+        :params Phi: feature matrix
+        :params ukappa: lower bound estimate of minimum discounted visit distribution
+        :params eps: accuracy tolerance
+        :params delta: failure rate
+        """
+
+        # initialize data and parameters
+        cum_samples = 0
+        uw = (1.-self.gamma)*ukappa**2/self.n_actions 
+        Phi_sigvals = la.svd(Phi)[1] 
+        Omega = np.max(Phi_sigvals)
+        mu = np.min(Phi_sigvals)**2
+        T  = Omega**2/((1.-self.gamma)*mu)
+        iota = (1.-self.gamma)/Omega**2 
+        N = int((T/uw) * max(1, np.log(1./eps))) 
+        # m = int(np.log(1./(uw*eps)**2)/np.log(1/self.gamma)) 
+        m = int(10/np.log(2)) 
+        eps_expl_s = 1.
+        eps_expl_a = (1.-self.gamma)*ukappa/4
+        # robust_trials = min(5, np.log(1./delta)/np.log(2))
+        robust_trials = 1
+
+        if ctd_N_alt > 0:
+            N = ctd_N_alt
+        if ctd_iota_alt > 0:
+            iota = ctd_iota_alt
+
+        hQ_arr = np.zeros((Phi.shape[0], robust_trials))
+        for j in range(robust_trials):
+            (Q_est, n_samples, theta) = self._nonrobust_ctd(
+                pi, Phi, iota, N, m, eps_expl_a, eps_expl_s, prev_theta)
+            hQ_arr[:,j] = Q_est
+            cum_samples += n_samples
+
+        hQ_arr_norms = la.norm(hQ_arr, ord=np.inf, axis=0)
+        j_star = np.argmin(hQ_arr_norms)
+
+        robust_hQ = hQ_arr[:,j_star]
+        robust_Q = np.reshape(robust_hQ, newshape=(self.n_states, self.n_actions), order='C')
+        robust_V = np.einsum('sa,as->s', robust_Q, pi)
+        robust_psi = robust_Q - np.outer(robust_V, np.ones(self.n_actions))
+
+        return (robust_psi, robust_V, cum_samples, theta)
+
+    def _nonrobust_ctd(self, pi, Phi, iota, N, m, eps_expl_a, eps_expl_s, prev_theta):
+        """
+        Forms nearly unbiased TD estimator with bounded second moment.
+        """
+        _, d = Phi.shape
+        theta_t = np.zeros(d) if prev_theta is None else prev_theta 
+        cum_samples = 0
+
+        # estimate most likely state
+        s_origin = self._most_likely_state(pi, N, m, eps_expl_s)
+
+        for t in range(N):
+            (hF_t, n_samples) = self._get_hF_estimate(pi, m, s_origin, eps_expl_a, 
+                                                    eps_expl_s, Phi, theta_t)
+            # (hF_t, n_samples) = self._get_hF_minibatch_estimate(pi, m, Phi, theta_t)
+            theta_t = theta_t - iota*hF_t
+            cum_samples += n_samples
+
+        latter_avg_theta = np.zeros(d)
+        for t in range(N):
+            (hF_t, n_samples) = self._get_hF_estimate(pi, m, s_origin, eps_expl_a, 
+                                                    eps_expl_s, Phi, theta_t)
+            # (hF_t, n_samples) = self._get_hF_minibatch_estimate(pi, m, Phi, theta_t)
+            theta_t = theta_t - iota*hF_t
+            alpha_t = 1./(t+1)
+            latter_avg_theta = (1.-alpha_t)*latter_avg_theta + alpha_t*theta_t
+            cum_samples += n_samples
+            
+        hQ = Phi@latter_avg_theta
+        return (hQ, cum_samples, latter_avg_theta)
+
+    def _most_likely_state(self, pi, N, m, eps_expl_s):
+        budget = int(N*m/10) # use 10% of total budget
+        state_counter = np.zeros(self.n_states)
+        state_counter[self.s] += 1
+
+        pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
+        for _ in range(budget):
+            a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
+            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s,a])
+            state_counter[self.s] += 1
+
+        return np.argmax(state_counter)
+
+    def _get_hF_estimate(self, pi, m, s_origin, eps_expl_a, eps_expl_s, Phi, theta):
+        # rand_t = self.rng.geometric(1.-self.gamma)
+        rand_t = self.rng.geometric(0.5)
+        _, d = Phi.shape
+        hF = np.zeros(d)
+        # if rand_t >= m:
+        #     print('skipped!')
+        #     return (np.zeros(d), 0)
+
+        # pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
+        # while self.s != s_origin:
+        #     a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
+        #     self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s,a])
+
+        for t in range(rand_t):
+            a = self.rng.choice(pi.shape[0], p=pi[:,self.s])
+            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s,a])
+
+        # form TD operator
+        pi_expl_a = (1.-eps_expl_a)*pi + (eps_expl_a/self.n_actions)
+        s_t = self.s
+        a_t = self.rng.choice(pi.shape[0], p=pi_expl_a[:,s_t])
+        # TODO: Regularization
+        c_t = self.c[s_t, a_t]
+        s_t_next = self.rng.choice(self.P.shape[0], p=self.P[:,s_t,a_t])
+        a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
+        self.s = self.rng.choice(self.P.shape[0], 
+                                 p=self.P[:,s_t_next,a_t_next])
+        rand_t += 2 
+        z_t_idx = s_t*self.n_actions + a_t
+        z_t_next_idx = s_t_next*self.n_actions + a_t_next
+        phi_t = Phi[z_t_idx,:]
+        phi_t_next = Phi[z_t_next_idx,:]
+        hF = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
+
+        return (hF, rand_t)
+
+    def _get_hF_minibatch_estimate(self, pi, m, Phi, theta):
+        """ takes minibatch of TD operators """
+        _, d = Phi.shape
+        hF_cum = np.zeros(d)
+
+        for t in range(m):
+            # form TD operator
+            s_t = self.s
+            a_t = self.rng.choice(pi.shape[0], p=pi[:,s_t])
+            # TODO: Regularization
+            c_t = self.c[s_t, a_t]
+            s_t_next = self.rng.choice(self.P.shape[0], p=self.P[:,s_t,a_t])
+            a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
+            self.s = self.rng.choice(self.P.shape[0], 
+                                     p=self.P[:,s_t_next,a_t_next])
+            z_t_idx = s_t*self.n_actions + a_t
+            z_t_next_idx = s_t_next*self.n_actions + a_t_next
+            phi_t = Phi[z_t_idx,:]
+            phi_t_next = Phi[z_t_next_idx,:]
+            hF_t = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
+
+            hF_cum += (self.gamma**t)*hF_t
+
+        hF_cum *= (1.-self.gamma)
+
+        return (hF_cum, m+1)
+
+
     # https://scikit-learn.org/stable/auto_examples/linear_model/plot_sgd_early_stopping.html#sphx-glr-auto-examples-linear-model-plot-sgd-early-stopping-py
     @ignore_warnings(category=ConvergenceWarning)
     def estimate_advantage_online_linear(self, pi, T):
@@ -497,6 +657,19 @@ class MDPModel():
 
         bQT = np.ones(dim)
         return np.linalg.solve(QTQ,bQT)
+
+class Bandits(MDPModel):
+
+    def __init__(self, n_arms, gamma, seed):
+        n_actions = n_arms
+        n_states = 1
+
+        P = np.ones((n_states, n_states, n_actions), dtype=float)
+        c = np.zeros((n_states, n_actions), dtype=float)
+        c[0,:] = np.linspace(0,1,num=n_arms,endpoint=True)
+        rho = np.ones(1)
+
+        super().__init__(n_states, n_actions, c, P, gamma, rho, seed)
 
 class GridWorldWithTraps(MDPModel):
 
@@ -958,7 +1131,9 @@ class Chain(MDPModel):
         super().__init__(n_states, n_actions, c, P, gamma)
 
 def get_env(name, gamma, seed=None):
-    if name == "gridworld_footnote":
+    if name == "bandits":
+        env = Bandits(4, gamma, seed=seed)
+    elif name == "gridworld_footnote":
         env = GridWorldWithTraps(5, 3, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_tiny":
         env = GridWorldWithTraps(10, 5, gamma, seed=seed, ergodic=True)

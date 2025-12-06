@@ -3,13 +3,14 @@ import sys
 import itertools
 import argparse
 import yaml
+import math
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 sys.path.insert(0, parent_dir)
 
 from pg_termination import pmd
 
-MAX_RUNS = 3
+MAX_RUNS = 4
 DATE = "2025_12_05"
 EXP_ID  = 0
 
@@ -27,33 +28,81 @@ def parse_sub_runs(sub_runs):
 
     return start_run_id, end_run_id
 
-def setup_setting_files(seed_0, n_seeds, n_iters):
+def get_parameter_settings(seed_0, n_seeds, n_iters, print_info=False):
     od = dict([
         ("seed_0", seed_0), 
         ("n_seeds", n_seeds), 
         ("n_iters", n_iters),
         ("alg", "spmd"),
+        ("eps", math.exp(-10)),
+        ("delta", 1e-2),
         ("stepsize_rule", int(pmd.StepSize.SUBLINEAR)), 
         ("update_rule", int(pmd.Update.KL_UPDATE)),
         ("estimate_Q", "online"),
         ("env_name", "gridworld_footnote"),
-        ("gamma", 0.99),
+        ("gamma", 0.9),
         ("N", 1), # number of replications in estimation
         ("T", 1000), # approximately log(5)/log(1/0.99)
         ("validation_k", 0), # skip post-validation if use conservative estimated values
-        ("pi_threshold", 1e-2),
+        ("pi_threshold_mult", 1.0),
         ("eta", 0.01),
         ("linear_learning_rate", "constant"), # constant, optimal
         ("linear_eta0", 1e-2), # 1e-2, 1e-3
         ("linear_max_iter", 10), # 1000, 100, 10
         ("linear_alpha", 1e-4), # 1e-3, 1e-4
         ("skip_true_model", False),
+        ("ctd_feature_size", 25),
+        ("ctd_N_alt", 1000),
+        ("ctd_iota_alt", 1e-1),
     ])
 
-    estimator_T_arr = [
-        ("online_mc_fixed", 500),
-        ("online_mc_estimate", 0),
-        ("online_mc_dynamic", 0),
+    od_info = [
+        ("seed_0", "start seed"), 
+        ("n_seeds", "num seeds"), 
+        ("n_iters", "num SPMD iters"),
+        ("alg", "which algorithm to run ('pmd', 'spmd', 'policyiter')"),
+        ("eps", "acc tolerance. Used for dynamic mixing time and CTD"),
+        ("delta", "failure rate (only used by CTD for robust est)"),
+        ("stepsize_rule", "stepsize rule (const, decr). See pmd.StepSizeint enum"),
+        ("update_rule", "pmd update (euc, kl, tsallis)"),
+        ("estimate_Q", "how to estimate Q (gen, Monte Carlo, CTD)"),
+        ("env_name", "environment"),
+        ("gamma", "discount factor"),
+        ("N", "number of replications in estimating Q (only for gen)"),
+        ("T", "Monte Carlo estimation length (only for gen, non-dynamic mc)"), 
+        ("validation_k", "offline validation step replication amt"),
+        ("pi_threshold_mult", "constant factor in cut-off for sub-opt actions"),
+        ("eta", "base step size"),
+        ("linear_learning_rate", "sklearn linear stepsize rule ('constant', 'optimal')"), 
+        ("linear_eta0", "sklearn linear starting stepsize"),
+        ("linear_max_iter", "sklearn linear iterations (may early terminate)"), 
+        ("linear_alpha", "sklearn regularization strength"), 
+        ("skip_true_model", "skips validation on true model - only works for non-gym envs"),
+        ("ctd_feature_size", "feature size for CTD (only)"),
+        ("ctd_N_alt", "User-chosen fixed CTD iterations (set to 0 to use theory)"),
+        ("ctd_iota_alt", "User-chosen fixed CTD stepsize (set to 0 to use theory)"),
+    ]
+
+    if print_info:
+        exp_metadata = ["setting", "description"]
+        row_format ="{:<20}|{:<60}"
+        print("")
+        print(row_format.format(*exp_metadata))
+        print("-" * (80+len(exp_metadata)-1))
+        for name, description in od_info:
+            print(row_format.format(name, description))
+        print("-" * (80+len(exp_metadata)-1))
+
+    return od
+
+def setup_setting_files(seed_0, n_seeds, n_iters, print_info):
+    od = get_parameter_settings(seed_0, n_seeds, n_iters, print_info)
+
+    n_iters_estimator_T_arr = [
+        (1000, "online_mc_fixed", 500),
+        (50, "online_mc_estimate", 0),
+        (50, "online_mc_dynamic", 0),
+        (250, "ctd", 0),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -65,21 +114,22 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
         os.makedirs(setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "estimator", "T"]
-    row_format ="{:>10}|{:>20}|{:>10}"
+    exp_metadata = ["Exp id", "n_iters", "estimator", "T"]
+    row_format ="{:>10}|{:>10}|{:>20}|{:>10}"
     print("")
     print(row_format.format(*exp_metadata))
-    print("-" * (40+len(exp_metadata)-1))
+    print("-" * (50+len(exp_metadata)-1))
 
     ct = 0
-    for ((estimator, T),) in itertools.product(estimator_T_arr):
+    for ((n_iters, estimator, T),) in itertools.product(n_iters_estimator_T_arr):
+        od["n_iters"] = n_iters
         od["estimate_Q"] = estimator
         od["T"] = T
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
-        print(row_format.format(ct, od["estimate_Q"], od["T"]))
+        print(row_format.format(ct, od["n_iters"], od["estimate_Q"], od["T"]))
 
         if not(os.path.exists(od["log_folder"])):
             os.makedirs(od["log_folder"])
@@ -93,8 +143,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--setup", action="store_true", help="Setup environments. Otherwise we run the experiments")
-    parser.add_argument("--run", action="store_true", help="Setup environments. Otherwise we run the experiments")
+    parser.add_argument("--setup", action="store_true", help="Setup environments (if not passed, no setup)")
+    parser.add_argument("--run", action="store_true", help="Runs experiments (applied after setup)")
+    parser.add_argument("--print_info", action="store_true", help="Prints description of all settings")
     parser.add_argument(
         "--mode", 
         type=str, 
@@ -115,7 +166,7 @@ if __name__ == "__main__":
     n_iters = 500
 
     if args.setup:
-        setup_setting_files(seed_0, n_seeds, n_iters)
+        setup_setting_files(seed_0, n_seeds, n_iters, args.print_info)
     elif args.run:
         start_run_id, end_run_id = parse_sub_runs(args.sub_runs)
         folder_name = os.path.join("settings", DATE, "exp_%i" % EXP_ID)

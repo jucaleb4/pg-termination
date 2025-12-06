@@ -1,6 +1,7 @@
 """ Basic stochastic PMD """
 import time
 import os
+import warnings
 from enum import IntEnum
 import multiprocessing as mp
 
@@ -49,8 +50,11 @@ def policy_validation(env, pi, settings):
             (psi, V, _, _) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"])
         elif settings["estimate_Q"] == "online_mc_dynamic":
             (psi, V, _, _) = env.estimate_advantage_online_mc_dynamic(pi, settings["pi_threshold"])
-        elif settings["estimate_Q"] == "linear":
+        elif settings["estimate_Q"] == "linear": # @depreciated
             (psi, V, _) = env.estimate_advantage_online_linear(pi, settings["T"])
+        elif settings["estimate_Q"] == "ctd":
+            # during validation, use online model
+            (psi, V, _, _) = env.estimate_advantage_online_mc_dynamic(pi, settings["pi_threshold"])
 
         agg_psi += psi
         agg_V += V
@@ -68,6 +72,17 @@ def policy_validation(env, pi, settings):
     return agg_psi, agg_V, agg_V_err, avg_total_V_err
 
 def _train(settings):
+    # TODO: Make this adaptive for SPMD with auto-exploration
+    _spmd(settings, 1.0)
+
+def _spmd(settings, ukappa):
+    """
+    SPMD training procedure 
+    
+    :param settings: dictionary of all user-defined parameter values
+    :param ukappa: estimation of ukappa (if using CTD and not set, will set warning and default to 0)
+    """
+    assert ukappa > 0, "ukappa=%.4e not positive" % ukappa
     seed = settings['seed']
 
     # env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
@@ -115,10 +130,17 @@ def _train(settings):
     cum_est_samples = 0
 
     stepsize_scheduler = pmd.StepsizeSchedule(env, settings["stepsize_rule"], settings.get("eta",1))
+    if "pi_threshold_mult" not in settings:
+        warnings.warn("We changed 'pi_threshold'->'pi_threshold_mult'. Please update the yaml file (defaulting to 'pi_threshold_mult=1')")
+        settings["pi_threshold_mult"] = 1.
+    settings["pi_threshold"] = settings["pi_threshold_mult"] * (1.-env.gamma)/env.n_actions
 
     s_time = time.time()
-    if settings["estimate_Q"] == "linear":
+    if settings["estimate_Q"] == "linear": # @depreciated
         env.init_estimate_advantage_online_linear(settings)
+    if settings["estimate_Q"] == "ctd": 
+        Phi = env.rng.normal(size=(env.n_states*env.n_actions, settings["ctd_feature_size"]))
+        theta = np.zeros(Phi.shape[1])
 
     for t in range(settings["n_iters"]):
         # this is only for logging/estimation
@@ -138,9 +160,15 @@ def _train(settings):
             T = int(1./(1-env.gamma) + tmix_est/np.min(nu_est) + 1)
             (psi_t, V_t, _, n_samples) = env.estimate_advantage_online_mc(pi_t, T, settings["pi_threshold"])
         elif settings["estimate_Q"] == "online_mc_dynamic":
-            (psi_t, V_t, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi_t, settings["pi_threshold"])
-        elif settings["estimate_Q"] == "linear":
+            (psi_t, V_t, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi_t, settings["eps"], settings["pi_threshold"])
+        elif settings["estimate_Q"] == "linear": # @depreciated
             (psi_t, V_t, n_samples) = env.estimate_advantage_online_linear(pi_t, settings["T"])
+        elif settings["estimate_Q"] == "ctd": 
+            # pass in theta as last argument to warm start (doesn't help too much)
+            (psi_t, V_t, n_samples, theta) = env.estimate_advantage_online_ctd(
+                pi_t, Phi, ukappa, settings["eps"], settings["delta"],
+                settings['ctd_N_alt'], settings['ctd_iota_alt']
+            )
         else: 
             raise Exception("Unknown estimate_Q setting %s" % settings["estimate_Q"])
 
@@ -150,7 +178,7 @@ def _train(settings):
         cum_samples += n_samples
         cum_est_samples += n_est_samples
 
-        if ((t+1) <= 100 and (t+1) % 5 == 0) or (t+1) % 100==0:
+        if ((t+1) <= 100 and (t+1) % 5 == 0) or (t+1) % 100==0 or t<=10:
             print("Iter %d: f=%.2e (fstar_lb=%.2e) | ag_f=%.2e (ag_fstar_lb=%.2e) | true_f=%.2e (true_fstar_lb=%.2e)" % (
                 t+1, 
                 np.dot(env.rho, V_t), 
@@ -172,10 +200,6 @@ def _train(settings):
             np.dot(env.rho, true_V_t - np.maximum(0, np.max(-true_psi_t, axis=1)/(1.-env.gamma))),
             np.dot(env.rho, true_V_t - np.max(-true_psi_t)/(1.-env.gamma)),
         )
-        # logger_point_adv.log(t+1, *list(psi_t.ravel()))
-        # logger_agg_adv.log(t+1, *list(agg_psi_t.ravel()))
-        # logger_point_V.log(t+1, *list(V_t))
-        # logger_agg_V.log(t+1, *list(agg_V_t))
         logger_mixing.log(t, cum_samples, cum_est_samples, np.min(nu), t_mix)
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
@@ -184,10 +208,6 @@ def _train(settings):
     print("Total runtime: %.2fs" % (time.time() - s_time))
 
     logger.save()
-    # logger_point_adv.save()
-    # logger_agg_adv.save()
-    # logger_point_V.save()
-    # logger_agg_V.save()
     logger_mixing.save()
 
     # policy validation
