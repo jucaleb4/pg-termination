@@ -37,20 +37,29 @@ def policy_validation(env, pi, settings):
 
     for i in range(settings["validation_k"]):
         if settings["estimate_Q"] == "generative":
-            (psi, V) = env.estimate_advantage_generative(pi, settings["N"], settings["T"])
-        elif settings["estimate_Q"] == "online":
-            (psi, V, _) = env.estimate_advantage_online_mc(pi, settings["T"], settings["pi_threshold"])
+            (psi, V, _) = env.estimate_advantage_generative(pi, settings["N"], settings["T"])
+        elif settings["estimate_Q"] == "online": # @depreciated
+            (psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T"], settings["pi_threshold"])
+        elif settings["estimate_Q"] == "online_mc_fixed":
+            (psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T"], settings["pi_threshold"])
+        elif settings["estimate_Q"] == "online_mc_estimate":
+            t_mix, nu = env.get_mixing_time_ub(pi)
+            (nu_est, tmix_est, _) = env.estimate_mixing_properties(pi, 0, tmix=t_mix, nu=nu)
+            T = int(1./(1-env.gamma) + tmix_est/np.min(nu_est) + 1)
+            (psi, V, _, _) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"])
+        elif settings["estimate_Q"] == "online_mc_dynamic":
+            (psi, V, _, _) = env.estimate_advantage_online_mc_dynamic(pi, settings["pi_threshold"])
         elif settings["estimate_Q"] == "linear":
-            (psi, V) = env.estimate_advantage_online_linear(pi, settings["T"])
+            (psi, V, _) = env.estimate_advantage_online_linear(pi, settings["T"])
 
         agg_psi += psi
         agg_V += V
         total_V_err += np.max(np.abs(V - true_V))
 
-    N = float(settings["validation_k"])
+    N = max(1, float(settings["validation_k"])) # avoid zero
+
     agg_psi /= N
     agg_V /= N
-
     agg_V_err = np.max(np.abs(agg_V - true_V))
     avg_total_V_err = total_V_err / N
 
@@ -87,8 +96,8 @@ def _train(settings):
     )
     logger_mixing = BasicLogger(
         fname=os.path.join(settings["log_folder"], "mixing_seed=%d.csv" % seed),  
-        keys=["iter"] + ["nu_lb", "t_mix"],
-        dtypes=['d'] + ['f'] * 2,
+        keys=["iter", "cum_samples", "cum_est_samples"] + ["nu_lb", "t_mix"],
+        dtypes=['d', 'd', 'd'] + ['f'] * 2,
     )
 
     pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
@@ -102,6 +111,8 @@ def _train(settings):
     agg_V_t = np.zeros(env.n_states, dtype=float)
     true_psi_t = np.zeros((env.n_states, env.n_actions), dtype=float)
     true_V_t = np.zeros(env.n_states, dtype=float)
+    cum_samples = 0
+    cum_est_samples = 0
 
     stepsize_scheduler = pmd.StepsizeSchedule(env, settings["stepsize_rule"], settings.get("eta",1))
 
@@ -110,21 +121,34 @@ def _train(settings):
         env.init_estimate_advantage_online_linear(settings)
 
     for t in range(settings["n_iters"]):
+        # this is only for logging/estimation
+        n_est_samples = 0
+        t_mix, nu = env.get_mixing_time_ub(pi_t)
         if not settings["skip_true_model"]:
             (true_psi_t, true_V_t) = env.get_advantage(pi_t)
 
         if settings["estimate_Q"] == "generative":
-            (psi_t, V_t) = env.estimate_advantage_generative(pi_t, settings["N"], settings["T"])
-        elif settings["estimate_Q"] == "online":
-            (psi_t, V_t, _) = env.estimate_advantage_online_mc(pi_t, settings["T"], settings["pi_threshold"])
+            (psi_t, V_t, n_samples) = env.estimate_advantage_generative(pi_t, settings["N"], settings["T"])
+        elif settings["estimate_Q"] == "online": # @depreciated
+            (psi_t, V_t, _, n_samples) = env.estimate_advantage_online_mc(pi_t, settings["T"], settings["pi_threshold"])
+        elif settings["estimate_Q"] == "online_mc_fixed":
+            (psi_t, V_t, _, n_samples) = env.estimate_advantage_online_mc(pi_t, settings["T"], settings["pi_threshold"])
+        elif settings["estimate_Q"] == "online_mc_estimate":
+            (nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi_t, 0, tmix=t_mix, nu=nu)
+            T = int(1./(1-env.gamma) + tmix_est/np.min(nu_est) + 1)
+            (psi_t, V_t, _, n_samples) = env.estimate_advantage_online_mc(pi_t, T, settings["pi_threshold"])
+        elif settings["estimate_Q"] == "online_mc_dynamic":
+            (psi_t, V_t, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi_t, settings["pi_threshold"])
         elif settings["estimate_Q"] == "linear":
-            (psi_t, V_t) = env.estimate_advantage_online_linear(pi_t, settings["T"])
+            (psi_t, V_t, n_samples) = env.estimate_advantage_online_linear(pi_t, settings["T"])
         else: 
             raise Exception("Unknown estimate_Q setting %s" % settings["estimate_Q"])
 
         alpha_t = 1./(t+1)
         agg_psi_t = (1.-alpha_t)*agg_psi_t + alpha_t*psi_t
         agg_V_t = (1.-alpha_t)*agg_V_t + alpha_t*V_t
+        cum_samples += n_samples
+        cum_est_samples += n_est_samples
 
         if ((t+1) <= 100 and (t+1) % 5 == 0) or (t+1) % 100==0:
             print("Iter %d: f=%.2e (fstar_lb=%.2e) | ag_f=%.2e (ag_fstar_lb=%.2e) | true_f=%.2e (true_fstar_lb=%.2e)" % (
@@ -152,8 +176,7 @@ def _train(settings):
         # logger_agg_adv.log(t+1, *list(agg_psi_t.ravel()))
         # logger_point_V.log(t+1, *list(V_t))
         # logger_agg_V.log(t+1, *list(agg_V_t))
-        t_mix, nu = env.get_mixing_time_ub(pi_t)
-        logger_mixing.log(t, np.min(nu), t_mix)
+        logger_mixing.log(t, cum_samples, cum_est_samples, np.min(nu), t_mix)
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
         policy_update(pi_t, psi_t, eta_t) 
@@ -236,4 +259,3 @@ def train(settings):
         p = mp.Process(target=_train, args=(customized_settings,))
         p.start()
         worker_queue.append(p)
-

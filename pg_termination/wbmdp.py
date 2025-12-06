@@ -80,10 +80,8 @@ class MDPModel():
         return 1. - max(abs(eigvals[1]), abs(eigvals[-1]))
 
     def get_mixing_time_ub(self, pi):
-        """ Use
-
-            $$(t_relax-1)*ln(2) <= t_mix <= t_relax\ln(4/nu_*),$$
-
+        """ Use 
+            $$(t_relax-1)*ln(2) <= t_mix <= t_relax ln(4/nu_*)$$,
         where nu_* is the smallest steady state distribution value and t_relax=1/(spec_gap).
         """
         spec_gap = self._get_spectral_gap(pi)
@@ -137,6 +135,8 @@ class MDPModel():
 
     def estimate_advantage_generative(self, pi, N, T):
         """
+        Uses matrix-vector tricks to speedup the generative model
+
         :param N: number of Monte Carlo simulations to run per state-action pair
         :param T: duration to for each Monte Carlo simulation
         """
@@ -167,34 +167,29 @@ class MDPModel():
 
         V_pi = np.einsum('sa,as->s', Q, pi)
         psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
+        total_samples = N*self.n_states*self.n_actions*T
 
-        return (psi, V_pi)
+        return (psi, V_pi, total_samples)
                     
-    def estimate_advantage_online_mc(self, pi, T, threshold=0, bootstrap=False, penalize_missed=False):
+    def estimate_advantage_online_mc(self, pi, T, threshold=0):
         """
         https://arxiv.org/pdf/2303.04386
 
         :param T: duration to run Monte Carlo simulation
         :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again (rec: (1-gamma)**2/|A|)
-        :param bootstrap: bootstrap remaining cost to go with linear predictor for last item
-        :param penalize_missed: set missed state-action pairs to 1./(1-gamma)
         :return visit_len_state_action: how long the Monte carlo estimate is at every state-aciton pair
         """
         costs = np.zeros(T, dtype=float)
         states = np.zeros(T, dtype=int)
         actions = np.zeros(T, dtype=int)
 
+        # TODO: Generalize this to online based
         for t in range(T):
             states[t] = self.s
             actions[t] = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
             costs[t] = self.c[states[t], actions[t]]
             self.s = self.rng.choice(self.P.shape[0], p=self.P[:,states[t],actions[t]])
 
-        # check bootstrap
-        if bootstrap and self.init_linear:
-            a_t = self.rng.choice(pi.shape[0], p=pi[:,self.s])
-            costs[-1] += self.gamma * self.predict([[self.s,a_t]])
-            
         # form advantage (dp style); 
         cumulative_discounted_costs = np.zeros(T, dtype=float)
         cumulative_discounted_costs[-1] = costs[-1]
@@ -202,8 +197,6 @@ class MDPModel():
             cumulative_discounted_costs[t] = costs[t] + self.gamma*cumulative_discounted_costs[t+1]
 
         Q = np.zeros((self.n_states, self.n_actions), dtype=float)
-        if penalize_missed:
-            Q[:,:] = np.max(np.abs(self.c))/(1.-self.gamma)
         visit_len_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
         for t in range(T):
             (s,a) = states[t], actions[t]
@@ -220,7 +213,126 @@ class MDPModel():
         V_pi = np.einsum('sa,as->s', Q, pi)
         psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
-        return (psi, V_pi, visit_len_state_action)
+        return (psi, V_pi, visit_len_state_action, T)
+
+    def estimate_mixing_properties(self, pi, T, tmix=0, nu=None):
+        """
+        https://proceedings.neurips.cc/paper/2015/file/7ce3284b743aefde80ffd9aec500e085-Paper.pdf
+
+        Note that this paper is for ergodic and reversible Markov chains. 
+        Ergodic can be found: https://proceedings.mlr.press/v99/wolfer19a/wolfer19a.pdf
+
+        However, the non-reversible is quite complicated, so we approximate with reversible for
+        simplicity. We also avoid confidence intervals to simplify the implementations.
+
+        :param T: number of samples to estimate mixing time. Overwritten if tmix and nu provided
+        :param tmix: true tmix 
+        :param nu: true stationary dist.
+        :return nu_est: estimated stationary distribution
+        :return tmix_est: estimated mixing time
+        :return n_samples: samples used for estimation
+        """
+        nu_est = np.zeros(self.n_states, dtype=float)
+        M_est = np.zeros((self.n_states, self.n_states), dtype=float)
+
+        if (tmix > 0) and (nu is not None):
+            trelax = tmix/np.log(2)
+            spec_gap = 1./trelax
+            nu_min = np.min(nu)
+            # https://arxiv.org/pdf/2303.04386 (based on Thm 4.1)
+            T = int(np.log(self.n_states)/(nu_min*spec_gap)+1)
+
+        # TODO: Generalize this to online based
+        s = self.s
+        for t in range(T):
+            nu_est[s] += 1
+            a = self.rng.choice(pi.shape[0], p=pi[:,s])
+            next_s = self.rng.choice(self.P.shape[0], p=self.P[:,s,a])
+            M_est[s,next_s] += 1
+            s = next_s
+
+        # normalize and compute intermediates
+        if np.min(nu_est) == 0:
+            nu_est += 1e-6 # small perturbation
+        nu_est /= T; M_est /= (T-1)
+        nu_est_invsq = np.reciprocal(np.sqrt(nu_est))
+        L = np.diag(nu_est_invsq)@M_est@np.diag(nu_est_invsq)
+        sym_L = 0.5*(L + L.T)
+        eig_sym_L = np.sort(la.eig(sym_L)[0])[::-1]
+
+        # estimate spectral gap
+        nu_est_lb = np.min(nu_est) 
+        spec_gap_est = 1 - max(eig_sym_L[1], abs(eig_sym_L[-1]))
+        trelax_est = 1./spec_gap_est
+        tmix_est = trelax_est * np.log(4/nu_est_lb)
+
+        n_samples = T
+        return (nu_est, tmix_est, n_samples)
+
+    def estimate_advantage_online_mc_dynamic(self, pi, threshold=0, eps=np.exp(-10)):
+        """
+
+        :param eps: accuracy threshold
+        :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again (rec: (1-gamma)**2/|A|)
+        :return visit_len_state_action: how long the Monte carlo estimate is at every state-aciton pair
+        """
+        cycle = 1024
+        T = cycle
+        costs = np.zeros(T, dtype=float)
+        states = np.zeros(T, dtype=int)
+        actions = np.zeros(T, dtype=int)
+        unvisited_sa = (pi >= threshold).astype(int)
+
+        # TODO: Generalize this to online based
+        t = 0
+        countdown = max(1, np.log(1./eps))
+        start_countdown = False
+        while countdown > 0:
+            states[t] = self.s
+            actions[t] = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            costs[t] = self.c[states[t], actions[t]]
+            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,states[t],actions[t]])
+            unvisited_sa[actions[t], states[t]] = 0
+
+            # check if we can terminate
+            if t % cycle == 0:
+                start_countdown = (np.max(unvisited_sa) == 0)
+            if start_countdown:
+                countdown -= 1
+
+            t += 1
+            if t == len(costs):
+                costs = np.append(costs, np.zeros(len(costs)))
+                states = np.append(states, np.zeros(len(states), dtype=int))
+                actions = np.append(actions, np.zeros(len(actions), dtype=int))
+
+        # dynamic mixing time
+        T = t
+
+        # form advantage (dp style); 
+        cumulative_discounted_costs = np.zeros(T, dtype=float)
+        cumulative_discounted_costs[-1] = costs[-1]
+        for t in range(T-2,-1,-1):
+            cumulative_discounted_costs[t] = costs[t] + self.gamma*cumulative_discounted_costs[t+1]
+
+        Q = np.max(np.abs(self.c))/(1.-self.gamma) * np.ones((self.n_states, self.n_actions), dtype=float)
+        visit_len_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
+        for t in range(T):
+            (s,a) = states[t], actions[t]
+            if visit_len_state_action[s,a] > 0:
+                continue
+            Q[s,a] = cumulative_discounted_costs[t]
+            visit_len_state_action[s,a] = T-t
+
+        # for proabibilities that are very low, set Q value to be high
+        (poor_sa_a, poor_sa_s) = np.where(pi <= threshold)
+        Q_max = np.max(np.abs(self.c))/(1.-self.gamma)
+        Q[poor_sa_s,poor_sa_a] = Q_max
+
+        V_pi = np.einsum('sa,as->s', Q, pi)
+        psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
+
+        return (psi, V_pi, visit_len_state_action, T)
 
     def init_estimate_advantage_online_linear(self, linear_settings):
         """ 
@@ -846,7 +958,11 @@ class Chain(MDPModel):
         super().__init__(n_states, n_actions, c, P, gamma)
 
 def get_env(name, gamma, seed=None):
-    if name == "gridworld_small":
+    if name == "gridworld_footnote":
+        env = GridWorldWithTraps(5, 3, gamma, seed=seed, ergodic=True)
+    elif name == "gridworld_tiny":
+        env = GridWorldWithTraps(10, 5, gamma, seed=seed, ergodic=True)
+    elif name == "gridworld_small":
         env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_small_sparse":
         env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, n_origins=1)
