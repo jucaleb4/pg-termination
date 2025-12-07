@@ -51,7 +51,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info=False):
         ("linear_max_iter", 10), # 1000, 100, 10
         ("linear_alpha", 1e-4), # 1e-3, 1e-4
         ("skip_true_model", False),
-        ("ctd_feature_size", 25),
+        ("ctd_feature_size", 100),
         ("ctd_N_alt", 1000),
         ("ctd_iota_alt", 1e-1),
     ])
