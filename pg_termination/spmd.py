@@ -71,23 +71,9 @@ def policy_validation(env, pi, settings):
 
     return agg_psi, agg_V, agg_V_err, avg_total_V_err
 
-def _train(settings):
-    # TODO: Make this adaptive for SPMD with auto-exploration
-    _spmd(settings, 1.0)
-
-def _spmd(settings, ukappa):
-    """
-    SPMD training procedure 
-    
-    :param settings: dictionary of all user-defined parameter values
-    :param ukappa: estimation of ukappa (if using CTD and not set, will set warning and default to 0)
-    """
-    assert ukappa > 0, "ukappa=%.4e not positive" % ukappa
+def get_loggers(settings):
     seed = settings['seed']
-
-    # env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
     env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
-
     logger = BasicLogger(
         fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
         keys=["iter", "point value", "point opt_lb", "point uni_opt_lb", "agg value", "agg opt_lb", "agg uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb"], 
@@ -115,7 +101,88 @@ def _spmd(settings, ukappa):
         dtypes=['d', 'd', 'd'] + ['f'] * 2,
     )
 
-    pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
+    return [logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing]
+
+def _train_with_tuning(settings):
+    logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing = get_loggers(settings)
+    seed = settings['seed']
+
+    logger_tune = BasicLogger(
+        fname=os.path.join(settings["log_folder"], "tuning_map_seed=%d.csv" % seed),  
+        keys=["round","tune_id", "n_iter", "explore_T"],
+        dtypes=['d', 'd', 'd', 'd'],
+    )
+
+    rng = np.random.default_rng(seed)
+    num_trials = settings['successive_half_trials']
+    n_iters = settings["n_iters"]
+    # define n_iters so that total successive halving does is approximately n_iters
+    sub_n_iters = max(1, int(n_iters/(np.log(num_trials)/np.log(2))))
+    settings["n_iters"] = sub_n_iters
+
+    log_min_T = np.log(settings['min_T'])/np.log(10)
+    log_max_T = np.log(settings['max_T'])/np.log(10)
+    Ts = np.power(10, rng.uniform(low=log_min_T, high=log_max_T, size=num_trials)).astype('int')
+    tune_id_arr = np.arange(num_trials)
+    tune_round = 0
+    while 1:
+        score_arr = np.zeros(len(Ts))
+        Pi_arr = None
+        # run all trials
+        for i, T in enumerate(Ts):
+            settings['T'] = T
+            pi_t, f_t = _spmd(settings, 1.0, logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing)
+            if Pi_arr is None:
+                Pi_arr = np.zeros((len(Ts),) + pi_t.shape)
+            Pi_arr[i,:,:] = pi_t
+            score_arr[i] = f_t
+
+            logger_tune.log(tune_round, tune_id_arr[i], sub_n_iters, T)
+
+        # save progress and update
+        if len(Pi_arr) <= 1:
+            break
+        # keep half the best
+        sorted_idx = np.argsort(score_arr)
+        sorted_idx = sorted_idx[:int(len(sorted_idx)/2)]
+        Pi_arr = Pi_arr[sorted_idx]
+        Ts = Ts[sorted_idx]
+        tune_id_arr = tune_id_arr[sorted_idx]
+        tune_round += 1
+
+    logger.save()
+    logger_mixing.save()
+    logger_agg_V.save()
+    logger_agg_advgap.save()
+    logger_validation.save()
+    logger_tune.save()
+
+def _train(settings):
+    logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing = get_loggers(settings)
+
+    _spmd(settings, 1.0, logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing)
+
+    logger.save()
+    logger_mixing.save()
+    logger_agg_V.save()
+    logger_agg_advgap.save()
+    logger_validation.save()
+
+def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing, pi_0=None):
+    """
+    SPMD training procedure 
+    
+    :param settings: dictionary of all user-defined parameter values
+    :param ukappa: estimation of ukappa (if using CTD and not set, will set warning and default to 0)
+    """
+    assert ukappa > 0, "ukappa=%.4e not positive" % ukappa
+    seed = settings['seed']
+
+    # env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
+    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
+
+    if pi_0 is None:
+        pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
     pi_t = pi_0
     greedy_pi_t = np.copy(pi_0)
     next_greedy_pi_t = np.copy(pi_0)
@@ -207,9 +274,6 @@ def _spmd(settings, ukappa):
 
     print("Total runtime: %.2fs" % (time.time() - s_time))
 
-    logger.save()
-    logger_mixing.save()
-
     # policy validation
     output = policy_validation(env, pi_t, settings)
     (agg_psi, agg_V, agg_V_err, avg_total_V_err) = output
@@ -221,9 +285,6 @@ def _spmd(settings, ukappa):
     logger_agg_V.log(t+1, *list(agg_V_t))
     double_agg_advgap = np.maximum(0, np.max(-agg_psi_t, axis=1))
     logger_agg_advgap.log(t+1, *list(double_agg_advgap))
-
-    logger_agg_V.save()
-    logger_agg_advgap.save()
 
     (true_psi, true_V) = env.get_advantage(pi_t)
 
@@ -244,7 +305,8 @@ def _spmd(settings, ukappa):
         agg_V_err, 
         avg_total_V_err,
     )
-    logger_validation.save()
+
+    return pi_t, np.dot(env.rho, V_t), 
 
 def train(settings):
     seed_0 = settings["seed_0"]
@@ -268,7 +330,10 @@ def train(settings):
         customized_settings["seed"] = seed
 
         if not parallel:
-            _train(customized_settings)
+            if customized_settings['tune_exploration']:
+                _train_with_tuning(customized_settings)
+            else:
+                _train(customized_settings)
             continue
 
         if len(worker_queue) == num_workers:

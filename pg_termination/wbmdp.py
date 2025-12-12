@@ -1130,6 +1130,88 @@ class Chain(MDPModel):
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
+class SimpleBattery(MDPModel):
+    def __init__(self, n_solar_pwr, n_battery_change_lim, n_price_pts, gamma, rho=None, seed=None):
+        """ Simple finite state finite action battery model with three elements:
+
+        - Solar panel - with n_solar_pwr different power points
+        - Energy storage - with [0, 2*n_solar_pwr + 4*battery_change_lim] storage settings)
+        - Grid - with n_price_pts different price points (around 10% will be negative)
+
+        The solar panel and grid change according to their own Markov chain.
+        The energy storage follows basic flow equations under the following constraints:
+
+        1. at most [-battery_change_lim,battery_change_lim] change in energy for the battery
+        2. if battery change is zero, all solar energy is sold
+        3. if battery change is positive, we first use solar energy before buying from grid
+        4. if battery change is negative, we also sell all solar energy.
+
+        The cost (which we want to minimize over time) at each step is
+
+            c_t = energy_price * battery_change
+        """
+
+        n_storage_pts = 2*n_solar_pwr + 4*n_battery_change_lim
+        storage_arr = np.arange(n_storage_pts)
+        max_storage = np.max(storage_arr)
+        solar_pwr_arr = np.arange(n_solar_pwr)
+        n_neg_prices = max(1, int(0.1*n_price_pts))
+        grid_price_arr = np.arange(-n_neg_prices, -n_neg_prices + n_price_pts)
+        battery_change_arr = np.arange(-n_battery_change_lim,n_battery_change_lim+1)
+
+        n_states = n_solar_pwr * n_price_pts * n_storage_pts
+        n_actions = len(battery_change_arr)
+
+        print("==== ENV INFO ====")
+        print("  storage values: ", storage_arr)
+        print("  solar values: ", solar_pwr_arr)
+        print("  price values: ", grid_price_arr)
+
+        P = np.zeros((n_states, n_states, n_actions), dtype=float)
+        c = np.zeros((n_states, n_actions), dtype=float)
+
+        def get_substate_index(i):
+            i_solar = i // (n_price_pts * n_storage_pts)
+            i_price = i // (n_storage_pts)
+            i_storage = i % n_storage_pts
+            return (i_solar, i_price, i_storage)
+
+        for x,a in enumerate(battery_change_arr):
+            for i in range(n_states):
+                (i_solar, i_price, i_storage) = get_substate_index(i)
+                # only enumerate all possible values of solar and price, 
+                # since next storage is fixed once we know current state and action
+                for j in range(n_solar_pwr * n_price_pts):
+                    (j_solar, j_price, _) = get_substate_index(j * n_storage_pts)
+                    prob_solar_change = 1./(abs(i_solar-j_solar)+1)
+                    prob_price_change = 1./(abs(i_price-j_price)+1)
+
+                    next_storage = np.clip(i_storage + a, 0, max_storage)
+                    i_next = j * n_storage_pts + next_storage
+                    # joint distribution of solar and price change
+                    P[i_next,i,a] = prob_solar_change * prob_price_change 
+
+                    # negative is we sold energy
+                    energy_change = (next_storage - i_storage) - i_solar
+                    c[i,a] = energy_change * i_price
+
+        # normalize
+        for i in range(P.shape[1]):
+            for j in range(P.shape[2]):
+                P[:,i,j] = P[:,i,j]/np.sum(P[:,i,j])
+        c -= np.min(c)
+        # c /= np.max(c)
+
+        if rho is None:
+            rho = np.ones(n_states, dtype=float)/n_states
+        self.rho = rho
+            
+        super().__init__(n_states, n_actions, c, P, gamma, rho, seed)
+
+    def get_target(self):
+        return self.target
+
+
 def get_env(name, gamma, seed=None):
     if name == "bandits":
         env = Bandits(4, gamma, seed=seed)
@@ -1157,7 +1239,10 @@ def get_env(name, gamma, seed=None):
         env = Random(100, 100, gamma, seed=seed)
     elif name == "chain":
         env = Chain(100, gamma, eps=1e-3, seed=seed)
+    elif name == "battery":
+        env = SimpleBattery(3, 2, 4, gamma, seed=seed)
     else:
         raise Exception("Unknown env_name=%s" % name)
 
     return env
+
