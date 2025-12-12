@@ -65,13 +65,7 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 
 ## Overview of experiments
 
-- `2025_12_05/exp_0.py`: test fixed, estimated, and dynamic MC on 5x5 GridWorld
-- `2025_12_06/exp_0.py`: test fixed, estimated, and guessed CTD on 5x5 GridWorld
-- `2025_12_06/exp_1.py`: CV MC on 5x5 GridWorld
-- `2025_12_06/exp_2.py`: CV CTD on 5x5 GridWorld
-- `2025_12_06/exp_3.py`: testing CV, estimated, and dynamic MC on 20x20 GW
-- `2025_12_06/exp_4.py`: testing CV, estimated, and guessed CTD on 20x20 GW
-- `2025_12_06/exp_5.py`: testing CV MC, dynamic MC, CV CTD, guessed CTD on Battery
-- `2025_12_07/exp_0.py`: test CV simple Q-learn on 5x5 GridWorld
-- `2025_12_07/exp_1.py`: test CV simple PPO on 5x5 GridWorld
-- `2025_12_07/exp_2.py`: test CV simple Q-learn, PPO on 20x20 GW, Battery
+- `2025_12_05/exp_0.py`: initial testing of fixed, estimated, dynamic MC, and CTD on 5x5 GridWorld
+- `2025_12_11/exp_0.py`: setup simple BatteryModel
+- `2025_12_11/exp_1.py`: successive hyper-tuning (one with noisy oracle, one with exact oracle)
+- `2025_12_11/exp_2.py`: running with best fixed exploration time from `exp_1.py` above

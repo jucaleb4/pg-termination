@@ -10,9 +10,9 @@ sys.path.insert(0, parent_dir)
 
 from pg_termination import pmd
 
-MAX_RUNS = 2
+MAX_RUNS = 3
 DATE = "2025_12_11"
-EXP_ID  = 1
+EXP_ID  = 2
 
 def parse_sub_runs(sub_runs):
     start_run_id, end_run_id = 0, MAX_RUNS
@@ -38,7 +38,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info=False):
         ("delta", 1e-2),
         ("stepsize_rule", int(pmd.StepSize.SUBLINEAR)), 
         ("update_rule", int(pmd.Update.KL_UPDATE)),
-        ("estimate_Q", "online"),
+        ("estimate_Q", "online_mc_fixed"),
         ("env_name", "battery"),
         ("gamma", 0.9),
         ("N", 1), # number of replications in estimation
@@ -54,7 +54,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info=False):
         ("ctd_feature_size", 100),
         ("ctd_N_alt", 1000),
         ("ctd_iota_alt", 1e-1),
-        ("tune_exploration", True),
+        ("tune_exploration", False),
         ("successive_half_trials", 16),
         ("min_T", 2e2),
         ("max_T", 4e5),
@@ -108,9 +108,10 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info=False):
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, print_info)
 
-    n_iters_estimator_T_truecost_arr = [
-        (50, "online_mc_fixed", 500, False),
-        (50, "online_mc_fixed", 500, True),
+    n_iter_T_arr = [
+        (int(1e6/204), 204),
+        (100, 206093),
+        (400, 50_000),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -122,23 +123,21 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info):
         os.makedirs(setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "n_iters", "estimator", "T", "true_cost"]
-    row_format ="{:>10}|{:>10}|{:>20}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "n_iters", "T"]
+    row_format ="{:>10}|{:>10}|{:>10}"
     print("")
     print(row_format.format(*exp_metadata))
-    print("-" * (60+len(exp_metadata)-1))
+    print("-" * (30+len(exp_metadata)-1))
 
     ct = 0
-    for ((n_iters, estimator, T, true_cost),) in itertools.product(n_iters_estimator_T_truecost_arr):
+    for ((n_iters, T),) in itertools.product(n_iter_T_arr):
         od["n_iters"] = n_iters
-        od["estimate_Q"] = estimator
         od["T"] = T
-        od["tune_true_cost"] = true_cost
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
-        print(row_format.format(ct, od["n_iters"], od["estimate_Q"], od["T"], od["tune_true_cost"]))
+        print(row_format.format(ct, od["n_iters"], od["T"]))
 
         if not(os.path.exists(od["log_folder"])):
             os.makedirs(od["log_folder"])
@@ -172,7 +171,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seed_0 = 0
     n_seeds = 1
-    n_iters = 500
+    n_iters = 50
 
     if args.setup:
         setup_setting_files(seed_0, n_seeds, n_iters, args.print_info)

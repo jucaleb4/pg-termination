@@ -90,7 +90,7 @@ class MDPModel():
         nu = self.get_stationary(pi)
 
         if np.min(nu) == 0:
-            return np.inf
+            return np.inf, nu
 
         return np.log(4/np.min(nu))/spec_gap, nu
 

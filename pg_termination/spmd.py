@@ -306,7 +306,8 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
         avg_total_V_err,
     )
 
-    return pi_t, np.dot(env.rho, V_t), 
+    returned_f = np.dot(env.rho, true_V) if settings.get("tune_true_cost", False) else np.dot(env.rho, V_t)
+    return pi_t, returned_f
 
 def train(settings):
     seed_0 = settings["seed_0"]
