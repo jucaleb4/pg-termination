@@ -111,7 +111,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info):
     n_iter_T_arr = [
         (int(1e6/204), 204),
         (100, 206093),
-        (400, 50_000),
+        (300, 50_000),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)

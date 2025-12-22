@@ -109,7 +109,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info):
     n_iters_estimator_T_arr = [
         (1000, "online_mc_fixed", 500),
         (20, "online_mc_estimate", 0),
-        (100, "online_mc_dynamic", 0),
+        (225, "online_mc_dynamic", 0),
         (250, "ctd", 0),
     ]
 

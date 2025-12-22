@@ -97,8 +97,8 @@ def get_loggers(settings):
     )
     logger_mixing = BasicLogger(
         fname=os.path.join(settings["log_folder"], "mixing_seed=%d.csv" % seed),  
-        keys=["iter", "cum_samples", "cum_est_samples"] + ["nu_lb", "t_mix"],
-        dtypes=['d', 'd', 'd'] + ['f'] * 2,
+        keys=["iter", "cum_time", "cum_samples", "cum_est_samples"] + ["nu_lb", "t_mix"],
+        dtypes=['d', 'f', 'd', 'd'] + ['f'] * 2,
     )
 
     return [logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing]
@@ -203,6 +203,7 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
     settings["pi_threshold"] = settings["pi_threshold_mult"] * (1.-env.gamma)/env.n_actions
 
     s_time = time.time()
+    e_time = -time.time()
     if settings["estimate_Q"] == "linear": # @depreciated
         env.init_estimate_advantage_online_linear(settings)
     if settings["estimate_Q"] == "ctd": 
@@ -214,7 +215,9 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
         n_est_samples = 0
         t_mix, nu = env.get_mixing_time_ub(pi_t)
         if not settings["skip_true_model"]:
+            e_time += time.time() # skip advantage estimation time
             (true_psi_t, true_V_t) = env.get_advantage(pi_t)
+            e_time -= time.time()
 
         if settings["estimate_Q"] == "generative":
             (psi_t, V_t, n_samples) = env.estimate_advantage_generative(pi_t, settings["N"], settings["T"])
@@ -267,7 +270,7 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
             np.dot(env.rho, true_V_t - np.maximum(0, np.max(-true_psi_t, axis=1)/(1.-env.gamma))),
             np.dot(env.rho, true_V_t - np.max(-true_psi_t)/(1.-env.gamma)),
         )
-        logger_mixing.log(t, cum_samples, cum_est_samples, np.min(nu), t_mix)
+        logger_mixing.log(t, e_time + time.time(), cum_samples, cum_est_samples, np.min(nu), t_mix)
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
         policy_update(pi_t, psi_t, eta_t) 
