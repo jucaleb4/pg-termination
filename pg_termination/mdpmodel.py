@@ -1,7 +1,8 @@
-""" White box MDPs (wbmdp) defined five-tuple M=(S,A,c,P,gamma) """
+""" Models for MDPs defined five-tuple M=(S,A,c,P,gamma) """
 
 import numpy as np
 import numpy.linalg as la
+import abc
 
 import sklearn
 import sklearn.pipeline
@@ -17,8 +18,349 @@ TOL = 1e-10
 DIRS = [(1,0), (0,1), (-1,0), (0,-1)]
 
 class MDPModel():
-    """ Base MDP class """
+    """ 
+    Base MDP class. 
+
+    Online estimation schemes are also implemented here since they hold for all
+    models we consider (known/generative model and online model).
+
+    We use Gymnasium's template (https://gymnasium.farama.org/api/env/) to
+    require `step(a)`, where `a` is the input action
+
+    """
+    def __init__(self, gamma, seed=None):
+        assert 0 < gamma < 1, "Input discount gamma must be (0,1), recieved %f" % gamma
+        self.rng = np.random.default_rng(seed)
+        self.gamma = gamma
+
+    @abc.abstractmethod
+    def step(self, a):
+        """ 
+        Takes a single time step of the MDP.
+
+        :param a: action (must be an int)
+        :return s: state
+        :return c: cost
+        """
+        return
+
+    def estimate_advantage_online_mc(self, pi, T, threshold=0):
+        """
+        https://arxiv.org/pdf/2303.04386
+
+        :param T: duration to run Monte Carlo simulation
+        :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again (rec: (1-gamma)**2/|A|)
+        :return visit_len_state_action: how long the Monte carlo estimate is at every state-aciton pair
+        """
+        costs = np.zeros(T, dtype=float)
+        states = np.zeros(T, dtype=int)
+        actions = np.zeros(T, dtype=int)
+
+        for t in range(T):
+            states[t] = self.s
+            actions[t] = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            (_, costs[t]) = self.step(actions[t])
+
+        # form advantage (dp style); 
+        cumulative_discounted_costs = np.zeros(T, dtype=float)
+        cumulative_discounted_costs[-1] = costs[-1]
+        for t in range(T-2,-1,-1):
+            cumulative_discounted_costs[t] = costs[t] + self.gamma*cumulative_discounted_costs[t+1]
+
+        Q = np.zeros((self.n_states, self.n_actions), dtype=float)
+        visit_len_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
+        for t in range(T):
+            (s,a) = states[t], actions[t]
+            if visit_len_state_action[s,a] > 0:
+                continue
+            Q[s,a] = cumulative_discounted_costs[t]
+            visit_len_state_action[s,a] = T-t
+
+        # for proabibilities that are very low, set Q value to be high
+        (poor_sa_a, poor_sa_s) = np.where(pi <= threshold)
+        Q_max = np.max(np.abs(self.c))/(1.-self.gamma)
+        Q[poor_sa_s,poor_sa_a] = Q_max
+
+        V_pi = np.einsum('sa,as->s', Q, pi)
+        psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
+
+        return (psi, V_pi, visit_len_state_action, T)
+
+    def estimate_mixing_properties(self, pi, T, tmix=0, nu=None):
+        """
+        https://proceedings.neurips.cc/paper/2015/file/7ce3284b743aefde80ffd9aec500e085-Paper.pdf
+
+        Note that this paper is for ergodic and reversible Markov chains. 
+        Ergodic can be found: https://proceedings.mlr.press/v99/wolfer19a/wolfer19a.pdf
+
+        However, the non-reversible is quite complicated, so we approximate with reversible for
+        simplicity. We also avoid confidence intervals to simplify the implementations.
+
+        :param T: number of samples to estimate mixing time. Overwritten if tmix and nu provided
+        :param tmix: true tmix 
+        :param nu: true stationary dist.
+        :return nu_est: estimated stationary distribution
+        :return tmix_est: estimated mixing time
+        :return n_samples: samples used for estimation
+        """
+        nu_est = np.zeros(self.n_states, dtype=float)
+        M_est = np.zeros((self.n_states, self.n_states), dtype=float)
+
+        if (tmix > 0) and (nu is not None):
+            trelax = tmix/np.log(2)
+            spec_gap = 1./trelax
+            nu_min = np.min(nu)
+            # https://arxiv.org/pdf/2303.04386 (based on Thm 4.1)
+            T = int(np.log(self.n_states)/(nu_min*spec_gap)+1)
+
+        curr_s = self.s
+        for t in range(T):
+            nu_est[curr_s] += 1
+            a = self.rng.choice(pi.shape[0], p=pi[:,curr_s])
+            self.step(a)
+            M_est[s_curr,self.s] += 1
+            curr_s = self.s
+
+        # normalize and compute intermediates
+        if np.min(nu_est) == 0:
+            nu_est += 1e-6 # small perturbation
+        nu_est /= T; M_est /= (T-1)
+        nu_est_invsq = np.reciprocal(np.sqrt(nu_est))
+        L = np.diag(nu_est_invsq)@M_est@np.diag(nu_est_invsq)
+        sym_L = 0.5*(L + L.T)
+        eig_sym_L = np.sort(la.eig(sym_L)[0])[::-1]
+
+        # estimate spectral gap
+        nu_est_lb = np.min(nu_est) 
+        spec_gap_est = 1 - max(eig_sym_L[1], abs(eig_sym_L[-1]))
+        trelax_est = 1./spec_gap_est
+        tmix_est = trelax_est * np.log(4/nu_est_lb)
+
+        n_samples = T
+        return (nu_est, tmix_est, n_samples)
+
+    def estimate_advantage_online_mc_dynamic(self, pi, eps, threshold=0):
+        """
+
+        :param eps: accuracy threshold
+        :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again (rec: (1-gamma)**2/|A|)
+        :return visit_len_state_action: how long the Monte carlo estimate is at every state-aciton pair
+        """
+        cycle = 1024
+        T = cycle
+        costs = np.zeros(T, dtype=float)
+        states = np.zeros(T, dtype=int)
+        actions = np.zeros(T, dtype=int)
+        unvisited_sa = (pi >= threshold).astype(int)
+
+        # TODO: Generalize this to online based
+        t = 0
+        countdown = max(1, np.log(1./eps))
+        start_countdown = False
+        while countdown > 0:
+            states[t] = self.s
+            actions[t] = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            (_, costs[t]) = self.step(actions[t])
+            unvisited_sa[actions[t], states[t]] = 0
+
+            # check if we can terminate
+            if t % cycle == 0:
+                start_countdown = (np.max(unvisited_sa) == 0)
+            if start_countdown:
+                countdown -= 1
+
+            t += 1
+            if t == len(costs):
+                costs = np.append(costs, np.zeros(len(costs)))
+                states = np.append(states, np.zeros(len(states), dtype=int))
+                actions = np.append(actions, np.zeros(len(actions), dtype=int))
+
+        # form advantage (DP style)
+        T = t # dynamic mixing time
+        cumulative_discounted_costs = np.zeros(T, dtype=float)
+        cumulative_discounted_costs[-1] = costs[-1]
+        for t in range(T-2,-1,-1):
+            cumulative_discounted_costs[t] = costs[t] + self.gamma*cumulative_discounted_costs[t+1]
+
+        Q = np.max(np.abs(self.c))/(1.-self.gamma) * np.ones((self.n_states, self.n_actions), dtype=float)
+        visit_len_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
+        for t in range(T):
+            (s,a) = states[t], actions[t]
+            if visit_len_state_action[s,a] > 0:
+                continue
+            Q[s,a] = cumulative_discounted_costs[t]
+            visit_len_state_action[s,a] = T-t
+
+        # for proabibilities that are very low, set Q value to be high
+        (poor_sa_a, poor_sa_s) = np.where(pi <= threshold)
+        Q_max = np.max(np.abs(self.c))/(1.-self.gamma)
+        Q[poor_sa_s,poor_sa_a] = Q_max
+
+        V_pi = np.einsum('sa,as->s', Q, pi)
+        psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
+
+        return (psi, V_pi, visit_len_state_action, T)
+
+    def estimate_advantage_online_ctd(self, pi, Phi, ukappa, eps, delta, 
+            iota_mult, prev_theta=None
+    ):
+        """
+        Forms nearly unbiased TD estimator that is bounded w.h.p.
+
+        :params pi: policy
+        :params Phi: feature matrix
+        :params ukappa: lower bound estimate of minimum discounted visit distribution
+        :params eps: accuracy tolerance
+        :params delta: failure rate
+        """
+
+        # initialize data and parameters
+        cum_samples = 0
+        uw = (1.-self.gamma)*ukappa**2/self.n_actions 
+        Phi_sigvals = la.svd(Phi)[1] 
+        Omega = np.max(Phi_sigvals)
+        mu = np.min(Phi_sigvals)**2*uw
+        T  = Omega**2/((1.-self.gamma)**2*mu)
+        iota = (1.-self.gamma)/Omega**2 
+        N = int((T/uw) * max(1, np.log(1./eps))) 
+        # m = int(np.log(1./(uw*eps)**2)/np.log(1/self.gamma)) 
+        # m = int(10/np.log(2)) 
+        m = int(1./(1.-self.gamma))
+        eps_expl_s = 1
+        eps_expl_a = (1.-self.gamma)*min(1,ukappa)/4
+        # robust_trials = min(5, np.log(1./delta)/np.log(2))
+        robust_trials = 1
+
+        iota *= iota_mult
+
+        hQ_arr = np.zeros((Phi.shape[0], robust_trials))
+        for j in range(robust_trials):
+            (Q_est, n_samples, theta) = self._nonrobust_ctd(
+                pi, Phi, iota, N, m, eps_expl_a, eps_expl_s, prev_theta)
+            hQ_arr[:,j] = Q_est
+            cum_samples += n_samples
+
+        hQ_arr_norms = la.norm(hQ_arr, ord=np.inf, axis=0)
+        j_star = np.argmin(hQ_arr_norms)
+
+        robust_hQ = hQ_arr[:,j_star]
+        robust_Q = np.reshape(robust_hQ, newshape=(self.n_states, self.n_actions), order='C')
+        robust_V = np.einsum('sa,as->s', robust_Q, pi)
+        robust_psi = robust_Q - np.outer(robust_V, np.ones(self.n_actions))
+
+        return (robust_psi, robust_V, cum_samples, theta)
+
+    def _nonrobust_ctd(self, pi, Phi, iota, N, m, eps_expl_a, eps_expl_s, prev_theta):
+        """
+        Forms nearly unbiased TD estimator with bounded second moment.
+        """
+        _, d = Phi.shape
+        theta_t = np.zeros(d) if prev_theta is None else prev_theta 
+        cum_samples = 0
+
+        # estimate most likely state
+        s_origin = self._most_likely_state(pi, N, m, eps_expl_s)
+
+        for t in range(N):
+            (hF_t, n_samples) = self._get_hF_estimate(pi, m, s_origin, eps_expl_a, 
+                                                    eps_expl_s, Phi, theta_t)
+            # (hF_t, n_samples) = self._get_hF_minibatch_estimate(pi, m, Phi, theta_t)
+            theta_t = theta_t - iota*hF_t
+            cum_samples += n_samples
+
+        latter_avg_theta = np.zeros(d)
+        for t in range(N):
+            (hF_t, n_samples) = self._get_hF_estimate(pi, m, s_origin, eps_expl_a, 
+                                                    eps_expl_s, Phi, theta_t)
+            # (hF_t, n_samples) = self._get_hF_minibatch_estimate(pi, m, Phi, theta_t)
+            theta_t = theta_t - iota*hF_t
+            alpha_t = 1./(t+1)
+            latter_avg_theta = (1.-alpha_t)*latter_avg_theta + alpha_t*theta_t
+            cum_samples += n_samples
+            
+        hQ = Phi@latter_avg_theta
+        return (hQ, cum_samples, latter_avg_theta)
+
+    def _most_likely_state(self, pi, N, m, eps_expl_s):
+        budget = int(N*m/10) # use 10% of total budget
+        state_counter = np.zeros(self.n_states)
+        state_counter[self.s] += 1
+
+        pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
+        for _ in range(budget):
+            a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
+            self.step(a)
+            state_counter[self.s] += 1
+
+        return np.argmax(state_counter)
+
+    def _get_hF_estimate(self, pi, m, s_origin, eps_expl_a, eps_expl_s, Phi, theta):
+        # rand_t = self.rng.geometric(1.-self.gamma)
+        rand_t = self.rng.geometric(0.5)
+        _, d = Phi.shape
+        hF = np.zeros(d)
+        # if rand_t >= m:
+        #     print('skipped!')
+        #     return (np.zeros(d), 0)
+
+        # pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
+        # while self.s != s_origin:
+        #     a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
+        #     self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s,a])
+
+        for t in range(rand_t):
+            a = self.rng.choice(pi.shape[0], p=pi[:,self.s])
+            self.step(a)
+
+        # form TD operator
+        pi_expl_a = (1.-eps_expl_a)*pi + (eps_expl_a/self.n_actions)
+        s_t = self.s
+        a_t = self.rng.choice(pi.shape[0], p=pi_expl_a[:,s_t])
+        # TODO: Regularization
+        (s_t_next, c_t) = self.step(a_t)
+        a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
+        self.step(a_t_next)
+
+        rand_t += 2 
+        z_t_idx = s_t*self.n_actions + a_t
+        z_t_next_idx = s_t_next*self.n_actions + a_t_next
+        phi_t = Phi[z_t_idx,:]
+        phi_t_next = Phi[z_t_next_idx,:]
+        hF = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
+
+        return (hF, rand_t)
+
+    def _get_hF_minibatch_estimate(self, pi, m, Phi, theta):
+        """ takes minibatch of TD operators """
+        _, d = Phi.shape
+        hF_cum = np.zeros(d)
+
+        for t in range(m):
+            # form TD operator
+            s_t = self.s
+            a_t = self.rng.choice(pi.shape[0], p=pi[:,s_t])
+            # TODO: Regularization
+            (s_t_next, c_t) = self.step(a_t)
+            a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
+            self.step(a_t_next)
+
+            z_t_idx = s_t*self.n_actions + a_t
+            z_t_next_idx = s_t_next*self.n_actions + a_t_next
+            phi_t = Phi[z_t_idx,:]
+            phi_t_next = Phi[z_t_next_idx,:]
+            hF_t = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
+
+            hF_cum += (self.gamma**t)*hF_t
+
+        hF_cum *= (1.-self.gamma)
+
+        return (hF_cum, m+1)
+
+class KnownModel(MDPModel):
+    """ Known (S,A,c,P,gamma) """
     def __init__(self, n_states, n_actions, c, P, gamma, rho=None, seed=None):
+        super().__init__(gamma, seed)
+
         assert len(c.shape) == 2, "Input cost vector c must be a 2-D vector, recieved %d dimensions" % len(c.shape)
         assert len(P.shape) == 3, "Input cost vector c must be a 3-D tensor, recieved %d dimensions" % len(P.shape)
 
@@ -27,7 +369,6 @@ class MDPModel():
         assert P.shape[0] == n_states, "1st dimension of P must equal n_states=%d, was instead %d" % (n_states, P.shape[0])
         assert P.shape[1] == n_states, "2nd dimension of P must equal n_states=%d, was instead %d" % (n_states, P.shape[1])
         assert P.shape[2] == n_actions, "3rd dimension of P must equal n_actions=%d, was instead %d" % (n_actions, P.shape[2])
-        assert 0 < gamma < 1, "Input discount gamma must be (0,1), recieved %f" % gamma
 
         assert 1-TOL <= np.min(np.sum(P, axis=0)), \
             "P is not stochastic, recieved a sum of %.2f at (s,a)=(%d,%d)" % ( \
@@ -52,11 +393,15 @@ class MDPModel():
         self.rho = rho
 
         # initialize a 
-        self.rng = np.random.default_rng(seed)
         self.s = self.rng.integers(0, self.n_states)
 
         # initialize rbf for solving with linear function approx
         self.init_linear = False
+
+    def step(self, a):
+        c = self.c[self.s, a]
+        self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s, a])
+        return (self.s, c)
 
     def get_stationary(self, pi):
         P_pi = np.einsum('psa,as->ps', self.P, pi)
@@ -173,470 +518,6 @@ class MDPModel():
 
         return (psi, V_pi, total_samples)
                     
-    def estimate_advantage_online_mc(self, pi, T, threshold=0):
-        """
-        https://arxiv.org/pdf/2303.04386
-
-        :param T: duration to run Monte Carlo simulation
-        :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again (rec: (1-gamma)**2/|A|)
-        :return visit_len_state_action: how long the Monte carlo estimate is at every state-aciton pair
-        """
-        costs = np.zeros(T, dtype=float)
-        states = np.zeros(T, dtype=int)
-        actions = np.zeros(T, dtype=int)
-
-        # TODO: Generalize this to online based
-        for t in range(T):
-            states[t] = self.s
-            actions[t] = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
-            costs[t] = self.c[states[t], actions[t]]
-            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,states[t],actions[t]])
-
-        # form advantage (dp style); 
-        cumulative_discounted_costs = np.zeros(T, dtype=float)
-        cumulative_discounted_costs[-1] = costs[-1]
-        for t in range(T-2,-1,-1):
-            cumulative_discounted_costs[t] = costs[t] + self.gamma*cumulative_discounted_costs[t+1]
-
-        Q = np.zeros((self.n_states, self.n_actions), dtype=float)
-        visit_len_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
-        for t in range(T):
-            (s,a) = states[t], actions[t]
-            if visit_len_state_action[s,a] > 0:
-                continue
-            Q[s,a] = cumulative_discounted_costs[t]
-            visit_len_state_action[s,a] = T-t
-
-        # for proabibilities that are very low, set Q value to be high
-        (poor_sa_a, poor_sa_s) = np.where(pi <= threshold)
-        Q_max = np.max(np.abs(self.c))/(1.-self.gamma)
-        Q[poor_sa_s,poor_sa_a] = Q_max
-
-        V_pi = np.einsum('sa,as->s', Q, pi)
-        psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
-
-        return (psi, V_pi, visit_len_state_action, T)
-
-    def estimate_mixing_properties(self, pi, T, tmix=0, nu=None):
-        """
-        https://proceedings.neurips.cc/paper/2015/file/7ce3284b743aefde80ffd9aec500e085-Paper.pdf
-
-        Note that this paper is for ergodic and reversible Markov chains. 
-        Ergodic can be found: https://proceedings.mlr.press/v99/wolfer19a/wolfer19a.pdf
-
-        However, the non-reversible is quite complicated, so we approximate with reversible for
-        simplicity. We also avoid confidence intervals to simplify the implementations.
-
-        :param T: number of samples to estimate mixing time. Overwritten if tmix and nu provided
-        :param tmix: true tmix 
-        :param nu: true stationary dist.
-        :return nu_est: estimated stationary distribution
-        :return tmix_est: estimated mixing time
-        :return n_samples: samples used for estimation
-        """
-        nu_est = np.zeros(self.n_states, dtype=float)
-        M_est = np.zeros((self.n_states, self.n_states), dtype=float)
-
-        if (tmix > 0) and (nu is not None):
-            trelax = tmix/np.log(2)
-            spec_gap = 1./trelax
-            nu_min = np.min(nu)
-            # https://arxiv.org/pdf/2303.04386 (based on Thm 4.1)
-            T = int(np.log(self.n_states)/(nu_min*spec_gap)+1)
-
-        # TODO: Generalize this to online based
-        s = self.s
-        for t in range(T):
-            nu_est[s] += 1
-            a = self.rng.choice(pi.shape[0], p=pi[:,s])
-            next_s = self.rng.choice(self.P.shape[0], p=self.P[:,s,a])
-            M_est[s,next_s] += 1
-            s = next_s
-
-        # normalize and compute intermediates
-        if np.min(nu_est) == 0:
-            nu_est += 1e-6 # small perturbation
-        nu_est /= T; M_est /= (T-1)
-        nu_est_invsq = np.reciprocal(np.sqrt(nu_est))
-        L = np.diag(nu_est_invsq)@M_est@np.diag(nu_est_invsq)
-        sym_L = 0.5*(L + L.T)
-        eig_sym_L = np.sort(la.eig(sym_L)[0])[::-1]
-
-        # estimate spectral gap
-        nu_est_lb = np.min(nu_est) 
-        spec_gap_est = 1 - max(eig_sym_L[1], abs(eig_sym_L[-1]))
-        trelax_est = 1./spec_gap_est
-        tmix_est = trelax_est * np.log(4/nu_est_lb)
-
-        n_samples = T
-        return (nu_est, tmix_est, n_samples)
-
-    def estimate_advantage_online_mc_dynamic(self, pi, eps, threshold=0):
-        """
-
-        :param eps: accuracy threshold
-        :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again (rec: (1-gamma)**2/|A|)
-        :return visit_len_state_action: how long the Monte carlo estimate is at every state-aciton pair
-        """
-        cycle = 1024
-        T = cycle
-        costs = np.zeros(T, dtype=float)
-        states = np.zeros(T, dtype=int)
-        actions = np.zeros(T, dtype=int)
-        unvisited_sa = (pi >= threshold).astype(int)
-
-        # TODO: Generalize this to online based
-        t = 0
-        countdown = max(1, np.log(1./eps))
-        start_countdown = False
-        while countdown > 0:
-            states[t] = self.s
-            actions[t] = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
-            costs[t] = self.c[states[t], actions[t]]
-            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,states[t],actions[t]])
-            unvisited_sa[actions[t], states[t]] = 0
-
-            # check if we can terminate
-            if t % cycle == 0:
-                start_countdown = (np.max(unvisited_sa) == 0)
-            if start_countdown:
-                countdown -= 1
-
-            t += 1
-            if t == len(costs):
-                costs = np.append(costs, np.zeros(len(costs)))
-                states = np.append(states, np.zeros(len(states), dtype=int))
-                actions = np.append(actions, np.zeros(len(actions), dtype=int))
-
-        # form advantage (dp style)
-        T = t # dynamic mixing time
-        cumulative_discounted_costs = np.zeros(T, dtype=float)
-        cumulative_discounted_costs[-1] = costs[-1]
-        for t in range(T-2,-1,-1):
-            cumulative_discounted_costs[t] = costs[t] + self.gamma*cumulative_discounted_costs[t+1]
-
-        Q = np.max(np.abs(self.c))/(1.-self.gamma) * np.ones((self.n_states, self.n_actions), dtype=float)
-        visit_len_state_action = np.zeros((self.n_states, self.n_actions), dtype=bool)
-        for t in range(T):
-            (s,a) = states[t], actions[t]
-            if visit_len_state_action[s,a] > 0:
-                continue
-            Q[s,a] = cumulative_discounted_costs[t]
-            visit_len_state_action[s,a] = T-t
-
-        # for proabibilities that are very low, set Q value to be high
-        (poor_sa_a, poor_sa_s) = np.where(pi <= threshold)
-        Q_max = np.max(np.abs(self.c))/(1.-self.gamma)
-        Q[poor_sa_s,poor_sa_a] = Q_max
-
-        V_pi = np.einsum('sa,as->s', Q, pi)
-        psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
-
-        return (psi, V_pi, visit_len_state_action, T)
-
-    def init_estimate_advantage_online_linear(self, linear_settings):
-        """ 
-        Prepares radial basis functions for linear function approximation:
-
-            https://scikit-learn.org/stable/modules/generated/sklearn.kernel_approximation.RBFSampler.html
-
-        See also: https://github.com/dennybritz/reinforcement-learning/blob/master/FA/Q-Learning%20with%20Value%20Function%20Approximation%20Solution.ipynb
-
-        :param X: Nxn array of inputs, where N is the number of datapoints and n is the size of the state space
-	    """
-
-        self.featurizer = sklearn.pipeline.FeatureUnion([
-            # ("rbf0", RBFSampler(gamma=5.0, n_components=100)),
-            ("rbf1", sklearn.kernel_approximation.RBFSampler(gamma=1.0, n_components=100)),
-            # ("rbf2", RBFSampler(gamma=0.1, n_components=100)),
-        ])
-
-        X = np.vstack((
-            np.kron(np.arange(self.n_states), np.ones(self.n_actions)),
-            np.kron(np.ones(self.n_states), np.arange(self.n_actions)),
-        )).T
-
-        self.featurizer.fit(X)
-        self.model = sklearn.linear_model.SGDRegressor(
-            learning_rate=linear_settings["linear_learning_rate"],
-            eta0=linear_settings["linear_eta0"],
-            max_iter=linear_settings["linear_max_iter"],
-            alpha=linear_settings["linear_alpha"],
-            warm_start=True, 
-            tol=0.0,
-            n_iter_no_change=linear_settings["linear_max_iter"],
-            fit_intercept=True,
-        )
-
-        # We need to call partial_fit once to initialize the model or we get a
-        # NotFittedError when trying to make a prediction This is quite hacky.
-        self.model.partial_fit(self.featurize([X[0]]), [0])
-        self.init_linear = True
-
-    def featurize(self, X):
-        return self.featurizer.transform(X).astype('float64')
-
-    def predict(self, x):
-        features = self.featurize(x)
-        output = np.squeeze(self.model.predict(features))
-        return output
-
-    def get_all_sa_pairs_for_finite(self):
-        X_all_sa = np.vstack((
-            np.kron(np.arange(self.n_states), np.ones(self.n_actions)),
-            np.kron(np.ones(self.n_states), np.arange(self.n_actions)),
-        )).T
-        return X_all_sa
-
-    def custom_SGD(solver, X, y, minibatch=32):
-        n_epochs = solver.max_iter
-        n_consec_regress_epochs = 0
-        max_regress = solver.n_iter_no_change
-        frac_validation = solver.validation_fraction
-        tol = solver.tol
-        early_stopping = solver.early_stopping
-
-        train_losses = []
-        test_losses = []
-
-        for i in range(n_epochs):
-            X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=i, shuffle=True, test_size=frac_validation)
-            num_batches = int(np.ceil(len(X_train)/ minibatch))
-            for j in range(num_batches):
-                k_s = minibatch*j
-                k_e = min(len(X_train), minibatch*(j+1))
-                # mini-batch update
-                solver.partial_fit(X_train[k_s:k_e], y_train[k_s:k_e])
-
-            y_train_pred = solver.predict(X_train)
-            y_test_pred = solver.predict(X_test)
-
-            train_losses.append(la.norm(y_train_pred - y_train)**2/len(y_train))
-            test_losses.append(la.norm(y_test_pred - y_test)**2/len(y_test))
-
-            if early_stopping and len(test_losses) > 1 and test_losses[-1] > np.min(test_losses)-tol:
-                n_consec_regress_epochs += 1
-            else:
-                n_consec_regress_epochs = 0
-            if n_consec_regress_epochs == max_regress:
-                print("Early stopping (stagnate)")
-                break
-            if train_losses[-1] <= tol:
-                print("Early stopping (train loss small)")
-                break
-
-        return np.array(train_losses), np.array(test_losses)
-
-    def estimate_advantage_online_ctd(self, pi, Phi, ukappa, eps, delta, 
-            ctd_N_alt, ctd_iota_alt, prev_theta=None
-    ):
-        """
-        Forms nearly unbiased TD estimator that is bounded w.h.p.
-
-        :params pi: policy
-        :params Phi: feature matrix
-        :params ukappa: lower bound estimate of minimum discounted visit distribution
-        :params eps: accuracy tolerance
-        :params delta: failure rate
-        """
-
-        # initialize data and parameters
-        cum_samples = 0
-        uw = (1.-self.gamma)*ukappa**2/self.n_actions 
-        Phi_sigvals = la.svd(Phi)[1] 
-        Omega = np.max(Phi_sigvals)
-        mu = np.min(Phi_sigvals)**2
-        T  = Omega**2/((1.-self.gamma)*mu)
-        iota = (1.-self.gamma)/Omega**2 
-        N = int((T/uw) * max(1, np.log(1./eps))) 
-        # m = int(np.log(1./(uw*eps)**2)/np.log(1/self.gamma)) 
-        m = int(10/np.log(2)) 
-        eps_expl_s = 1.
-        eps_expl_a = (1.-self.gamma)*ukappa/4
-        # robust_trials = min(5, np.log(1./delta)/np.log(2))
-        robust_trials = 1
-
-        if ctd_N_alt > 0:
-            N = ctd_N_alt
-        if ctd_iota_alt > 0:
-            iota = ctd_iota_alt
-
-        hQ_arr = np.zeros((Phi.shape[0], robust_trials))
-        for j in range(robust_trials):
-            (Q_est, n_samples, theta) = self._nonrobust_ctd(
-                pi, Phi, iota, N, m, eps_expl_a, eps_expl_s, prev_theta)
-            hQ_arr[:,j] = Q_est
-            cum_samples += n_samples
-
-        hQ_arr_norms = la.norm(hQ_arr, ord=np.inf, axis=0)
-        j_star = np.argmin(hQ_arr_norms)
-
-        robust_hQ = hQ_arr[:,j_star]
-        robust_Q = np.reshape(robust_hQ, newshape=(self.n_states, self.n_actions), order='C')
-        robust_V = np.einsum('sa,as->s', robust_Q, pi)
-        robust_psi = robust_Q - np.outer(robust_V, np.ones(self.n_actions))
-
-        return (robust_psi, robust_V, cum_samples, theta)
-
-    def _nonrobust_ctd(self, pi, Phi, iota, N, m, eps_expl_a, eps_expl_s, prev_theta):
-        """
-        Forms nearly unbiased TD estimator with bounded second moment.
-        """
-        _, d = Phi.shape
-        theta_t = np.zeros(d) if prev_theta is None else prev_theta 
-        cum_samples = 0
-
-        # estimate most likely state
-        s_origin = self._most_likely_state(pi, N, m, eps_expl_s)
-
-        for t in range(N):
-            (hF_t, n_samples) = self._get_hF_estimate(pi, m, s_origin, eps_expl_a, 
-                                                    eps_expl_s, Phi, theta_t)
-            # (hF_t, n_samples) = self._get_hF_minibatch_estimate(pi, m, Phi, theta_t)
-            theta_t = theta_t - iota*hF_t
-            cum_samples += n_samples
-
-        latter_avg_theta = np.zeros(d)
-        for t in range(N):
-            (hF_t, n_samples) = self._get_hF_estimate(pi, m, s_origin, eps_expl_a, 
-                                                    eps_expl_s, Phi, theta_t)
-            # (hF_t, n_samples) = self._get_hF_minibatch_estimate(pi, m, Phi, theta_t)
-            theta_t = theta_t - iota*hF_t
-            alpha_t = 1./(t+1)
-            latter_avg_theta = (1.-alpha_t)*latter_avg_theta + alpha_t*theta_t
-            cum_samples += n_samples
-            
-        hQ = Phi@latter_avg_theta
-        return (hQ, cum_samples, latter_avg_theta)
-
-    def _most_likely_state(self, pi, N, m, eps_expl_s):
-        budget = int(N*m/10) # use 10% of total budget
-        state_counter = np.zeros(self.n_states)
-        state_counter[self.s] += 1
-
-        pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
-        for _ in range(budget):
-            a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
-            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s,a])
-            state_counter[self.s] += 1
-
-        return np.argmax(state_counter)
-
-    def _get_hF_estimate(self, pi, m, s_origin, eps_expl_a, eps_expl_s, Phi, theta):
-        # rand_t = self.rng.geometric(1.-self.gamma)
-        rand_t = self.rng.geometric(0.5)
-        _, d = Phi.shape
-        hF = np.zeros(d)
-        # if rand_t >= m:
-        #     print('skipped!')
-        #     return (np.zeros(d), 0)
-
-        # pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
-        # while self.s != s_origin:
-        #     a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
-        #     self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s,a])
-
-        for t in range(rand_t):
-            a = self.rng.choice(pi.shape[0], p=pi[:,self.s])
-            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s,a])
-
-        # form TD operator
-        pi_expl_a = (1.-eps_expl_a)*pi + (eps_expl_a/self.n_actions)
-        s_t = self.s
-        a_t = self.rng.choice(pi.shape[0], p=pi_expl_a[:,s_t])
-        # TODO: Regularization
-        c_t = self.c[s_t, a_t]
-        s_t_next = self.rng.choice(self.P.shape[0], p=self.P[:,s_t,a_t])
-        a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
-        self.s = self.rng.choice(self.P.shape[0], 
-                                 p=self.P[:,s_t_next,a_t_next])
-        rand_t += 2 
-        z_t_idx = s_t*self.n_actions + a_t
-        z_t_next_idx = s_t_next*self.n_actions + a_t_next
-        phi_t = Phi[z_t_idx,:]
-        phi_t_next = Phi[z_t_next_idx,:]
-        hF = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
-
-        return (hF, rand_t)
-
-    def _get_hF_minibatch_estimate(self, pi, m, Phi, theta):
-        """ takes minibatch of TD operators """
-        _, d = Phi.shape
-        hF_cum = np.zeros(d)
-
-        for t in range(m):
-            # form TD operator
-            s_t = self.s
-            a_t = self.rng.choice(pi.shape[0], p=pi[:,s_t])
-            # TODO: Regularization
-            c_t = self.c[s_t, a_t]
-            s_t_next = self.rng.choice(self.P.shape[0], p=self.P[:,s_t,a_t])
-            a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
-            self.s = self.rng.choice(self.P.shape[0], 
-                                     p=self.P[:,s_t_next,a_t_next])
-            z_t_idx = s_t*self.n_actions + a_t
-            z_t_next_idx = s_t_next*self.n_actions + a_t_next
-            phi_t = Phi[z_t_idx,:]
-            phi_t_next = Phi[z_t_next_idx,:]
-            hF_t = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
-
-            hF_cum += (self.gamma**t)*hF_t
-
-        hF_cum *= (1.-self.gamma)
-
-        return (hF_cum, m+1)
-
-
-    # https://scikit-learn.org/stable/auto_examples/linear_model/plot_sgd_early_stopping.html#sphx-glr-auto-examples-linear-model-plot-sgd-early-stopping-py
-    @ignore_warnings(category=ConvergenceWarning)
-    def estimate_advantage_online_linear(self, pi, T):
-        """
-        Use Monte Carlo simulation to obtain partial Q function.  We use linear
-        function approximation with bootstrap to update sampled sa pairs and
-        fill in missing sa pairs.
-
-        :param T: duration to run Monte Carlo simulation
-        """
-        assert self.init_linear, "Run `init_estimate_advantage_online_linear` before estimating"
-
-        # use monte carlo estimate to estimate truncated psi (threshold=0
-        # ensures non-visited sa have zero value, i.e., Q[s,a]=0)
-        output = self.estimate_advantage_online_mc(pi, T, threshold=0, bootstrap=True)
-        (psi, V_pi, visit_len_state_action) = output
-        Q = psi + np.outer(V_pi, np.ones(self.n_actions, dtype=float))
-
-        # bootstrap remaining cost-to-go values
-        # X_all_sa = self.get_all_sa_pairs_for_finite()
-        # y = self.predict(X_all_sa)
-
-        visited_sa_s, visited_sa_a = np.where(visit_len_state_action >= 1)
-        X_visited_sa = np.vstack((visited_sa_s, visited_sa_a)).T
-        # state-action pair index in 1D
-        visited_idxs = self.n_actions * visited_sa_s + visited_sa_a
-
-        # y = Q.flatten() + np.multiply(np.power(self.gamma, visit_len_state_action.flatten()), y)
-        # visited_idxs = np.where(visit_len_state_action.flatten() > 0)[0]
-        y = Q.flatten()[visited_idxs]
-        # for i, (s,a) in zip(visited_idxs, X_visited_sa):
-        #     y[i] = Q[s,a] + self.gamma**visit_len_state_action[s,a]*y[i]
-
-        # training update
-        # features = self.featurize(X_visited_sa)
-        # self.model.fit(features, y[visited_idxs])
-        # features = self.featurize(X_all_sa)
-        # self.model.fit(features, y)
-        features = self.featurize(X_visited_sa)
-        self.model.fit(features, y)
-
-        # predict psi_pi
-        X_all_sa = self.get_all_sa_pairs_for_finite()
-        q_pred = self.predict(X_all_sa)
-        Q_pred = np.reshape(q_pred, newshape=(self.n_states, self.n_actions))
-        V_pred = np.einsum('sa,as->s', Q_pred, pi)
-        psi_pred = Q_pred - np.outer(V_pred, np.ones(self.n_actions, dtype=float))
-
-        return (psi_pred, V_pred)
-
     def get_steadystate(self, pi):
         P_pi = np.einsum('psa,as->ps', self.P, pi)
 
@@ -658,8 +539,11 @@ class MDPModel():
         bQT = np.ones(dim)
         return np.linalg.solve(QTQ,bQT)
 
-class Bandits(MDPModel):
+class OnlineModel(MDPModel):
+    def __init__(self, gamma, seed=None):
+        super().__init__(gamma, seed)
 
+class Bandits(KnownModel):
     def __init__(self, n_arms, gamma, seed):
         n_actions = n_arms
         n_states = 1
@@ -671,8 +555,7 @@ class Bandits(MDPModel):
 
         super().__init__(n_states, n_actions, c, P, gamma, rho, seed)
 
-class GridWorldWithTraps(MDPModel):
-
+class GridWorldWithTraps(KnownModel):
     def __init__(self, length, n_traps, gamma, n_origins=-1, eps=0.05, seed=None, ergodic=False):
         """ Creates 2D gridworld with side length @length grid world with traps.
 
@@ -783,8 +666,7 @@ class GridWorldWithTraps(MDPModel):
     def get_target(self):
         return self.target
 
-class GridWorldWithTrapsAndHills(MDPModel):
-
+class GridWorldWithTrapsAndHills(KnownModel):
     def __init__(self, length, n_traps, gamma, eps=0.05, seed=None, ergodic=False):
         """ Same 2D gridworld, but the probablity of moving towards the target
         gets harder as you get closer.
@@ -889,8 +771,7 @@ class GridWorldWithTrapsAndHills(MDPModel):
     def get_target(self):
         return self.target
 
-class Taxi(MDPModel):
-
+class Taxi(KnownModel):
     # R, Y, G, B (x,y)
     color_arr = [(0,0), (0,4), (4,0), (3,4)]
 
@@ -1064,7 +945,7 @@ class Taxi(MDPModel):
 
         super().__init__(n_states, n_actions, c, P, gamma, seed=seed)
 
-class Random(MDPModel):
+class Random(KnownModel):
     def __init__(self, n_states, n_actions, gamma, seed=None):
         rng = np.random.default_rng(seed)
         P = rng.integers(0, int(1e6), size=(n_states, n_states, n_actions)).astype(float)
@@ -1074,7 +955,7 @@ class Random(MDPModel):
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
-class Small(MDPModel):
+class Small(KnownModel):
     def __init__(self, n_states, gamma, eps=1e-8, seed=None):
         rng = np.random.default_rng(seed)
 
@@ -1110,7 +991,7 @@ class Small(MDPModel):
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
-class Chain(MDPModel):
+class Chain(KnownModel):
     def __init__(self, n_states, gamma, eps=1e-8, seed=None):
         rng = np.random.default_rng(seed)
 
@@ -1130,7 +1011,7 @@ class Chain(MDPModel):
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
-class SimpleBattery(MDPModel):
+class SimpleBattery(KnownModel):
     def __init__(self, n_solar_pwr, n_battery_change_lim, n_price_pts, gamma, rho=None, seed=None):
         """ Simple finite state finite action battery model with three elements:
 

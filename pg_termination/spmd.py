@@ -8,7 +8,7 @@ import multiprocessing as mp
 import numpy as np
 
 from pg_termination import pmd
-from pg_termination import wbmdp 
+from pg_termination import mdpmodel 
 from pg_termination import utils
 from pg_termination.logger import BasicLogger
 
@@ -18,6 +18,7 @@ def policy_update(pi, psi, eta):
     """ Closed-form solution with KL """
     (n_states, n_actions) = psi.shape
 
+    assert (not np.any(np.isnan(psi))), "Found NaN in psi"
     pi *= np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
     pi /= np.outer(np.ones(n_actions), np.sum(pi, axis=0))
 
@@ -73,7 +74,7 @@ def policy_validation(env, pi, settings):
 
 def get_loggers(settings):
     seed = settings['seed']
-    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
+    env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
     logger = BasicLogger(
         fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
         keys=["iter", "point value", "point opt_lb", "point uni_opt_lb", "agg value", "agg opt_lb", "agg uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb"], 
@@ -160,7 +161,9 @@ def _train_with_tuning(settings):
 def _train(settings):
     logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing = get_loggers(settings)
 
-    _spmd(settings, 1.0, logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing)
+    # TODO: Make this automated
+    ukappa = (1.-settings['gamma'])**(-2)
+    _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing)
 
     logger.save()
     logger_mixing.save()
@@ -178,8 +181,8 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
     assert ukappa > 0, "ukappa=%.4e not positive" % ukappa
     seed = settings['seed']
 
-    # env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
-    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
+    # env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
+    env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
 
     if pi_0 is None:
         pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
@@ -236,8 +239,8 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
         elif settings["estimate_Q"] == "ctd": 
             # pass in theta as last argument to warm start (doesn't help too much)
             (psi_t, V_t, n_samples, theta) = env.estimate_advantage_online_ctd(
-                pi_t, Phi, ukappa, settings["eps"], settings["delta"],
-                settings['ctd_N_alt'], settings['ctd_iota_alt']
+                pi_t, Phi, ukappa, settings["eps"], settings["delta"], 
+                settings['ctd_iota_mult'],
             )
         else: 
             raise Exception("Unknown estimate_Q setting %s" % settings["estimate_Q"])

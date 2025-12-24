@@ -4,15 +4,15 @@ import multiprocessing as mp
 
 import numpy as np
 
-from pg_termination import wbmdp 
+from pg_termination import mdpmodel 
 from pg_termination import utils
 from pg_termination.logger import BasicLogger
 
 def _train(settings):
     seed = settings['seed']
 
-    # env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
-    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
+    # env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
+    env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
 
     logger = BasicLogger(
         fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
