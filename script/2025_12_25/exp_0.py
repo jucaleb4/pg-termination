@@ -21,7 +21,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     alg_name_arr = ["reinforce", "trpo"]
     env_name_arr = [
         "gridworld_small", 
-        "gridworld_hill_small", 
+        # "gridworld_hill_small", 
         "taxi", 
     ]
     gamma_arr = [0.9, 0.99, 0.999]
