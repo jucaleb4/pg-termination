@@ -13,12 +13,16 @@ from pg_termination import utils
 from pg_termination.logger import BasicLogger
 
 TOL = 1e-10
+MSG_1 = "We changed 'pi_threshold'->'pi_threshold_mult'.Please update the yaml file (defaulting to 'pi_threshold_mult=1')"
 
-def policy_update(pi, psi, eta):
-    """ Closed-form solution with KL """
+def policy_update(pi, psi, eta, theta, is_finite_state):
+    """ Closed-form solution with KL 
+
+    # TODO: Add other divergences, e.g., Tsallis...
+    """
     (n_states, n_actions) = psi.shape
 
-    assert (not np.any(np.isnan(psi))), "Found NaN in psi"
+    assert (not np.any(np.isnan(psi))), "Found NaN in psi, quitting program"
     pi *= np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
     pi /= np.outer(np.ones(n_actions), np.sum(pi, axis=0))
 
@@ -35,24 +39,24 @@ def policy_validation(env, pi, settings):
     agg_V = np.zeros(env.n_states, dtype=float)
     total_V_err = 0.
 
-    (true_psi, true_V) = env.get_advantage(pi)
+    true_V = -np.inf
+    if not settings["skip_true_model"]:
+        (_, true_V) = env.get_advantage(pi)
 
     for i in range(settings["validation_k"]):
         if settings["estimate_Q"] == "generative":
-            (psi, V, _) = env.estimate_advantage_generative(pi, settings["N"], settings["T"])
+            (psi, V, _) = env.estimate_advantage_generative(pi, settings["N_mc"], settings["T_mc"])
         elif settings["estimate_Q"] == "online": # @depreciated
-            (psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T"], settings["pi_threshold"])
+            (psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
         elif settings["estimate_Q"] == "online_mc_fixed":
-            (psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T"], settings["pi_threshold"])
+            (psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
         elif settings["estimate_Q"] == "online_mc_estimate":
-            t_mix, nu = env.get_mixing_time_ub(pi)
-            (nu_est, tmix_est, _) = env.estimate_mixing_properties(pi, 0, tmix=t_mix, nu=nu)
+            tmix, nu = env.get_mixing_time_ub(pi)
+            (nu_est, tmix_est, _) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=nu)
             T = int(1./(1-env.gamma) + tmix_est/np.min(nu_est) + 1)
             (psi, V, _, _) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"])
         elif settings["estimate_Q"] == "online_mc_dynamic":
             (psi, V, _, _) = env.estimate_advantage_online_mc_dynamic(pi, settings["pi_threshold"])
-        elif settings["estimate_Q"] == "linear": # @depreciated
-            (psi, V, _) = env.estimate_advantage_online_linear(pi, settings["T"])
         elif settings["estimate_Q"] == "ctd":
             # during validation, use online model
             (psi, V, _, _) = env.estimate_advantage_online_mc_dynamic(pi, settings["pi_threshold"])
@@ -77,7 +81,9 @@ def get_loggers(settings):
     env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
     logger = BasicLogger(
         fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
-        keys=["iter", "point value", "point opt_lb", "point uni_opt_lb", "agg value", "agg opt_lb", "agg uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb"], 
+        keys=["iter", "point value", "point opt_lb", "point uni_opt_lb", 
+              "agg value", "agg opt_lb", "agg uni_opt_lb", "true value", 
+              "true opt_lb", "true uni_opt_lb"], 
         dtypes=['d'] + ['f'] * 9
     )
     logger_agg_V = BasicLogger(
@@ -121,8 +127,8 @@ def _train_with_tuning(settings):
     sub_n_iters = max(1, int(n_iters/(np.log(num_trials)/np.log(2))))
     settings["n_iters"] = sub_n_iters
 
-    log_min_T = np.log(settings['min_T'])/np.log(10)
-    log_max_T = np.log(settings['max_T'])/np.log(10)
+    log_min_T = np.log(settings['min_T_mc'])/np.log(10)
+    log_max_T = np.log(settings['max_T_mc'])/np.log(10)
     Ts = np.power(10, rng.uniform(low=log_min_T, high=log_max_T, size=num_trials)).astype('int')
     tune_id_arr = np.arange(num_trials)
     tune_round = 0
@@ -131,7 +137,7 @@ def _train_with_tuning(settings):
         Pi_arr = None
         # run all trials
         for i, T in enumerate(Ts):
-            settings['T'] = T
+            settings['T_mc'] = T
             pi_t, f_t = _spmd(settings, 1.0, logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing)
             if Pi_arr is None:
                 Pi_arr = np.zeros((len(Ts),) + pi_t.shape)
@@ -171,6 +177,89 @@ def _train(settings):
     logger_agg_advgap.save()
     logger_validation.save()
 
+def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state):
+    """ Policy evaluation
+
+    :param env: environment from mdpmodel 
+    :param settings: (dict) 
+    :param pi: policy
+    :param tmix: (only for TOMC) mixing time
+    :param unu: (only for TOMC) minimum stationary dist
+    :param Phi: (only for CTD) features
+    :param ukappa: (only for CTD) estimate of minimum of kappa (distribution)
+    :param is_finite_state: (only for CTD, boolean)
+    """
+    theta = None
+    n_est_samples = 0
+
+    if settings["estimate_Q"] == "generative":
+        (psi, V, n_samples) = env.estimate_advantage_generative(pi, settings["N_mc"], settings["T_mc"])
+    elif settings["estimate_Q"] == "online": # @depreciated
+        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
+    elif settings["estimate_Q"] == "online_mc_fixed":
+        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
+    elif settings["estimate_Q"] == "online_mc_estimate":
+        (nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=nu)
+        T = int(1./(1-env.gamma) + tmix_est/np.min(nu_est) + 1)
+        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"])
+    elif settings["estimate_Q"] == "online_mc_dynamic":
+        (psi, V, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi, settings["eps"], settings["pi_threshold"])
+    elif settings["estimate_Q"] == "ctd": 
+        # pass in theta as last argument to warm start (doesn't help too much)
+        (psi, V, n_samples, theta) = env.estimate_advantage_online_ctd(
+            pi, Phi, ukappa, settings["eps"], settings["delta"], 
+            settings['ctd_iota_mult'], is_finite_state, 
+        )
+    else: 
+        raise Exception("Unknown estimate_Q setting %s" % settings["estimate_Q"])
+
+    return (psi, V, n_samples, n_est_samples, theta) 
+
+def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger):
+    """ Print and updates SPMD certificates.
+
+    Inputs @agg_V_t and @agg_psi_t and over-written in place.
+
+    :param env: environment from mdpmodel 
+    :param t: iteration of SPMD
+    :param V_t: estimated value func at iter t
+    :param psi_t: estimated advantage func at iter t
+    :param agg_V_t: aggregated estimate of value func at iter t
+    :param agg_psi_t: aggregated estimate of advantage func at iter t
+    :param true_V_t: (only TOMC, o/w arbitrary) true value func at iter t
+    :param true_psi_t: (only TOMC, o/w arbitrary) true advantage func at iter t
+    :param is_finite_state: (only CTD, boolean)
+    :param logger: 
+    """
+    alpha_t = 1./(t+1)
+    agg_psi_t[:,:] = (1.-alpha_t)*agg_psi_t + alpha_t*psi_t
+    agg_V_t[:] = (1.-alpha_t)*agg_V_t + alpha_t*V_t
+    if ((t+1) <= 100 and (t+1) % 5 == 0) or (t+1) % 100==0 or t<=10:
+        print("Iter %d: f=%.2e (fstar_lb=%.2e) | ag_f=%.2e (ag_fstar_lb=%.2e) | true_f=%.2e (true_fstar_lb=%.2e)" % (
+            t+1, 
+            np.dot(env.rho, V_t), 
+            np.dot(env.rho, V_t - np.max(-psi_t, axis=1)/(1.-env.gamma)), 
+            np.dot(env.rho, agg_V_t), 
+            np.dot(env.rho, agg_V_t - np.max(-agg_psi_t, axis=1)/(1.-env.gamma)), 
+            np.dot(env.rho, true_V_t), 
+            np.dot(env.rho, true_V_t - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
+        ))
+
+    logger.log(
+        t+1, 
+        np.dot(env.rho, V_t), 
+        np.dot(env.rho, V_t - np.maximum(0, np.max(-psi_t, axis=1)/(1.-env.gamma))), 
+        np.dot(env.rho, V_t - np.max(-psi_t)/(1.-env.gamma)), 
+        np.dot(env.rho, agg_V_t), 
+        np.dot(env.rho, agg_V_t - np.maximum(0, np.max(-agg_psi_t, axis=1)/(1.-env.gamma))), 
+        np.dot(env.rho, agg_V_t - np.max(-agg_psi_t)/(1.-env.gamma)), 
+        np.dot(env.rho, true_V_t), 
+        np.dot(env.rho, true_V_t - np.maximum(0, np.max(-true_psi_t, axis=1)/(1.-env.gamma))),
+        np.dot(env.rho, true_V_t - np.max(-true_psi_t)/(1.-env.gamma)),
+    )
+
+    return agg_V_t, agg_psi_t
+
 def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing, pi_0=None):
     """
     SPMD training procedure 
@@ -181,104 +270,58 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
     assert ukappa > 0, "ukappa=%.4e not positive" % ukappa
     seed = settings['seed']
 
-    # env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
+    # initialization
     env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
-
     if pi_0 is None:
         pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
     pi_t = pi_0
     greedy_pi_t = np.copy(pi_0)
     next_greedy_pi_t = np.copy(pi_0)
     pi_star = None
-
-    # copy of aggregate and true
     agg_psi_t = np.zeros((env.n_states, env.n_actions), dtype=float)
     agg_V_t = np.zeros(env.n_states, dtype=float)
-    true_psi_t = np.zeros((env.n_states, env.n_actions), dtype=float)
-    true_V_t = np.zeros(env.n_states, dtype=float)
-    cum_samples = 0
-    cum_est_samples = 0
+    true_psi = true_psi_t = np.zeros((env.n_states, env.n_actions), dtype=float)
+    true_V = true_V_t = np.zeros(env.n_states, dtype=float)
+    cum_samples = cum_est_samples = 0
+    tmix = unu = 0
+    Phi = None
+    is_finite_state = env.n_states is not None
+    s_time = time.time()
+    e_time = -time.time()
 
-    stepsize_scheduler = pmd.StepsizeSchedule(env, settings["stepsize_rule"], settings.get("eta",1))
+    stepsize_scheduler = pmd.StepsizeSchedule(env, settings["stepsize_rule"], 
+                                              settings.get("eta",1))
     if "pi_threshold_mult" not in settings:
-        warnings.warn("We changed 'pi_threshold'->'pi_threshold_mult'. Please update the yaml file (defaulting to 'pi_threshold_mult=1')")
+        warnings.warn(MSG_1)
         settings["pi_threshold_mult"] = 1.
     settings["pi_threshold"] = settings["pi_threshold_mult"] * (1.-env.gamma)/env.n_actions
 
-    s_time = time.time()
-    e_time = -time.time()
-    if settings["estimate_Q"] == "linear": # @depreciated
-        env.init_estimate_advantage_online_linear(settings)
     if settings["estimate_Q"] == "ctd": 
-        Phi = env.rng.normal(size=(env.n_states*env.n_actions, settings["ctd_feature_size"]))
-        theta = np.zeros(Phi.shape[1])
+        if is_finite_state: # finite state and action
+            Phi = env.rng.normal(size=(env.n_states*env.n_actions, settings["ctd_feature_size"]))
+        else: # finite action and continuous state
+            Phi = env.rng.normal(size=(env.n_states, env.n_state_dim, settings["ctd_feature_size"]))
+        theta = np.zeros(settings["ctd_feature_size"])
 
+    # SPMD main for-loop
     for t in range(settings["n_iters"]):
-        # this is only for logging/estimation
-        n_est_samples = 0
-        t_mix, nu = env.get_mixing_time_ub(pi_t)
         if not settings["skip_true_model"]:
+            tmix, nu = env.get_mixing_time_ub(pi_t)
+            unu = np.min(nu)
             e_time += time.time() # skip advantage estimation time
             (true_psi_t, true_V_t) = env.get_advantage(pi_t)
             e_time -= time.time()
 
-        if settings["estimate_Q"] == "generative":
-            (psi_t, V_t, n_samples) = env.estimate_advantage_generative(pi_t, settings["N"], settings["T"])
-        elif settings["estimate_Q"] == "online": # @depreciated
-            (psi_t, V_t, _, n_samples) = env.estimate_advantage_online_mc(pi_t, settings["T"], settings["pi_threshold"])
-        elif settings["estimate_Q"] == "online_mc_fixed":
-            (psi_t, V_t, _, n_samples) = env.estimate_advantage_online_mc(pi_t, settings["T"], settings["pi_threshold"])
-        elif settings["estimate_Q"] == "online_mc_estimate":
-            (nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi_t, 0, tmix=t_mix, nu=nu)
-            T = int(1./(1-env.gamma) + tmix_est/np.min(nu_est) + 1)
-            (psi_t, V_t, _, n_samples) = env.estimate_advantage_online_mc(pi_t, T, settings["pi_threshold"])
-        elif settings["estimate_Q"] == "online_mc_dynamic":
-            (psi_t, V_t, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi_t, settings["eps"], settings["pi_threshold"])
-        elif settings["estimate_Q"] == "linear": # @depreciated
-            (psi_t, V_t, n_samples) = env.estimate_advantage_online_linear(pi_t, settings["T"])
-        elif settings["estimate_Q"] == "ctd": 
-            # pass in theta as last argument to warm start (doesn't help too much)
-            (psi_t, V_t, n_samples, theta) = env.estimate_advantage_online_ctd(
-                pi_t, Phi, ukappa, settings["eps"], settings["delta"], 
-                settings['ctd_iota_mult'],
-            )
-        else: 
-            raise Exception("Unknown estimate_Q setting %s" % settings["estimate_Q"])
-
-        alpha_t = 1./(t+1)
-        agg_psi_t = (1.-alpha_t)*agg_psi_t + alpha_t*psi_t
-        agg_V_t = (1.-alpha_t)*agg_V_t + alpha_t*V_t
+        (psi_t, V_t, n_samples, n_est_samples, theta_t) = policy_eval(
+                env, settings, pi_t, tmix, unu, Phi, ukappa, is_finite_state
+        )
+        eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
+        policy_update(pi_t, psi_t, eta_t, theta_t, is_finite_state) 
+        
         cum_samples += n_samples
         cum_est_samples += n_est_samples
-
-        if ((t+1) <= 100 and (t+1) % 5 == 0) or (t+1) % 100==0 or t<=10:
-            print("Iter %d: f=%.2e (fstar_lb=%.2e) | ag_f=%.2e (ag_fstar_lb=%.2e) | true_f=%.2e (true_fstar_lb=%.2e)" % (
-                t+1, 
-                np.dot(env.rho, V_t), 
-                np.dot(env.rho, V_t - np.max(-psi_t, axis=1)/(1.-env.gamma)), 
-                np.dot(env.rho, agg_V_t), 
-                np.dot(env.rho, agg_V_t - np.max(-agg_psi_t, axis=1)/(1.-env.gamma)), 
-                np.dot(env.rho, true_V_t), 
-                np.dot(env.rho, true_V_t - np.max(-true_psi_t, axis=1)/(1.-env.gamma)),
-            ))
-        logger.log(
-            t+1, 
-            np.dot(env.rho, V_t), 
-            np.dot(env.rho, V_t - np.maximum(0, np.max(-psi_t, axis=1)/(1.-env.gamma))), 
-            np.dot(env.rho, V_t - np.max(-psi_t)/(1.-env.gamma)), 
-            np.dot(env.rho, agg_V_t), 
-            np.dot(env.rho, agg_V_t - np.maximum(0, np.max(-agg_psi_t, axis=1)/(1.-env.gamma))), 
-            np.dot(env.rho, agg_V_t - np.max(-agg_psi_t)/(1.-env.gamma)), 
-            np.dot(env.rho, true_V_t), 
-            np.dot(env.rho, true_V_t - np.maximum(0, np.max(-true_psi_t, axis=1)/(1.-env.gamma))),
-            np.dot(env.rho, true_V_t - np.max(-true_psi_t)/(1.-env.gamma)),
-        )
-        logger_mixing.log(t, e_time + time.time(), cum_samples, cum_est_samples, np.min(nu), t_mix)
-
-        eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
-        policy_update(pi_t, psi_t, eta_t) 
-
-    print("Total runtime: %.2fs" % (time.time() - s_time))
+        print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger)
+        logger_mixing.log(t, e_time + time.time(), cum_samples, cum_est_samples, unu, tmix)
 
     # policy validation
     output = policy_validation(env, pi_t, settings)
@@ -292,8 +335,10 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
     double_agg_advgap = np.maximum(0, np.max(-agg_psi_t, axis=1))
     logger_agg_advgap.log(t+1, *list(double_agg_advgap))
 
-    (true_psi, true_V) = env.get_advantage(pi_t)
+    if not settings["skip_true_model"]:
+        (true_psi, true_V) = env.get_advantage(pi_t)
 
+    print("Total runtime: %.2fs" % (time.time() - s_time))
     print("Offline: f=%.2e (fstar=%.2e) | true_f=%.2e (est_true_f_star=%.2e)" % (
         np.dot(env.rho, agg_V), 
         np.dot(env.rho, double_agg_V - np.maximum(0, np.max(-double_agg_psi, axis=1)/(1.-env.gamma))), 
