@@ -94,8 +94,10 @@ def _train(settings):
 
         pi_t_flat = np.reshape(pi_t.T, newshape=(-1,))
         psi_t_flat = np.reshape(psi_t, newshape=(-1,))
-        F_t = np.diag(pi_t_flat) - np.outer(pi_t_flat, pi_t_flat) 
-        policy_grad_t = np.reshape(F_t.T@psi_t_flat, newshape=psi_t.shape)
+        # F_t = np.diag(pi_t_flat) - np.outer(pi_t_flat, pi_t_flat) 
+        # policy_grad_t = np.reshape(F_t.T@psi_t_flat, newshape=psi_t.shape)
+        F_tpsi_t = pi_t_flat*psi_t_flat - pi_t_flat * np.dot(pi_t_flat, psi_t_flat)
+        policy_grad_t = np.reshape(F_tpsi_t, newshape=psi_t.shape)
         eta_t = 1.0
         if not policy_update(pi_t, policy_grad_t, eta_t):
             break
