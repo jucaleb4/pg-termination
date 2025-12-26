@@ -190,8 +190,7 @@ def _train(settings):
             break
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
-        succeeded = policy_update(pi_t, psi_t, eta_t, settings["update_rule"]) 
-        if not succeeded:
+        if not policy_update(pi_t, psi_t, eta_t, settings["update_rule"]):
             break
 
     print("Total runtime: %.2fs" % (time.time() - s_time))
