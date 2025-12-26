@@ -4,13 +4,7 @@ import numpy as np
 import numpy.linalg as la
 import abc
 
-import sklearn
-import sklearn.pipeline
-import sklearn.kernel_approximation 
-import sklearn.linear_model
-
-from sklearn.exceptions import ConvergenceWarning
-from sklearn.utils._testing import ignore_warnings
+import gymnasium as gym
 
 TOL = 1e-10
 
@@ -41,6 +35,14 @@ class MDPModel():
         :param a: action (must be an int)
         :return s: state
         :return c: cost
+        """
+        return
+
+    @abc.abstractmethod
+    def get_mixing_time_ub(self, pi):
+        """ Computes exact mixing under pi. If unknown, returns arbitrary.
+        :returns t_mix: mixing time 
+        :returns nu: stationary distribution
         """
         return
 
@@ -202,7 +204,7 @@ class MDPModel():
         return (psi, V_pi, visit_len_state_action, T)
 
     def estimate_advantage_online_ctd(self, pi, Phi, ukappa, eps, delta, 
-            iota_mult, prev_theta=None
+            iota_mult, is_finite_state, prev_theta=None
     ):
         """
         Forms nearly unbiased TD estimator that is bounded w.h.p.
@@ -212,14 +214,21 @@ class MDPModel():
         :params ukappa: lower bound estimate of minimum discounted visit distribution
         :params eps: accuracy tolerance
         :params delta: failure rate
+        :params iota_mult: multiplier for iota (stepsize)
+        :params is_finite_state: whether state space is finite
         """
 
         # initialize data and parameters
         cum_samples = 0
         uw = (1.-self.gamma)*ukappa**2/self.n_actions 
-        Phi_sigvals = la.svd(Phi)[1] 
-        Omega = np.max(Phi_sigvals)
-        mu = np.min(Phi_sigvals)**2*uw
+        # if is_finite_state:
+        #     Phi_sigvals = la.svd(Phi)[1] 
+        # else:
+        #     # TODO: Find more elegant way to do this in continuous space
+        #     Phi_sigvals = la.svd(Phi[0])[1] 
+        Omega = la.norm(Phi, ord=2)
+        # skip smallest mu
+        mu = min(1, Omega)**2*uw # np.min(Phi_sigvals)**2*uw
         T  = Omega**2/((1.-self.gamma)**2*mu)
         iota = (1.-self.gamma)/Omega**2 
         N = int((T/uw) * max(1, np.log(1./eps))) 
@@ -538,10 +547,6 @@ class KnownModel(MDPModel):
 
         bQT = np.ones(dim)
         return np.linalg.solve(QTQ,bQT)
-
-class OnlineModel(MDPModel):
-    def __init__(self, gamma, seed=None):
-        super().__init__(gamma, seed)
 
 class Bandits(KnownModel):
     def __init__(self, n_arms, gamma, seed):
@@ -1092,6 +1097,54 @@ class SimpleBattery(KnownModel):
     def get_target(self):
         return self.target
 
+class DiscretizedGymnasiumModel(MDPModel):
+    """
+    We form an approximate Gymnasium model by discretizing the state space.
+    """
+    def __init__(self, env_name, gamma, resolution, seed=None):
+        super().__init__(gamma, seed)
+        # self.env = gym.make(env_name, render_mode="human")
+        self.env = gym.make(env_name)
+
+        self.low, self.high = self.env.observation_space.low, self.env.observation_space.high
+        self.diff = self.high - self.low
+        state_dim = len(self.low)
+        self.state_flatten_mult_arr = np.power(resolution, np.arange(state_dim)[::-1])
+        self.resolution = resolution
+        self.n_states = resolution**state_dim
+        self.n_actions = self.env.action_space.n
+        self.ct = seed
+
+        s_cont, _ = self.env.reset(seed=self.ct) 
+        self.s = self.state_discretize(s_cont)
+        self.s_0 = np.copy(self.s)
+        self.ct += 1
+
+
+        self.rho = np.zeros(self.n_states)
+        self.rho[self.s] = 1
+
+    def get_origin_state(self):
+        return (self.state_discretize(self.s_0), self.s_0)
+
+    def state_discretize(self, s_cont):
+        s_bucket = np.round(np.divide(s_cont - self.low, self.diff) * self.resolution)
+        return int(np.dot(s_bucket, self.state_flatten_mult_arr))
+
+    def step(self, a):
+        s_cont, r, terminated, truncated, _ = self.env.step(a)
+
+        # see: https://gymnasium.farama.org/api/env/#gymnasium.Env.reset
+        if terminated or truncated:
+            s_cont, _ = self.env.reset(seed=self.ct) 
+            self.ct += 1
+
+        self.s = self.state_discretize(s_cont)
+
+        return (self.s, -r)
+
+    def get_mixing_time_ub(self, pi):
+        return 0, np.zeros(1)
 
 def get_env(name, gamma, seed=None):
     if name == "bandits":
@@ -1122,6 +1175,8 @@ def get_env(name, gamma, seed=None):
         env = Chain(100, gamma, eps=1e-3, seed=seed)
     elif name == "battery":
         env = SimpleBattery(3, 2, 4, gamma, seed=seed)
+    elif name == "discrete_mountaincar":
+        env = DiscretizedGymnasiumModel("MountainCar-v0", gamma, 100, seed=seed)
     else:
         raise Exception("Unknown env_name=%s" % name)
 

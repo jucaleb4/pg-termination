@@ -69,3 +69,4 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2025_12_11/exp_0.py`: setup simple BatteryModel
 - `2025_12_11/exp_1.py`: successive hyper-tuning (one with noisy oracle, one with exact oracle)
 - `2025_12_11/exp_2.py`: running with best fixed exploration time from `exp_1.py` above
+- `2025_12_24/exp_0.py`: testing CTD on discretized MountCarin
