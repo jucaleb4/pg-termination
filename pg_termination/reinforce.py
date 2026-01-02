@@ -59,6 +59,7 @@ def _train(settings):
     # tolerance for optimality (due to floating point error)
     eps_tol = 1e-14/(1.-env.gamma)
     consecutive_natural_fails = 0
+    mu = float(1./env.n_states) * np.ones(env.n_states, dtype=float)
 
     for t in range(settings["n_iters"]):
         (psi_t, V_t) = env.get_advantage(pi_t)
@@ -92,14 +93,12 @@ def _train(settings):
             pi_star = greedy_pi_t
             break
 
-        pi_t_flat = np.reshape(pi_t.T, newshape=(-1,))
-        psi_t_flat = np.reshape(psi_t, newshape=(-1,))
-        # F_t = np.diag(pi_t_flat) - np.outer(pi_t_flat, pi_t_flat) 
-        # policy_grad_t = np.reshape(F_t.T@psi_t_flat, newshape=psi_t.shape)
-        F_tpsi_t = pi_t_flat*psi_t_flat - pi_t_flat * np.dot(pi_t_flat, psi_t_flat)
-        policy_grad_t = np.reshape(F_tpsi_t, newshape=psi_t.shape)
+        # https://www.jmlr.org/papers/volume22/19-736/19-736.pdf: Lemma 40
+        kappa_t = env.get_discounted_visitation(pi_t, mu)
+        policy_grad_t = np.multiply(psi_t.T, pi_t)
+        policy_grad_t = (1.-env.gamma)**(-1)*kappa_t*policy_grad_t
         eta_t = 1.0
-        if not policy_update(pi_t, policy_grad_t, eta_t):
+        if not policy_update(pi_t, policy_grad_t.T, eta_t):
             break
 
     print("Total runtime: %.2fs" % (time.time() - s_time))

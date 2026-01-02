@@ -71,6 +71,14 @@ class MDPModel():
 
         return nu
 
+    def get_discounted_visitation(self, pi, mu):
+        P_pi = np.einsum('psa,as->ps', self.P, pi)
+        kappa = (1-self.gamma)*la.solve(np.eye(self.n_states) - self.gamma*P_pi, mu)
+        # normalize
+        kappa -= np.min(kappa)
+        kappa /= np.sum(kappa)
+        return kappa
+
     def _get_spectral_gap(self, pi):
         """
         Spectral gap is 1-max(|lam_2|,|lam_n|)

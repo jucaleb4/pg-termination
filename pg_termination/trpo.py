@@ -118,7 +118,7 @@ def _train(settings):
         exponential_inc = loss <= 0 and KL_dist <= eps
         eta_scale = 2.0 if exponential_inc else 0.5
         # only allow binary search of 10
-        for _ in range(10):
+        for _ in range(1000 if exponential_inc else 10):
             eta_t *= eta_scale
             pi_new = policy_update(pi_t, psi_t, eta_t)
             loss = np.dot(nu_t, np.einsum("sa,as->s", psi_t, pi_new))
