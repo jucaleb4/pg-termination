@@ -125,8 +125,10 @@ class StepsizeSchedule():
             return eta
         elif self.stepsize_rule == StepSize.EUCLIDEAN_LINEAR_AGGRESSIVE:
             # dynamically update
-            if t % (self.N * self.T) == 0:
+            if t % (self.N * self.T + 1) == 0:
                 self.Delta = np.max(-psi)/(1.-self.gamma)
+            if (t + 1) % (self.N * self.T + 1) == 0:
+                return np.inf
             eta = 2**t/self.Delta
             return eta
 
@@ -190,7 +192,9 @@ def _train(settings):
             break
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
-        if not policy_update(pi_t, psi_t, eta_t, settings["update_rule"]):
+        if eta_t == np.inf:
+            utils.set_greedy_policy(pi_t, psi_t)
+        elif not policy_update(pi_t, psi_t, eta_t, settings["update_rule"]):
             break
 
     print("Total runtime: %.2fs" % (time.time() - s_time))
