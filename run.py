@@ -1,7 +1,7 @@
 import argparse
 import yaml
 
-from pg_termination import pmd, policyiter, spmd
+from pg_termination import pmd, policyiter, spmd, reinforce, trpo
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -23,5 +23,9 @@ if __name__ == "__main__":
         spmd.train(settings)
     elif settings['alg'] == 'policyiter':
         policyiter.train(settings)
+    elif settings['alg'] == 'reinforce':
+        reinforce.train(settings)
+    elif settings['alg'] == 'trpo':
+        trpo.train(settings)
     else:
         print("Unknown alg %s" % settings['alg'])
