@@ -8,7 +8,7 @@ import multiprocessing as mp
 import numpy as np
 import numpy.linalg as la
 
-from pg_termination import mdpmodel 
+from pg_termination import wbmdp 
 from pg_termination import utils
 from pg_termination.logger import BasicLogger
 
@@ -38,7 +38,7 @@ def _train(settings):
     """
     seed = settings['seed']
 
-    env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
+    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
 
     if "gridworld" in settings['env_name']:
         with open(os.path.join(settings["log_folder"], "gridworld_target_seed=%d.csv" % seed), "w+") as f:
@@ -118,7 +118,7 @@ def _train(settings):
         exponential_inc = loss <= 0 and KL_dist <= eps
         eta_scale = 2.0 if exponential_inc else 0.5
         # only allow binary search of 10
-        for _ in range(10):
+        for _ in range(1000 if exponential_inc else 10):
             eta_t *= eta_scale
             pi_new = policy_update(pi_t, psi_t, eta_t)
             loss = np.dot(nu_t, np.einsum("sa,as->s", psi_t, pi_new))

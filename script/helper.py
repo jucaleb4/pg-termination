@@ -80,4 +80,3 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         print("-" * (80+len(exp_metadata)-1))
 
     return od
-

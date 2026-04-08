@@ -21,7 +21,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     alg_name_arr = ["reinforce", "trpo"]
     env_name_arr = [
         "gridworld_small", 
-        "gridworld_hill_small", 
+        # "gridworld_hill_small", 
         "taxi", 
     ]
     gamma_arr = [0.9, 0.99, 0.999]
@@ -49,7 +49,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         od["alg"] = alg_name
         od["env_name"] = env_name
         od["gamma"] = gamma
-        od["n_iters"] = 10*n_iters if (gamma == 0.999) else n_iters
+        od["n_iters"] = n_iters 
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)

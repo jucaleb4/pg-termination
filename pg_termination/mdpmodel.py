@@ -425,6 +425,14 @@ class KnownModel(MDPModel):
 
         return nu
 
+    def get_discounted_visitation(self, pi, mu):
+        P_pi = np.einsum('psa,as->ps', self.P, pi)
+        kappa = (1-self.gamma)*la.solve(np.eye(self.n_states) - self.gamma*P_pi, mu)
+        # normalize
+        kappa -= np.min(kappa)
+        kappa /= np.sum(kappa)
+        return kappa
+
     def _get_spectral_gap(self, pi):
         """
         Spectral gap is 1-max(|lam_2|,|lam_n|)
@@ -436,8 +444,10 @@ class KnownModel(MDPModel):
         return 1. - max(abs(eigvals[1]), abs(eigvals[-1]))
 
     def get_mixing_time_ub(self, pi):
-        """ Use 
-            $$(t_relax-1)*ln(2) <= t_mix <= t_relax ln(4/nu_*)$$,
+        """ Use
+
+            $$(t_relax-1)*ln(2) <= t_mix <= t_relax*ln(4/nu_*),$$
+
         where nu_* is the smallest steady state distribution value and t_relax=1/(spec_gap).
         """
         spec_gap = self._get_spectral_gap(pi)
@@ -1016,6 +1026,7 @@ class Chain(KnownModel):
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
+<<<<<<< HEAD:pg_termination/mdpmodel.py
 class SimpleBattery(KnownModel):
     def __init__(self, n_solar_pwr, n_battery_change_lim, n_price_pts, gamma, rho=None, seed=None):
         """ Simple finite state finite action battery model with three elements:
@@ -1145,6 +1156,34 @@ class DiscretizedGymnasiumModel(MDPModel):
 
     def get_mixing_time_ub(self, pi):
         return 0, np.zeros(1)
+=======
+class Garnet(MDPModel):
+    """
+    src: https://proceedings.mlr.press/v89/tarbouriech19a.html
+
+    5 parameters: (S,A,b,sig_min_sq,sig_max_sq)
+       - (S,A): state action space 
+       - b: branching factor, is number of next states transitions, where the probability is from Uni[0,1]
+       - [sig_min_sq, sig_max_sq]: variance of cost at each c(s,a) - assume same mean of mu = 0.5
+    """
+    def __init__(self, n_states, n_actions, gamma, b, sig_min_sq, sig_max_sq, seed=None):
+        rng = np.random.default_rng(seed)
+        n_states_remove = int((1.-b) * n_states)
+        mu = 0
+
+        P = rng.uniform(size=((n_states, n_states, n_actions)))
+        for i in range(n_states*n_actions):
+            (s,a) = (i//n_actions, i%n_actions)
+            idxs = rng.choice(n_states, size=n_states_remove, replace=False)
+            P[idxs,s,a] = 0
+            P[s,s,a] = 0.001
+            P[:,s,a] /= np.sum(P[:,s,a])
+
+        sigs_arr = np.sqrt(rng.uniform(sig_min_sq, sig_max_sq, size=((n_states, n_actions))))
+        c = rng.normal(0, scale=sigs_arr)
+        c = (c-np.min(c))/(np.max(c)-np.min(c))
+
+        super().__init__(n_states, n_actions, c, P, gamma)
 
 def get_env(name, gamma, seed=None):
     if name == "bandits":
@@ -1177,8 +1216,16 @@ def get_env(name, gamma, seed=None):
         env = SimpleBattery(3, 2, 4, gamma, seed=seed)
     elif name == "discrete_mountaincar":
         env = DiscretizedGymnasiumModel("MountainCar-v0", gamma, 100, seed=seed)
+    elif name == "garnet_200":
+        env = Garnet(200, 30, gamma, 0.2, 0.5, 2.0, seed=seed)
+    elif name == "garnet_500":
+        env = Garnet(500, 30, gamma, 0.2, 0.5, 2.0, seed=seed)
+    elif name == "garnet_1000":
+        env = Garnet(1000, 30, gamma, 0.2, 0.5, 2.0, seed=seed)
+    elif name == "garnet_2500":
+        env = Garnet(2500, 30, gamma, 0.2, 0.5, 2.0, seed=seed)
     else:
         raise Exception("Unknown env_name=%s" % name)
 
-    return env
+   return env
 
