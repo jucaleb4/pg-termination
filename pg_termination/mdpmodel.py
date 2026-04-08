@@ -1026,8 +1026,6 @@ class Chain(KnownModel):
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
-<<<<<<< HEAD:pg_termination/mdpmodel.py
-<<<<<<< HEAD:pg_termination/mdpmodel.py
 class SimpleBattery(KnownModel):
     def __init__(self, n_solar_pwr, n_battery_change_lim, n_price_pts, gamma, rho=None, seed=None):
         """ Simple finite state finite action battery model with three elements:
