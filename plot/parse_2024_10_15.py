@@ -12,7 +12,7 @@ from matplotlib.colors import LogNorm, Normalize
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, parent_dir)
 
-from pg_termination import wbmdp 
+from pg_termination import mdpmodel 
 
 DATE = "2024_10_15"
 EXP_ID = 0
@@ -20,7 +20,7 @@ N_RUNS = 63
 N_SEEDS = 10
 
 def print_worse_case_complexity(env_name, gamma):
-    env = wbmdp.get_env(env_name, 0.9, 0)
+    env = mdpmodel.get_env(env_name, 0.9, 0)
     N = np.ceil(4./(1-gamma))
     T = np.ceil(np.log(env.n_states**3*env.n_actions/(1.-gamma)**2/np.log(2)))+1
     print("Worst case iteration complexity: %d" % (env.n_states*(env.n_actions-1)*N*T))
