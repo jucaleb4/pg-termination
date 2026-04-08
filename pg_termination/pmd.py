@@ -135,8 +135,8 @@ class StepsizeSchedule():
 def _train(settings):
     seed = settings['seed']
 
-    # env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
-    env = wbmdp.get_env(settings['env_name'], settings['gamma'], seed)
+    # env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed, n_origins=5)
+    env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
 
     if "gridworld" in settings['env_name']:
         with open(os.path.join(settings["log_folder"], "gridworld_target_seed=%d.csv" % seed), "w+") as f:

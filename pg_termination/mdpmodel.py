@@ -1226,5 +1226,5 @@ def get_env(name, gamma, seed=None):
     else:
         raise Exception("Unknown env_name=%s" % name)
 
-   return env
+    return env
 
