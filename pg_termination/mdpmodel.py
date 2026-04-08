@@ -1185,6 +1185,60 @@ class Garnet(KnownModel):
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
+class BlackJack(KnownModel):
+    """
+    Based on: https://gymnasium.farama.org/environments/toy_text/blackjack/
+
+    Unlike the Gymnasium implementation, we do not use the usable-ace state since
+    this lead to some state never visited (e.g., value of 1 from ACE but no usable ace)
+    """
+    # TODO: Logic is tricky due to 1) face cards 2) usable ACE 3) draw until 17
+    def __init__(self):
+        # value can be as low as 4 and as high as as 31 
+        # from blackjack + face card (drawing an ace counts as 1 since it leads a bust)
+        n_states = 30*11
+        n_actions = 2
+        init_cards = np.arange(4, 22)
+        all_cards = np.arange(2,12) * 11
+        all_cards_usable = np.arange(1,11) * 11
+
+        init_dist = np.append(np.arange(1, 11), np.arange(2,10)[::-1])
+        init_dist[8] += 1 # for double aces (with value 12)
+        init_dist /= np.sum(init_dist)
+        # 3 face cards
+        all_dist = np.ones(len(all_cards)); all_dist[-2] = 3; all_dist /= np.sum(all_dist)
+        all_usable_dist = np.ones(len(all_cards)); all_usable_dist[-1] = 3; all_usable_dist /= np.sum(all_usable_dist)
+
+        P = rng.zeros(size=((n_states, n_states, n_actions)))
+
+        # if hit (a = 1)
+        for i in range(n_states):
+            val = i // 11
+            bust = val > 21
+            cost = 0
+
+            if bust: # reset
+                next_vals = init_cards
+                next_dist = init_dist
+                cost = 1 # large cost
+            elif val > 10: # drawing ace would bust
+                next_vals = val + all_cards_usable
+                next_dist = all_usable_dist
+            else: # drawing ace would not bust
+                next_vals = val + all_cards
+                next_dist = all_dist
+            P[next_vals, i, 1] = next_dist
+            c[i, 1] = cost
+
+        # if stick (a = 0)
+        P[all_cards, :, 0] = 0.1
+
+        sigs_arr = np.sqrt(rng.uniform(sig_min_sq, sig_max_sq, size=((n_states, n_actions))))
+        c = rng.normal(0, scale=sigs_arr)
+        c = (c-np.min(c))/(np.max(c)-np.min(c))
+
+        super().__init__(n_states, n_actions, c, P, gamma)
+
 def get_env(name, gamma, seed=None):
     if name == "bandits":
         env = Bandits(4, gamma, seed=seed)
@@ -1216,6 +1270,12 @@ def get_env(name, gamma, seed=None):
         env = SimpleBattery(3, 2, 4, gamma, seed=seed)
     elif name == "discrete_mountaincar":
         env = DiscretizedGymnasiumModel("MountainCar-v0", gamma, 100, seed=seed)
+    elif name == "garnet_10":
+        env = Garnet(10, 3, gamma, 0.1, 0.5, 2.0, seed=seed)
+    elif name == "garnet_50":
+        env = Garnet(50, 5, gamma, 0.2, 0.5, 2.0, seed=seed)
+    elif name == "garnet_100":
+        env = Garnet(100, 10, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "garnet_200":
         env = Garnet(200, 30, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "garnet_500":
