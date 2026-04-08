@@ -5,7 +5,7 @@ import argparse
 import yaml
 import re
 
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "." + ".", "." + "."))
 sys.path.insert(0, parent_dir)
 
 from pg_termination import pmd

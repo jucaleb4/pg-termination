@@ -199,7 +199,7 @@ def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state):
     elif settings["estimate_Q"] == "online_mc_fixed":
         (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
     elif settings["estimate_Q"] == "online_mc_estimate":
-        (nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=nu)
+        (nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=unu)
         T = int(1./(1-env.gamma) + tmix_est/np.min(nu_est) + 1)
         (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"])
     elif settings["estimate_Q"] == "online_mc_dynamic":

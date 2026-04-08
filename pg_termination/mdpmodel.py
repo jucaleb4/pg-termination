@@ -120,7 +120,7 @@ class MDPModel():
             nu_est[curr_s] += 1
             a = self.rng.choice(pi.shape[0], p=pi[:,curr_s])
             self.step(a)
-            M_est[s_curr,self.s] += 1
+            M_est[curr_s,self.s] += 1
             curr_s = self.s
 
         # normalize and compute intermediates
@@ -958,6 +958,7 @@ class Taxi(KnownModel):
 
             c[curr_state_loc, 5] = -20
 
+        import ipdb; ipdb.set_trace()
         super().__init__(n_states, n_actions, c, P, gamma, seed=seed)
 
 class Random(KnownModel):
@@ -1156,7 +1157,7 @@ class DiscretizedGymnasiumModel(MDPModel):
     def get_mixing_time_ub(self, pi):
         return 0, np.zeros(1)
 
-class Garnet(MDPModel):
+class Garnet(KnownModel):
     """
     src: https://proceedings.mlr.press/v89/tarbouriech19a.html
 
