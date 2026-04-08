@@ -1027,6 +1027,7 @@ class Chain(KnownModel):
         super().__init__(n_states, n_actions, c, P, gamma)
 
 <<<<<<< HEAD:pg_termination/mdpmodel.py
+<<<<<<< HEAD:pg_termination/mdpmodel.py
 class SimpleBattery(KnownModel):
     def __init__(self, n_solar_pwr, n_battery_change_lim, n_price_pts, gamma, rho=None, seed=None):
         """ Simple finite state finite action battery model with three elements:
@@ -1156,7 +1157,7 @@ class DiscretizedGymnasiumModel(MDPModel):
 
     def get_mixing_time_ub(self, pi):
         return 0, np.zeros(1)
-=======
+
 class Garnet(MDPModel):
     """
     src: https://proceedings.mlr.press/v89/tarbouriech19a.html
