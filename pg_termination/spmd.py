@@ -111,6 +111,7 @@ def get_loggers(settings):
     return [logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing]
 
 def _train_with_tuning(settings):
+    print("=== Running tuning via successive halving ===")
     logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing = get_loggers(settings)
     seed = settings['seed']
 
@@ -132,13 +133,14 @@ def _train_with_tuning(settings):
     Ts = np.power(10, rng.uniform(low=log_min_T, high=log_max_T, size=num_trials)).astype('int')
     tune_id_arr = np.arange(num_trials)
     tune_round = 0
+    Pi_arr = None
     while 1:
         score_arr = np.zeros(len(Ts))
-        Pi_arr = None
         # run all trials
         for i, T in enumerate(Ts):
             settings['T_mc'] = T
-            pi_t, f_t = _spmd(settings, 1.0, logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing)
+            pi_0 = None if tune_round == 0 else Pi_arr[i]
+            pi_t, f_t = _spmd(settings, 1.0, logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing, pi_0=pi_0)
             if Pi_arr is None:
                 Pi_arr = np.zeros((len(Ts),) + pi_t.shape)
             Pi_arr[i,:,:] = pi_t
