@@ -98,7 +98,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seed_0 = 0
     n_seeds = 1
-    n_iters = 10_000
+    n_iters = 1_000
 
     if args.setup:
         if args.mode == "full":
