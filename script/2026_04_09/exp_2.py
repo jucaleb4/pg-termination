@@ -13,7 +13,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "SPMD tuning (stepsize only) on GridWorld"
+ABOUT = "Run all auto-explore SPMD on GridWorld (WIP - not yet ready)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -21,14 +21,17 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["alg"] = "spmd"
     od["n_iters"] = n_iters
     od["skip_true_model"] = False
-    estimator_arr = ["online_mc_estimate", "online_mc_dynamic"]
+    eta_estimator_T_arr = [
+        (0.1, "online_mc_fixed", 10_000), 
+        (0.1, "online_mc_estimate", 0), 
+        (0.1, "online_mc_dynamic", 0)
+    ]
     env_name_arr = [
         "gridworld_footnote", 
         "gridworld_small", 
         "gridworld_large", 
     ]
     gamma_arr = [0.9, 0.99, 0.999]
-    eta_arr = [5e-3, 2e-2, 5e-1]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
