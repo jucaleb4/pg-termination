@@ -958,7 +958,6 @@ class Taxi(KnownModel):
 
             c[curr_state_loc, 5] = -20
 
-        import ipdb; ipdb.set_trace()
         super().__init__(n_states, n_actions, c, P, gamma, seed=seed)
 
 class Random(KnownModel):
@@ -1270,8 +1269,6 @@ def get_env(name, gamma, seed=None):
         env = SimpleBattery(3, 2, 4, gamma, seed=seed)
     elif name == "discrete_mountaincar":
         env = DiscretizedGymnasiumModel("MountainCar-v0", gamma, 100, seed=seed)
-    elif name == "garnet_10":
-        env = Garnet(10, 3, gamma, 0.1, 0.5, 2.0, seed=seed)
     elif name == "garnet_50":
         env = Garnet(50, 5, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "garnet_100":

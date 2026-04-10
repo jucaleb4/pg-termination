@@ -13,23 +13,21 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Tune SPMD Monte-Carlo fixed MC length on Garnet"
+ABOUT = "SPMD tuning (stepsize only) on Garnet (small)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
-    od["estimate_Q"] = "online_mc_fixed"
+    od["alg"] = "spmd"
+    od["n_iters"] = n_iters
     od["skip_true_model"] = False
-
+    estimator_arr = ["online_mc_estimate", "online_mc_dynamic"]
     env_name_arr = [
         "garnet_50", 
         "garnet_200", 
         "garnet_1000", 
     ]
     gamma_arr = [0.9, 0.99, 0.999]
-    # we will set total budget to half a million
-    total_samples = 350_000
-    T_mc_arr = [400, 2_000, 10_000, 50_000]
     eta_arr = [5e-3, 2e-2, 5e-1]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -43,26 +41,25 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "n_iters", "T_mc", "eta"]
-    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "n_iters", "estimator", "eta"]
+    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>20}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (55+len(exp_metadata)-1))
+        print("-" * (75+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, gamma, T_mc, eta) in itertools.product(env_name_arr, gamma_arr, T_mc_arr, eta_arr):
+    for (env_name, gamma, estimator, eta) in itertools.product(env_name_arr, gamma_arr, estimator_arr, eta_arr):
         od["env_name"] = env_name
         od["gamma"] = gamma
-        od["T_mc"] = T_mc
-        od["n_iters"] = min(50, max(20, total_samples//T_mc))
+        od["estimate_Q"] = estimator
         od["eta"] = eta
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], od["gamma"], od["n_iters"], od["T_mc"], od["eta"]))
+            print(row_format.format(ct, od["env_name"], od["gamma"], od["n_iters"], od["estimate_Q"], od["eta"]))
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])
@@ -96,7 +93,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seed_0 = 0
     n_seeds = 1
-    n_iters = 40
+    n_iters = 50
 
     if args.setup:
         setup_setting_files(seed_0, n_seeds, n_iters, args.print_info)
