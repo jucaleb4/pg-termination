@@ -141,7 +141,7 @@ class MDPModel():
         n_samples = T
         return (nu_est, tmix_est, n_samples)
 
-    def estimate_advantage_online_mc_dynamic(self, pi, eps, threshold=0):
+    def estimate_advantage_online_mc_dynamic(self, pi, eps, threshold=0, max_length=np.inf):
         """
 
         :param eps: accuracy threshold
@@ -172,6 +172,8 @@ class MDPModel():
                 countdown -= 1
 
             t += 1
+            if t >= max_length:
+                break
             if t == len(costs):
                 costs = np.append(costs, np.zeros(len(costs)))
                 states = np.append(states, np.zeros(len(states), dtype=int))

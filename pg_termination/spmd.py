@@ -325,6 +325,11 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
         print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger)
         logger_mixing.log(t, e_time + time.time(), cum_samples, cum_est_samples, unu, tmix)
 
+        total_runtime = time.time() - s_time
+        if total_runtime >= settings["max_runtime_in_sec"]:
+            print("== Breaking early because we exceeded the max runtime ===")
+            break
+
     # policy validation
     output = policy_validation(env, pi_t, settings)
     (agg_psi, agg_V, agg_V_err, avg_total_V_err) = output
