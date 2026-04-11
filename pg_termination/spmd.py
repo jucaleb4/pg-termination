@@ -53,7 +53,8 @@ def policy_validation(env, pi, settings):
         elif settings["estimate_Q"] == "online_mc_estimate":
             tmix, nu = env.get_mixing_time_ub(pi)
             (nu_est, tmix_est, _) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=nu)
-            T = int(1./(1-env.gamma) + tmix_est/np.min(nu_est) + 1)
+            # based from Proposition 5.3 from https://arxiv.org/abs/2303.04386
+            T = int(1./(1-env.gamma) + (tmix_est*env.n_actions)/(np.min(nu_est)*(1.-env.gamma)) + 1)
             (psi, V, _, _) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"])
         elif settings["estimate_Q"] == "online_mc_dynamic":
             (psi, V, _, _) = env.estimate_advantage_online_mc_dynamic(pi, settings["pi_threshold"])
