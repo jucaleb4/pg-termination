@@ -13,7 +13,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Run all auto-explore SPMD on GridWorld (WIP - not yet ready)"
+ABOUT = "SPMD full experiment on GridWorld"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -21,17 +21,18 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["alg"] = "spmd"
     od["n_iters"] = n_iters
     od["skip_true_model"] = False
-    eta_estimator_T_arr = [
-        (0.1, "online_mc_fixed", 10_000), 
-        (0.1, "online_mc_estimate", 0), 
-        (0.1, "online_mc_dynamic", 0)
+    estimator_arr = ["online_mc_fixed", "online_mc_estimate", "online_mc_dynamic"]
+    env_gamma_T_eta_arr = [
+        ("gridworld_footnote", 0.9, 2000, 0.02),
+        ("gridworld_footnote", 0.99, 10000, 0.02),
+        ("gridworld_footnote", 0.999, 50000, 0.02),
+        ("gridworld_small", 0.9, 50000, 0.5),
+        ("gridworld_small", 0.99, 50000, 0.5), # tuning said 0.005, I adjust to 0.5
+        ("gridworld_small", 0.999, 400, 0.02),
+        ("gridworld_large", 0.9, 50000, 0.5),
+        ("gridworld_large", 0.99, 10000, 0.5),
+        ("gridworld_large", 0.999, 10000, 0.5),
     ]
-    env_name_arr = [
-        "gridworld_footnote", 
-        "gridworld_small", 
-        "gridworld_large", 
-    ]
-    gamma_arr = [0.9, 0.99, 0.999]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
@@ -45,18 +46,19 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
     exp_metadata = ["Exp id", "Env name", "gamma", "n_iters", "estimator", "eta"]
-    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>20}|{:>10}"
+    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>20}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (75+len(exp_metadata)-1))
+        print("-" * (80+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, gamma, estimator, eta) in itertools.product(env_name_arr, gamma_arr, estimator_arr, eta_arr):
+    for ((env_name, gamma, T_mc, eta), estimator) in itertools.product(env_gamma_T_eta_arr, estimator_arr):
         od["env_name"] = env_name
         od["gamma"] = gamma
-        od["estimate_Q"] = estimator
+        od["T_mc"] = T_mc
         od["eta"] = eta
+        od["estimate_Q"] = estimator
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
@@ -96,9 +98,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seed_0 = 0
     n_seeds = 1
-    n_iters = 50
+    n_iters = 1_000
 
     if args.setup:
+        if args.mode == "full":
+            n_seeds = 10
         setup_setting_files(seed_0, n_seeds, n_iters, args.print_info)
     elif args.run:
         max_runs = setup_setting_files(seed_0, n_seeds, n_iters, args.print_info, True)
