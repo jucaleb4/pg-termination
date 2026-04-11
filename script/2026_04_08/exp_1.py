@@ -92,6 +92,8 @@ if __name__ == "__main__":
     n_iters = int(1e6)
 
     if args.setup:
+        if args.mode == "full":
+            n_seeds = 10
         setup_setting_files(seed_0, n_seeds, n_iters, args.print_info)
     elif args.run:
         max_runs = setup_setting_files(seed_0, n_seeds, n_iters, args.print_info, True)

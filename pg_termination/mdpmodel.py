@@ -3,6 +3,7 @@
 import numpy as np
 import numpy.linalg as la
 import abc
+import time
 
 import gymnasium as gym
 
@@ -46,7 +47,7 @@ class MDPModel():
         """
         return
 
-    def estimate_advantage_online_mc(self, pi, T, threshold=0):
+    def estimate_advantage_online_mc(self, pi, T, threshold=0, time_limit=np.inf):
         """
         https://arxiv.org/pdf/2303.04386
 
@@ -57,11 +58,27 @@ class MDPModel():
         costs = np.zeros(T, dtype=float)
         states = np.zeros(T, dtype=int)
         actions = np.zeros(T, dtype=int)
+        s_time = time.time()
 
+        has_adjusted_time = False
+        T_time_adjusted = np.inf
+        # run Monte Carlo while estimating 1 percentage of total runtime
         for t in range(T):
             states[t] = self.s
             actions[t] = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
             (_, costs[t]) = self.step(actions[t])
+
+            # early termination due to time
+            if (not has_adjusted_time) and ((time.time() - s_time) >= 0.01 * time_limit):
+                has_adjusted_time = True
+                # increase 67X due acct for Q (assume sampling is ~2/3 of time)
+                T_time_adjusted = int(min(T, 67*(t+1)))
+            elif t > T_time_adjusted:
+                T = t
+                costs = costs[:T]
+                states = states[:T]
+                actions = actions[:T]
+                break
 
         # form advantage (dp style); 
         cumulative_discounted_costs = np.zeros(T, dtype=float)
@@ -88,7 +105,7 @@ class MDPModel():
 
         return (psi, V_pi, visit_len_state_action, T)
 
-    def estimate_mixing_properties(self, pi, T, tmix=0, nu=None):
+    def estimate_mixing_properties(self, pi, T, tmix=0, nu=None, time_limit=np.inf):
         """
         https://proceedings.neurips.cc/paper/2015/file/7ce3284b743aefde80ffd9aec500e085-Paper.pdf
 
@@ -101,6 +118,7 @@ class MDPModel():
         :param T: number of samples to estimate mixing time. Overwritten if tmix and nu provided
         :param tmix: true tmix 
         :param nu: true stationary dist.
+        :param time_limit: time limit for estimating mixing time
         :return nu_est: estimated stationary distribution
         :return tmix_est: estimated mixing time
         :return n_samples: samples used for estimation
@@ -115,6 +133,10 @@ class MDPModel():
             # https://arxiv.org/pdf/2303.04386 (based on Thm 4.1)
             T = int(np.log(self.n_states)/(nu_min*spec_gap)+1)
 
+        s_time = time.time()
+        T_time_adjusted = np.inf # adjust later after time trial
+        has_adjusted_time = time_limit 
+
         curr_s = self.s
         for t in range(T):
             nu_est[curr_s] += 1
@@ -122,6 +144,13 @@ class MDPModel():
             self.step(a)
             M_est[curr_s,self.s] += 1
             curr_s = self.s
+
+            # early termination due to time
+            if (not has_adjusted_time) and ((time.time() - s_time) >= 0.01 * time_limit):
+                has_adjusted_time = True
+                T_time_adjusted = int(min(T, 110*(t+1)))
+            elif t > T_time_adjusted:
+                break
 
         # normalize and compute intermediates
         if np.min(nu_est) == 0:
@@ -141,7 +170,7 @@ class MDPModel():
         n_samples = T
         return (nu_est, tmix_est, n_samples)
 
-    def estimate_advantage_online_mc_dynamic(self, pi, eps, threshold=0, max_length=np.inf):
+    def estimate_advantage_online_mc_dynamic(self, pi, eps, threshold=0, time_limit=np.inf):
         """
 
         :param eps: accuracy threshold
@@ -155,8 +184,11 @@ class MDPModel():
         actions = np.zeros(T, dtype=int)
         unvisited_sa = (pi >= threshold).astype(int)
 
-        # TODO: Generalize this to online based
         t = 0
+        s_time = time.time()
+        has_adjusted_time = False
+        T_time_adjusted = np.inf
+
         countdown = max(1, np.log(1./eps))
         start_countdown = False
         while countdown > 0:
@@ -171,9 +203,14 @@ class MDPModel():
             if start_countdown:
                 countdown -= 1
 
-            t += 1
-            if t >= max_length:
+            # early termination due to time
+            if (not has_adjusted_time) and ((time.time() - s_time) >= 0.01 * time_limit):
+                has_adjusted_time = True
+                T_time_adjusted = int(67*(t+1))
+            elif t > T_time_adjusted:
                 break
+
+            t += 1
             if t == len(costs):
                 costs = np.append(costs, np.zeros(len(costs)))
                 states = np.append(states, np.zeros(len(states), dtype=int))

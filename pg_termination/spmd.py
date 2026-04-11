@@ -180,7 +180,7 @@ def _train(settings):
     logger_agg_advgap.save()
     logger_validation.save()
 
-def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state):
+def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time_limit=np.inf):
     """ Policy evaluation
 
     :param env: environment from mdpmodel 
@@ -194,19 +194,21 @@ def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state):
     """
     theta = None
     n_est_samples = 0
+    s_time = time.time()
 
     if settings["estimate_Q"] == "generative":
         (psi, V, n_samples) = env.estimate_advantage_generative(pi, settings["N_mc"], settings["T_mc"])
     elif settings["estimate_Q"] == "online": # @depreciated
-        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
+        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"], time_limit)
     elif settings["estimate_Q"] == "online_mc_fixed":
-        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
+        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"], time_limit)
     elif settings["estimate_Q"] == "online_mc_estimate":
-        (nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=unu)
+        (nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=unu, time_limit=time_limit/2)
         T = int(1./(1-env.gamma) + (tmix_est*env.n_actions)/(np.min(nu_est)*(1.-env.gamma)) + 1)
-        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"])
+        time_left_adj = max(time_limit/2, time_limit - (time.time()-s_time))
+        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"], time_limit=time_left_adj)
     elif settings["estimate_Q"] == "online_mc_dynamic":
-        (psi, V, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi, settings["eps"], settings["pi_threshold"])
+        (psi, V, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi, settings["eps"], settings["pi_threshold"], time_limit=time_limit)
     elif settings["estimate_Q"] == "ctd": 
         # pass in theta as last argument to warm start (doesn't help too much)
         (psi, V, n_samples, theta) = env.estimate_advantage_online_ctd(
@@ -315,8 +317,9 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
             (true_psi_t, true_V_t) = env.get_advantage(pi_t)
             e_time -= time.time()
 
+        time_left = (settings["max_runtime_in_sec"] - (time.time() - s_time)) * 1.05
         (psi_t, V_t, n_samples, n_est_samples, theta_t) = policy_eval(
-                env, settings, pi_t, tmix, unu, Phi, ukappa, is_finite_state
+                env, settings, pi_t, tmix, unu, Phi, ukappa, is_finite_state, time_left
         )
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
         policy_update(pi_t, psi_t, eta_t, theta_t, is_finite_state) 
@@ -328,7 +331,7 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
 
         total_runtime = time.time() - s_time
         if total_runtime >= settings["max_runtime_in_sec"]:
-            print("== Breaking early because we exceeded the max runtime ===")
+            print("=== Breaking early because we exceeded the max runtime ===")
             break
 
     # policy validation
