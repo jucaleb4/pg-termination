@@ -55,9 +55,10 @@ class MDPModel():
         :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again (rec: (1-gamma)**2/|A|)
         :return visit_len_state_action: how long the Monte carlo estimate is at every state-aciton pair
         """
-        costs = np.zeros(T, dtype=float)
-        states = np.zeros(T, dtype=int)
-        actions = np.zeros(T, dtype=int)
+        init_size = 1024
+        costs = np.zeros(init_size, dtype=float)
+        states = np.zeros(init_size, dtype=int)
+        actions = np.zeros(init_size, dtype=int)
         s_time = time.time()
 
         has_adjusted_time = False
@@ -74,11 +75,15 @@ class MDPModel():
                 # increase 67X due acct for Q (assume sampling is ~2/3 of time)
                 T_time_adjusted = int(min(T, 67*(t+1)))
             elif t > T_time_adjusted:
-                T = t
-                costs = costs[:T]
-                states = states[:T]
-                actions = actions[:T]
-                break
+                T = t; break
+            elif t == len(costs):
+                costs = np.append(costs, np.zeros(len(costs)))
+                states = np.append(states, np.zeros(len(states), dtype=int))
+                actions = np.append(actions, np.zeros(len(actions), dtype=int))
+
+        costs = costs[:T]
+        states = states[:T]
+        actions = actions[:T]
 
         # form advantage (dp style); 
         cumulative_discounted_costs = np.zeros(T, dtype=float)
