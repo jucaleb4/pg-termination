@@ -182,7 +182,6 @@ def _train(settings):
 
 def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time_limit=np.inf):
     """ Policy evaluation
-
     :param env: environment from mdpmodel 
     :param settings: (dict) 
     :param pi: policy
