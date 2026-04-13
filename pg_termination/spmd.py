@@ -43,6 +43,7 @@ def policy_validation(env, pi, settings):
     if not settings["skip_true_model"]:
         (_, true_V) = env.get_advantage(pi)
 
+    # TODO: Use `early_terminate` value returned by @estimating_mixing_properties and @estimate_advantage_online_mc_dynamic
     for i in range(settings["validation_k"]):
         if settings["estimate_Q"] == "generative":
             (psi, V, _) = env.estimate_advantage_generative(pi, settings["N_mc"], settings["T_mc"])
@@ -52,15 +53,15 @@ def policy_validation(env, pi, settings):
             (psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
         elif settings["estimate_Q"] == "online_mc_estimate":
             tmix, nu = env.get_mixing_time_ub(pi)
-            (nu_est, tmix_est, _) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=nu)
+            (_, nu_est, tmix_est, _) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=nu)
             # based from Proposition 5.3 from https://arxiv.org/abs/2303.04386
             T = int(1./(1-env.gamma) + (tmix_est*env.n_actions)/(np.min(nu_est)*(1.-env.gamma)) + 1)
-            (psi, V, _, _) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"])
+            (_, psi, V, _, _) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"])
         elif settings["estimate_Q"] == "online_mc_dynamic":
-            (psi, V, _, _) = env.estimate_advantage_online_mc_dynamic(pi, settings["pi_threshold"])
+            (_, psi, V, _, _) = env.estimate_advantage_online_mc_dynamic(pi, settings["pi_threshold"])
         elif settings["estimate_Q"] == "ctd":
             # during validation, use online model
-            (psi, V, _, _) = env.estimate_advantage_online_mc_dynamic(pi, settings["pi_threshold"])
+            (_, psi, V, _, _) = env.estimate_advantage_online_mc_dynamic(pi, settings["pi_threshold"])
 
         agg_psi += psi
         agg_V += V
@@ -194,6 +195,7 @@ def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time
     theta = None
     n_est_samples = 0
     s_time = time.time()
+    early_terminate = False
 
     if settings["estimate_Q"] == "generative":
         (psi, V, n_samples) = env.estimate_advantage_generative(pi, settings["N_mc"], settings["T_mc"])
@@ -202,12 +204,14 @@ def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time
     elif settings["estimate_Q"] == "online_mc_fixed":
         (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"], time_limit)
     elif settings["estimate_Q"] == "online_mc_estimate":
-        (nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=unu, time_limit=time_limit/2)
+        (early_terminate, nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=unu, time_limit=time_limit/2)
+        if early_terminate:
+            return (early_terminate, None, None, None, None, None)
         T = int(1./(1-env.gamma) + (tmix_est*env.n_actions)/(np.min(nu_est)*(1.-env.gamma)) + 1)
         time_left_adj = max(time_limit/2, time_limit - (time.time()-s_time))
         (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"], time_limit=time_left_adj)
     elif settings["estimate_Q"] == "online_mc_dynamic":
-        (psi, V, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi, settings["eps"], settings["pi_threshold"], time_limit=time_limit)
+        (early_terminate, psi, V, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi, settings["eps"], settings["pi_threshold"], time_limit=time_limit)
     elif settings["estimate_Q"] == "ctd": 
         # pass in theta as last argument to warm start (doesn't help too much)
         (psi, V, n_samples, theta) = env.estimate_advantage_online_ctd(
@@ -217,7 +221,7 @@ def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time
     else: 
         raise Exception("Unknown estimate_Q setting %s" % settings["estimate_Q"])
 
-    return (psi, V, n_samples, n_est_samples, theta) 
+    return (early_terminate, psi, V, n_samples, n_est_samples, theta) 
 
 def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger):
     """ Print and updates SPMD certificates.
@@ -317,9 +321,12 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
             e_time -= time.time()
 
         time_left = (settings["max_runtime_in_sec"] - (time.time() - s_time)) * 1.05
-        (psi_t, V_t, n_samples, n_est_samples, theta_t) = policy_eval(
+        (early_terminate, psi_t, V_t, n_samples, n_est_samples, theta_t) = policy_eval(
                 env, settings, pi_t, tmix, unu, Phi, ukappa, is_finite_state, time_left
         )
+        if early_terminate: 
+            print("=== Breaking early because we predicted exceeding the max runtime ===")
+            break
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
         policy_update(pi_t, psi_t, eta_t, theta_t, is_finite_state) 
         

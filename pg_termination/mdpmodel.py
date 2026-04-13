@@ -62,6 +62,7 @@ class MDPModel():
         states = np.zeros(init_size, dtype=int)
         actions = np.zeros(init_size, dtype=int)
         s_time = time.time()
+        early_terminate = False
 
         has_adjusted_time = False
         T_time_adjusted = np.inf
@@ -75,9 +76,10 @@ class MDPModel():
             if (not has_adjusted_time) and ((time.time() - s_time) >= 0.01 * time_limit):
                 has_adjusted_time = True
                 # increase 67X due acct for Q (assume sampling is ~2/3 of time)
-                T_time_adjusted = int(min(T, 67*(t+1)))
+                T_time_adjusted = int(min(T, 55*(t+1)))
             elif t > T_time_adjusted:
-                T = t; break
+                early_terminate = True
+                return (early_terminate, None, None, None, None)
             elif (t+1) == len(costs):
                 costs = np.append(costs, np.zeros(len(costs)))
                 states = np.append(states, np.zeros(len(states), dtype=int))
@@ -110,7 +112,7 @@ class MDPModel():
         V_pi = np.einsum('sa,as->s', Q, pi)
         psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
-        return (psi, V_pi, visit_len_state_action, T)
+        return (early_terminate, psi, V_pi, visit_len_state_action, T)
 
     def estimate_mixing_properties(self, pi, T, tmix=0, nu=None, time_limit=np.inf):
         """
@@ -143,6 +145,7 @@ class MDPModel():
         s_time = time.time()
         T_time_adjusted = np.inf # adjust later after time trial
         has_adjusted_time = False
+        early_terminate = False
 
         curr_s = self.s
         for t in range(T):
@@ -157,8 +160,8 @@ class MDPModel():
                 has_adjusted_time = True
                 T_time_adjusted = int(min(T, 110*(t+1)))
             elif t > T_time_adjusted:
-                T = t+1
-                break
+                early_terminate = True
+                return (early_terminate, None, None, None)
 
         # normalize and compute intermediates
         if np.min(nu_est) == 0:
@@ -182,7 +185,7 @@ class MDPModel():
         tmix_est = trelax_est * np.log(4/nu_est_lb)
 
         n_samples = T
-        return (nu_est, tmix_est, n_samples)
+        return (early_terminate, nu_est, tmix_est, n_samples)
 
     def estimate_advantage_online_mc_dynamic(self, pi, eps, threshold=0, time_limit=np.inf):
         """
@@ -202,6 +205,7 @@ class MDPModel():
         s_time = time.time()
         has_adjusted_time = False
         T_time_adjusted = np.inf
+        early_terminate = False
 
         countdown = max(1, np.log(1./eps))
         start_countdown = False
@@ -220,10 +224,10 @@ class MDPModel():
             # early termination due to time
             if (not has_adjusted_time) and ((time.time() - s_time) >= 0.01 * time_limit):
                 has_adjusted_time = True
-                T_time_adjusted = int(67*(t+1))
+                T_time_adjusted = int(55*(t+1))
             elif t > T_time_adjusted:
-                t += 1
-                break
+                early_terminate = True
+                return (early_terminate, None, None, None, None)
             elif (t+1) == len(costs):
                 costs = np.append(costs, np.zeros(len(costs)))
                 states = np.append(states, np.zeros(len(states), dtype=int))
@@ -254,7 +258,7 @@ class MDPModel():
         V_pi = np.einsum('sa,as->s', Q, pi)
         psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
-        return (psi, V_pi, visit_len_state_action, T)
+        return (early_terminate, psi, V_pi, visit_len_state_action, T)
 
     def estimate_advantage_online_ctd(self, pi, Phi, ukappa, eps, delta, 
             iota_mult, is_finite_state, prev_theta=None
