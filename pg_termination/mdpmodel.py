@@ -76,7 +76,7 @@ class MDPModel():
                 T_time_adjusted = int(min(T, 67*(t+1)))
             elif t > T_time_adjusted:
                 T = t; break
-            elif t == len(costs):
+            elif (t+1) == len(costs):
                 costs = np.append(costs, np.zeros(len(costs)))
                 states = np.append(states, np.zeros(len(states), dtype=int))
                 actions = np.append(actions, np.zeros(len(actions), dtype=int))
@@ -214,12 +214,11 @@ class MDPModel():
                 T_time_adjusted = int(67*(t+1))
             elif t > T_time_adjusted:
                 break
-
-            t += 1
-            if t == len(costs):
+            elif (t+1) == len(costs):
                 costs = np.append(costs, np.zeros(len(costs)))
                 states = np.append(states, np.zeros(len(states), dtype=int))
                 actions = np.append(actions, np.zeros(len(actions), dtype=int))
+            t += 1
 
         # form advantage (DP style)
         T = t # dynamic mixing time
