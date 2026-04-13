@@ -140,7 +140,7 @@ class MDPModel():
 
         s_time = time.time()
         T_time_adjusted = np.inf # adjust later after time trial
-        has_adjusted_time = time_limit 
+        has_adjusted_time = False
 
         curr_s = self.s
         for t in range(T):
