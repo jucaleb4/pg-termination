@@ -167,16 +167,16 @@ class MDPModel():
         nu_est_invsq = np.reciprocal(np.sqrt(nu_est))
         L = np.diag(nu_est_invsq)@M_est@np.diag(nu_est_invsq)
         sym_L = 0.5*(L + L.T)
-        eig_sym_L = np.sort(la.eig(sym_L)[0])[::-1]
+        eig_sym_L = np.sort(la.eig(sym_L)[0].real)[::-1]
 
         # estimate spectral gap
         # if we have incorrect value, use heuristics
         nu_est_lb = np.min(nu_est) 
         spec_gap_est = 1 - max(eig_sym_L[1], abs(eig_sym_L[-1]))
         if (not (0 < spec_gap_est < 1)):
-            eig_L = np.sort(la.eig(L)[0])[::-1]
+            eig_L = np.sort(la.eig(L)[0].real)[::-1]
             spec_gap_est = 1 - max(eig_L[1], abs(eig_L[-1]))
-        elif (not (0 < spec_gap_est < 1)):
+        if (not (0 < spec_gap_est < 1)):
             spec_gap_est = 1e-3
         trelax_est = 1./spec_gap_est
         tmix_est = trelax_est * np.log(4/nu_est_lb)
