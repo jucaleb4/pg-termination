@@ -209,7 +209,7 @@ def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time
             return (early_terminate, None, None, None, None, None)
         T = int(1./(1-env.gamma) + (tmix_est*env.n_actions)/(np.min(nu_est)*(1.-env.gamma)) + 1)
         time_left_adj = max(time_limit/2, time_limit - (time.time()-s_time))
-        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"], time_limit=time_left_adj)
+        (early_terminate, psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"], time_limit=time_left_adj)
     elif settings["estimate_Q"] == "online_mc_dynamic":
         (early_terminate, psi, V, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi, settings["eps"], settings["pi_threshold"], time_limit=time_limit)
     elif settings["estimate_Q"] == "ctd": 
@@ -296,6 +296,7 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
     is_finite_state = env.n_states is not None
     s_time = time.time()
     e_time = -time.time()
+    last_V_t = np.inf * np.ones(len(env.rho))
 
     stepsize_scheduler = pmd.StepsizeSchedule(env, settings["stepsize_rule"], 
                                               settings.get("eta",1))
@@ -334,6 +335,7 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
         cum_est_samples += n_est_samples
         print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger)
         logger_mixing.log(t, e_time + time.time(), cum_samples, cum_est_samples, unu, tmix)
+        last_V_t = V_t
 
         total_runtime = time.time() - s_time
         if total_runtime >= settings["max_runtime_in_sec"]:
@@ -374,7 +376,7 @@ def _spmd(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_vali
         avg_total_V_err,
     )
 
-    returned_f = np.dot(env.rho, true_V) if settings.get("tune_true_cost", False) else np.dot(env.rho, V_t)
+    returned_f = np.dot(env.rho, true_V) if settings.get("tune_true_cost", False) else np.dot(env.rho, last_V_t)
     return pi_t, returned_f
 
 def train(settings):
