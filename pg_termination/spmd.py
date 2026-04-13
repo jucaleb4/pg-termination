@@ -48,9 +48,9 @@ def policy_validation(env, pi, settings):
         if settings["estimate_Q"] == "generative":
             (psi, V, _) = env.estimate_advantage_generative(pi, settings["N_mc"], settings["T_mc"])
         elif settings["estimate_Q"] == "online": # @depreciated
-            (psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
+            (_, psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
         elif settings["estimate_Q"] == "online_mc_fixed":
-            (psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
+            (_, psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
         elif settings["estimate_Q"] == "online_mc_estimate":
             tmix, nu = env.get_mixing_time_ub(pi)
             (_, nu_est, tmix_est, _) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=nu)
@@ -200,9 +200,9 @@ def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time
     if settings["estimate_Q"] == "generative":
         (psi, V, n_samples) = env.estimate_advantage_generative(pi, settings["N_mc"], settings["T_mc"])
     elif settings["estimate_Q"] == "online": # @depreciated
-        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"], time_limit)
+        (early_terminate, psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"], time_limit)
     elif settings["estimate_Q"] == "online_mc_fixed":
-        (psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"], time_limit)
+        (early_terminate, psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"], time_limit)
     elif settings["estimate_Q"] == "online_mc_estimate":
         (early_terminate, nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=unu, time_limit=time_limit/2)
         if early_terminate:
