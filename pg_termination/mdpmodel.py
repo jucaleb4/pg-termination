@@ -55,6 +55,8 @@ class MDPModel():
         :param threshold: pi(a|s) < threshold means Q(s,a)=largest value, do not visit again (rec: (1-gamma)**2/|A|)
         :return visit_len_state_action: how long the Monte carlo estimate is at every state-aciton pair
         """
+        assert T >= 1, "Mixing time T=%d smaller than 1" % T
+
         init_size = 1024
         costs = np.zeros(init_size, dtype=float)
         states = np.zeros(init_size, dtype=int)
@@ -155,6 +157,7 @@ class MDPModel():
                 has_adjusted_time = True
                 T_time_adjusted = int(min(T, 110*(t+1)))
             elif t > T_time_adjusted:
+                T = t+1
                 break
 
         # normalize and compute intermediates
@@ -167,8 +170,14 @@ class MDPModel():
         eig_sym_L = np.sort(la.eig(sym_L)[0])[::-1]
 
         # estimate spectral gap
+        # if we have incorrect value, use heuristics
         nu_est_lb = np.min(nu_est) 
         spec_gap_est = 1 - max(eig_sym_L[1], abs(eig_sym_L[-1]))
+        if (not (0 < spec_gap_est < 1)):
+            eig_L = np.sort(la.eig(L)[0])[::-1]
+            spec_gap_est = 1 - max(eig_L[1], abs(eig_L[-1]))
+        elif (not (0 < spec_gap_est < 1)):
+            spec_gap_est = 1e-3
         trelax_est = 1./spec_gap_est
         tmix_est = trelax_est * np.log(4/nu_est_lb)
 
@@ -213,6 +222,7 @@ class MDPModel():
                 has_adjusted_time = True
                 T_time_adjusted = int(67*(t+1))
             elif t > T_time_adjusted:
+                t += 1
                 break
             elif (t+1) == len(costs):
                 costs = np.append(costs, np.zeros(len(costs)))
