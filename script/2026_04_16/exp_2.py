@@ -19,15 +19,14 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
     od["alg"] = "qlearn"
-    od["n_iters"] = 1e8
     od["skip_true_model"] = False
     env_gamma_alpha_arr = [
-        ("gridworld_footnote_loop", 0.9, 0.02),
-        ("gridworld_footnote_loop", 0.99, 0.02),
-        ("gridworld_small_loop", 0.9, 0.5),
-        ("gridworld_small_loop", 0.99, 0.5), # tuning said 0.005, I adjust to 0.5
-        ("gridworld_large_loop", 0.9, 0.5),
-        ("gridworld_large_loop", 0.99, 0.5),
+        ("gridworld_footnote_loop", 0.9, -1, int(1e6)),
+        ("gridworld_footnote_loop", 0.99, -1, int(1e7)),
+        ("gridworld_small_loop", 0.9, -1, int(1e6)),
+        ("gridworld_small_loop", 0.99, -1, int(1e6)), 
+        ("gridworld_large_loop", 0.9, 1e-2, int(1e7)),
+        ("gridworld_large_loop", 0.99, -1, int(1e7)),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -41,24 +40,25 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "alpha"]
-    row_format ="{:>10}|{:>25}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "n_iters", "alpha"]
+    row_format ="{:>10}|{:>25}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (55+len(exp_metadata)-1))
+        print("-" * (65+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, gamma, alpha)) in itertools.product(env_gamma_alpha_arr):
+    for ((env_name, gamma, alpha, n_iters),) in itertools.product(env_gamma_alpha_arr):
         od["env_name"] = env_name
         od["gamma"] = gamma
         od["qlearn_alpha"] = alpha
+        od["n_iters"] = n_iters
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], od["gamma"], od["n_iters"], od["estimate_Q"], od["eta"]))
+            print(row_format.format(ct, od["env_name"], od["gamma"], od["n_iters"], od["qlearn_alpha"]))
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])
