@@ -1324,11 +1324,11 @@ def get_env(name, gamma, seed=None):
     elif name == "gridworld_footnote_loop":
         env = GridWorldWithTraps(5, 3, gamma, seed=seed, ergodic=True, n_origins=1)
     elif name == "gridworld_tiny_loop":
-        env = GridWorldWithTraps(10, 5, gamma, seed=seed, ergodic=True, n_origins=1)
+        env = GridWorldWithTraps(10, 5, gamma, seed=seed, ergodic=True, n_origins=1, eps=0.1)
     elif name == "gridworld_small_loop":
-        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, n_origins=1)
+        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, n_origins=1, eps=0.1)
     elif name == "gridworld_large_loop":
-        env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True, n_origins=1)
+        env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True, n_origins=1, eps=0.1)
     elif name == "taxi":
         env = Taxi(gamma, ergodic=True)
     elif name == "taxi_sparse":

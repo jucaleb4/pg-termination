@@ -42,6 +42,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("successive_half_trials", 16), # change to 4
         ("min_T_mc", 100), # change to 1e2
         ("max_T_mc", 2e6), # change to 1e4
+        ("qlearn_alpha", -1),
     ])
 
     od_info = [
