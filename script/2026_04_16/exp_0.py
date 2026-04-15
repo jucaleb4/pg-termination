@@ -29,7 +29,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     gamma_arr = [0.9, 0.99]
     # we will set total budget to half a million
     total_samples = 350_000
-    alpha_arr = [-1, 2e-3, 1./total_samples]
+    alpha_arr = [-1, 1e-2, 1./total_samples]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)

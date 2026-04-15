@@ -151,12 +151,8 @@ def _qlearn(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_va
             # dynamic stepsize
             alpha_t = 1./(sa_hit_arr[s_curr,a]+1)
             sa_hit_arr[s_curr,a] += 1
-        Q_t[s_curr,a] = Q_t[s_curr,a] + alpha_t*td_err_t
+        Q_t[s_curr,a] = (1-alpha_t)*Q_t[s_curr,a] + alpha_t*td_err_t
         s_curr = s_next
-
-        if not settings["skip_true_model"]:
-            utils.set_greedy_policy(greedy_pi_t, Q_t)
-            (true_psi_t, true_V_t) = env.get_advantage(greedy_pi_t)
 
         V_t = np.einsum('sa,as->s', Q_t, pi_b)
         psi_t = Q_t - np.outer(V_t, ones_A) 
@@ -168,6 +164,9 @@ def _qlearn(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_va
             T_log_freq = t
         # only save about 1000 logs
         if has_first_log and (t % T_log_freq == 0):
+            if not settings["skip_true_model"]:
+                utils.set_greedy_policy(greedy_pi_t, Q_t)
+                (true_psi_t, true_V_t) = env.get_advantage(greedy_pi_t)
             print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger)
             logger_mixing.log(t, e_time + time.time(), cum_samples, cum_est_samples, unu, tmix)
         last_V_t = V_t
