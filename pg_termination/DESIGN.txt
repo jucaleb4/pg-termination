@@ -1,0 +1,12 @@
+For finite state and finite action:
+- Env: GridWorld, GARNET
+- Compare PMD heuristic, estimate, and dynamic
+- Compare Q-learning (TODO NEXT)
+- Skip PPO, DQN since they are designed for continuous state
+  = They use neural networks that take in a state and map out distribution over actions
+  = No clear way how to randomize state like we did with action
+
+For continuous state and finite action:
+- Env: LunarLander (performed well with LFA), Pendulum/Acrobat (may suffer), Battery
+- Compare PMD+CTD heuristic, estimate, and dynamic (TODO NEXT)
+- Compare PPO, TRPO, DQN, SAC (add sigmoid last layer)

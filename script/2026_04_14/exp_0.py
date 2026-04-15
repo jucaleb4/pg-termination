@@ -13,20 +13,25 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "GridWorld (small) true opt"
+ABOUT = "Tune SPMD Monte-Carlo fixed MC length on GridWorld"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
-    od["alg"] = "policyiter"
-    od["n_iters"] = n_iters
+    od["estimate_Q"] = "ctd"
+    od["skip_true_model"] = False
 
     env_name_arr = [
-        "gridworld_footnote", 
-        "gridworld_small", 
-        "gridworld_large", 
+        "gridworld_footnote_loop", 
+        # "gridworld_small_loop", 
+        # "gridworld_large_loop", 
     ]
-    gamma_arr = [0.9, 0.99, 0.999]
+    gamma_arr = [0.9, 0.99, 0.995]
+    # we will set total budget to half a million
+    total_samples = 350_000
+    ukappa_arr = [1e0, 2.5e-1, 1e-2]
+    eta_arr = [5e-3, 2e-2, 5e-1]
+    ctd_iota_arr = [5e-3, 2e-2, 5e-1]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
@@ -39,17 +44,20 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma"]
-    row_format ="{:>10}|{:>15}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "n_iters", "T_mc", "eta"]
+    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (35+len(exp_metadata)-1))
+        print("-" * (55+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, gamma) in itertools.product(env_name_arr, gamma_arr):
+    for (env_name, gamma, T_mc, eta) in itertools.product(env_name_arr, gamma_arr, T_mc_arr, eta_arr):
         od["env_name"] = env_name
         od["gamma"] = gamma
+        od["T_mc"] = T_mc
+        od["n_iters"] = min(50, max(20, total_samples//T_mc))
+        od["eta"] = eta
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
@@ -89,11 +97,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seed_0 = 0
     n_seeds = 1
-    n_iters = int(1e6)
+    n_iters = 40
 
     if args.setup:
-        if args.mode == "full":
-            n_seeds = 10
         setup_setting_files(seed_0, n_seeds, n_iters, args.print_info)
     elif args.run:
         max_runs = setup_setting_files(seed_0, n_seeds, n_iters, args.print_info, True)
