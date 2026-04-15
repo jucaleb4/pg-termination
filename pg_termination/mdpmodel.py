@@ -36,6 +36,7 @@ class MDPModel():
         :param a: action (must be an int)
         :return s: state
         :return c: cost
+        :return terminate: termination/reset
         """
         return
 
@@ -70,7 +71,7 @@ class MDPModel():
         for t in range(T):
             states[t] = self.s
             actions[t] = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
-            (_, costs[t]) = self.step(actions[t])
+            (_, costs[t], _) = self.step(actions[t])
 
             # early termination due to time
             if (not has_adjusted_time) and ((time.time() - s_time) >= 0.01 * time_limit):
@@ -212,7 +213,7 @@ class MDPModel():
         while countdown > 0:
             states[t] = self.s
             actions[t] = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
-            (_, costs[t]) = self.step(actions[t])
+            (_, costs[t], _) = self.step(actions[t])
             unvisited_sa[actions[t], states[t]] = 0
 
             # check if we can terminate
@@ -260,8 +261,9 @@ class MDPModel():
 
         return (early_terminate, psi, V_pi, visit_len_state_action, T)
 
-    def estimate_advantage_online_ctd(self, pi, Phi, ukappa, eps, delta, 
-            iota_mult, is_finite_state, prev_theta=None
+    def estimate_advantage_online_ctd(
+            self, pi, Phi, ukappa, iota_mult, state_expl, 
+            is_finite_state, time_limit=np.inf, s_origin=None
     ):
         """
         Forms nearly unbiased TD estimator that is bounded w.h.p.
@@ -269,83 +271,122 @@ class MDPModel():
         :params pi: policy
         :params Phi: feature matrix
         :params ukappa: lower bound estimate of minimum discounted visit distribution
-        :params eps: accuracy tolerance
-        :params delta: failure rate
-        :params iota_mult: multiplier for iota (stepsize)
-        :params is_finite_state: whether state space is finite
+        :params iota_mult: multiplier for iota (prefer >= 1)
+        :parmas state_expl: whether we want explicit state exploration
+        :params is_finite_state: TODO - whether state space is finite
+        :params time_limit: amount of time left (in sec)
+        :params s_origin: Origin state. If 'None' (default), will choose reset
+        :returns early_terminate: whether time ran out
+        :returns hpsi: estimate of advantage function
+        :returns hV: estimate of state value
+        :returns cum_samples: total number of samples used
         """
 
-        # initialize data and parameters
+        # parameter setup (for operator F)
+        Phi_sigs = la.svd(Phi)[0]
+        # TODO: If finite state, changes Phi_max/Phi_min and how we access Phi
+        Phi_max, Phi_min = Phi_sig[0], Phi_sig[-1]
+        C1 = C2 = L = Phi_max
+
+        # parameter setup (for operator F with unknown kappa)
+        uLam = ukappa * Phi_min**2
+        umu  = (1.-gamma)*uLam
+        oTheta = 1./np.sqrt((1.-gamma)*umu)
+
+        # parameter setup (algorithmic terms)
+        ell_0 = max((L/umu)**2, C/umu**2)
+        um   = (np.log(1./umu) + np.log(C1))/np.log(1./gamma)
+        sig = C1*oTheta
+        R    = np.sqrt(np.max([oTheta**2, sig**2/mu**2, np.sqrt(C2)/mu]))
+        B_1  = np.max([
+                np.sqrt((1.-gamma)*ell_0)/oTheta, 
+                ((1.-gamma)*sig/umu)**2, 
+                ((1.-gamma)**4 * R**2 * C2)/(umu**2)
+        ])
+        N    = max(B_1, ell_0)
+        eps_expl_a = (1.-gamma)*ukappa
+        eps_expl_s = (1.-gamma)/(-np.log(1.-gamma))**2 if state_expl else 0.
+
+        theta_t = np.zeros(Phi.shape[1])
         cum_samples = 0
-        uw = (1.-self.gamma)*ukappa**2/self.n_actions 
-        # if is_finite_state:
-        #     Phi_sigvals = la.svd(Phi)[1] 
-        # else:
-        #     # TODO: Find more elegant way to do this in continuous space
-        #     Phi_sigvals = la.svd(Phi[0])[1] 
-        Omega = la.norm(Phi, ord=2)
-        # skip smallest mu
-        mu = min(1, Omega)**2*uw # np.min(Phi_sigvals)**2*uw
-        T  = Omega**2/((1.-self.gamma)**2*mu)
-        iota = (1.-self.gamma)/Omega**2 
-        N = int((T/uw) * max(1, np.log(1./eps))) 
-        # m = int(np.log(1./(uw*eps)**2)/np.log(1/self.gamma)) 
-        # m = int(10/np.log(2)) 
-        m = int(1./(1.-self.gamma))
-        eps_expl_s = 1
-        eps_expl_a = (1.-self.gamma)*min(1,ukappa)/4
-        # robust_trials = min(5, np.log(1./delta)/np.log(2))
-        robust_trials = 1
-
-        iota *= iota_mult
-
-        hQ_arr = np.zeros((Phi.shape[0], robust_trials))
-        for j in range(robust_trials):
-            (Q_est, n_samples, theta) = self._nonrobust_ctd(
-                pi, Phi, iota, N, m, eps_expl_a, eps_expl_s, prev_theta)
-            hQ_arr[:,j] = Q_est
-            cum_samples += n_samples
-
-        hQ_arr_norms = la.norm(hQ_arr, ord=np.inf, axis=0)
-        j_star = np.argmin(hQ_arr_norms)
-
-        robust_hQ = hQ_arr[:,j_star]
-        robust_Q = np.reshape(robust_hQ, newshape=(self.n_states, self.n_actions), order='C')
-        robust_V = np.einsum('sa,as->s', robust_Q, pi)
-        robust_psi = robust_Q - np.outer(robust_V, np.ones(self.n_actions))
-
-        return (robust_psi, robust_V, cum_samples, theta)
-
-    def _nonrobust_ctd(self, pi, Phi, iota, N, m, eps_expl_a, eps_expl_s, prev_theta):
-        """
-        Forms nearly unbiased TD estimator with bounded second moment.
-        """
-        _, d = Phi.shape
-        theta_t = np.zeros(d) if prev_theta is None else prev_theta 
-        cum_samples = 0
-
-        # estimate most likely state
-        s_origin = self._most_likely_state(pi, N, m, eps_expl_s)
+        s_time = time.time()
+        early_terminate = False
 
         for t in range(N):
-            (hF_t, n_samples) = self._get_hF_estimate(pi, m, s_origin, eps_expl_a, 
-                                                    eps_expl_s, Phi, theta_t)
-            # (hF_t, n_samples) = self._get_hF_minibatch_estimate(pi, m, Phi, theta_t)
-            theta_t = theta_t - iota*hF_t
+            time_left = time_limit - (time.time() - s_time)
+            iota = iota_mult/((ell_0 + t)*umu)
+            (early_terminate, hF_t, n_samples) = self._get_hF_estimate(
+                pi, Phi, um, eps_expl_a, eps_expl_s, time_left, s_origin, 
+            )
+            if early_terminate:
+                return (early_terminate, None, None, None)
+            theta_t -= iota*hF_t
             cum_samples += n_samples
 
-        latter_avg_theta = np.zeros(d)
-        for t in range(N):
-            (hF_t, n_samples) = self._get_hF_estimate(pi, m, s_origin, eps_expl_a, 
-                                                    eps_expl_s, Phi, theta_t)
-            # (hF_t, n_samples) = self._get_hF_minibatch_estimate(pi, m, Phi, theta_t)
-            theta_t = theta_t - iota*hF_t
-            alpha_t = 1./(t+1)
-            latter_avg_theta = (1.-alpha_t)*latter_avg_theta + alpha_t*theta_t
-            cum_samples += n_samples
-            
-        hQ = Phi@latter_avg_theta
-        return (hQ, cum_samples, latter_avg_theta)
+        hQ = Phi@theta_t
+        hV = np.einsum('sa,as->s', robust_Q, pi)
+        hpsi = hQ - np.outer(hV, np.ones(self.n_actions))
+
+        return (early_terminate, hpsi, hV, cum_samples)
+
+    def _get_hF_estimate(self, pi, Phi, m, eps_expl_a, eps_expl_s, time_limit, s_origin):
+        """
+        Forms stochastic TD estimator
+
+        :params pi: policy
+        :params Phi: feature matrix
+        :params m: max mixing time
+        :parmas eps_expl_a: action exploration constant
+        :parmas eps_expl_s: state exploration constant
+        :params time_limit: amount of time left (in sec)
+        :params s_origin: see 'estimate_advantage_online_ctd'
+        :returns early_terminate: whether time ran out
+        :returns hF: stochastic estimator
+        :returns cum_samples: total number of samples used
+        """
+        # setup
+        cum_samples = 0
+        rand_t = self.rng.geometric(1.-self.gamma)
+        s_time = time.time()
+        early_terminate = False
+        checkpoint = 128
+
+        if rand_t >= m: return (np.zeros(Phi.shape[1]), cum_samples)
+
+        pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
+        while self.s != s_origin:
+            a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
+            # TODO: Write this in a gymnasium way
+            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s,a])
+            cum_samples += 1
+            if cum_samples == checkpoint:
+                if (time.time() - s_time) > time_limit:
+                    early_terminate = True
+                    return (early_terminate, None, None)
+                checkpoint *= 2
+
+        for t in range(rand_t):
+            a = self.rng.choice(pi.shape[0], p=pi[:,self.s])
+            self.step(a)
+        cum_samples += rand_t
+
+        # form TD operator
+        pi_expl_a = (1.-eps_expl_a)*pi + (eps_expl_a/self.n_actions)
+        s_t = self.s
+        a_t = self.rng.choice(pi.shape[0], p=pi_expl_a[:,s_t])
+        # TODO: Regularization
+        (s_t_next, c_t, _) = self.step(a_t)
+        a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
+        self.step(a_t_next)
+
+        z_t_idx = s_t*self.n_actions + a_t
+        z_t_next_idx = s_t_next*self.n_actions + a_t_next
+        phi_t = Phi[z_t_idx,:]
+        phi_t_next = Phi[z_t_next_idx,:]
+        hF = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
+        cum_samples += 2 
+
+        return (early_terminate, hF, cum_samples)
 
     def _most_likely_state(self, pi, N, m, eps_expl_s):
         budget = int(N*m/10) # use 10% of total budget
@@ -360,42 +401,6 @@ class MDPModel():
 
         return np.argmax(state_counter)
 
-    def _get_hF_estimate(self, pi, m, s_origin, eps_expl_a, eps_expl_s, Phi, theta):
-        # rand_t = self.rng.geometric(1.-self.gamma)
-        rand_t = self.rng.geometric(0.5)
-        _, d = Phi.shape
-        hF = np.zeros(d)
-        # if rand_t >= m:
-        #     print('skipped!')
-        #     return (np.zeros(d), 0)
-
-        # pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
-        # while self.s != s_origin:
-        #     a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
-        #     self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s,a])
-
-        for t in range(rand_t):
-            a = self.rng.choice(pi.shape[0], p=pi[:,self.s])
-            self.step(a)
-
-        # form TD operator
-        pi_expl_a = (1.-eps_expl_a)*pi + (eps_expl_a/self.n_actions)
-        s_t = self.s
-        a_t = self.rng.choice(pi.shape[0], p=pi_expl_a[:,s_t])
-        # TODO: Regularization
-        (s_t_next, c_t) = self.step(a_t)
-        a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
-        self.step(a_t_next)
-
-        rand_t += 2 
-        z_t_idx = s_t*self.n_actions + a_t
-        z_t_next_idx = s_t_next*self.n_actions + a_t_next
-        phi_t = Phi[z_t_idx,:]
-        phi_t_next = Phi[z_t_next_idx,:]
-        hF = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
-
-        return (hF, rand_t)
-
     def _get_hF_minibatch_estimate(self, pi, m, Phi, theta):
         """ takes minibatch of TD operators """
         _, d = Phi.shape
@@ -406,7 +411,7 @@ class MDPModel():
             s_t = self.s
             a_t = self.rng.choice(pi.shape[0], p=pi[:,s_t])
             # TODO: Regularization
-            (s_t_next, c_t) = self.step(a_t)
+            (s_t_next, c_t, term_t) = self.step(a_t)
             a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
             self.step(a_t_next)
 
@@ -424,7 +429,7 @@ class MDPModel():
 
 class KnownModel(MDPModel):
     """ Known (S,A,c,P,gamma) """
-    def __init__(self, n_states, n_actions, c, P, gamma, rho=None, seed=None):
+    def __init__(self, n_states, n_actions, c, P, gamma, rho=None, seed=None, term_map=None):
         super().__init__(gamma, seed)
 
         assert len(c.shape) == 2, "Input cost vector c must be a 2-D vector, recieved %d dimensions" % len(c.shape)
@@ -453,6 +458,7 @@ class KnownModel(MDPModel):
         self.n_actions = n_actions
         self.c = c
         self.P = P
+        self.term_map = term_map
         self.gamma = gamma
         if rho is None:
             rho = np.ones(self.n_states, dtype=float)/self.n_states
@@ -466,8 +472,10 @@ class KnownModel(MDPModel):
 
     def step(self, a):
         c = self.c[self.s, a]
+        curr_s = self.s
         self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s, a])
-        return (self.s, c)
+        terminated = 0 if (self.term_map is None) else self.term_map[self.s, curr_s, a]
+        return (self.s, c, terminated)
 
     def get_stationary(self, pi):
         P_pi = np.einsum('psa,as->ps', self.P, pi)
@@ -667,6 +675,7 @@ class GridWorldWithTraps(KnownModel):
 
         P = np.zeros((n_states, n_states, n_actions), dtype=float)
         c = np.zeros((n_states, n_actions), dtype=float)
+        term_map = np.zeros((n_states, n_states, n_actions), dtype=int)
 
         def fill_gw_P_at_xy(P, x, y):
             """ 
@@ -723,17 +732,19 @@ class GridWorldWithTraps(KnownModel):
             P[:,target,:] = 0
             # go to random non-target non-trap location
             P[origins,target,:] = 1./len(origins)
+            term_map[origins,target,:] = 1
         else:
             P[:,target,:] = 0
             # stay at target
             P[target,target,:] = 1.
+            term_map[target,target,:] = 1
 
         # apply trap cost
         c[:,:] = 1.
         c[traps,:] = 10.
         c[target,:] = -10.
 
-        super().__init__(n_states, n_actions, c, P, gamma, rho, seed)
+        super().__init__(n_states, n_actions, c, P, gamma, rho, seed, term_map=term_map)
 
     def get_target(self):
         return self.target
@@ -1187,7 +1198,6 @@ class DiscretizedGymnasiumModel(MDPModel):
         self.s_0 = np.copy(self.s)
         self.ct += 1
 
-
         self.rho = np.zeros(self.n_states)
         self.rho[self.s] = 1
 
@@ -1200,15 +1210,16 @@ class DiscretizedGymnasiumModel(MDPModel):
 
     def step(self, a):
         s_cont, r, terminated, truncated, _ = self.env.step(a)
+        terminated = terminated or truncated
 
         # see: https://gymnasium.farama.org/api/env/#gymnasium.Env.reset
-        if terminated or truncated:
+        if terminated:
             s_cont, _ = self.env.reset(seed=self.ct) 
             self.ct += 1
 
         self.s = self.state_discretize(s_cont)
 
-        return (self.s, -r)
+        return (self.s, -r, terminated)
 
     def get_mixing_time_ub(self, pi):
         return 0, np.zeros(1)

@@ -4,6 +4,7 @@ import os
 import warnings
 from enum import IntEnum
 import multiprocessing as mp
+import warnings
 
 import numpy as np
 
@@ -48,6 +49,7 @@ def policy_validation(env, pi, settings):
         if settings["estimate_Q"] == "generative":
             (psi, V, _) = env.estimate_advantage_generative(pi, settings["N_mc"], settings["T_mc"])
         elif settings["estimate_Q"] == "online": # @depreciated
+            warnings.warn("Deprecated, call 'online_mc_fixed' instead.")
             (_, psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
         elif settings["estimate_Q"] == "online_mc_fixed":
             (_, psi, V, _, _) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
@@ -200,6 +202,7 @@ def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time
     if settings["estimate_Q"] == "generative":
         (psi, V, n_samples) = env.estimate_advantage_generative(pi, settings["N_mc"], settings["T_mc"])
     elif settings["estimate_Q"] == "online": # @depreciated
+        warnings.warn("Deprecated, call 'online_mc_fixed' instead.")
         (early_terminate, psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"], time_limit)
     elif settings["estimate_Q"] == "online_mc_fixed":
         (early_terminate, psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"], time_limit)
@@ -211,13 +214,14 @@ def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time
         time_left_adj = max(time_limit/2, time_limit - (time.time()-s_time))
         (early_terminate, psi, V, _, n_samples) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"], time_limit=time_left_adj)
     elif settings["estimate_Q"] == "online_mc_dynamic":
-        (early_terminate, psi, V, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi, settings["eps"], settings["pi_threshold"], time_limit=time_limit)
+        (early_terminate, psi, V, _, n_samples) = env.estimate_advantage_online_mc_dynamic(pi, settings["eps"], settings["pi_threshold"], time_limit)
     elif settings["estimate_Q"] == "ctd": 
-        # pass in theta as last argument to warm start (doesn't help too much)
-        (psi, V, n_samples, theta) = env.estimate_advantage_online_ctd(
-            pi, Phi, ukappa, settings["eps"], settings["delta"], 
-            settings['ctd_iota_mult'], is_finite_state, 
+        # TODO: Define 'ctd_state_expl'
+        output = env.estimate_advantage_online_ctd(
+            pi, Phi, ukappa, settings['ctd_iota_mult'], 
+            settings['ctd_state_expl'], is_finite_state, time_limit
         )
+        (early_terminate, psi, V, n_samples) = output
     else: 
         raise Exception("Unknown estimate_Q setting %s" % settings["estimate_Q"])
 
