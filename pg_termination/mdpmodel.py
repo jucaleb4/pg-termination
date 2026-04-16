@@ -80,7 +80,7 @@ class MDPModel():
                 T_time_adjusted = int(min(T, 55*(t+1)))
             elif t > T_time_adjusted:
                 early_terminate = True
-                return (early_terminate, None, None, None, None)
+                return (early_terminate, None, None, t)
             elif (t+1) == len(costs):
                 costs = np.append(costs, np.zeros(len(costs)))
                 states = np.append(states, np.zeros(len(states), dtype=int))
@@ -113,7 +113,7 @@ class MDPModel():
         V_pi = np.einsum('sa,as->s', Q, pi)
         psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
-        return (early_terminate, psi, V_pi, visit_len_state_action, T)
+        return (early_terminate, psi, V_pi, T)
 
     def estimate_mixing_properties(self, pi, T, tmix=0, nu=None, time_limit=np.inf):
         """
@@ -162,7 +162,7 @@ class MDPModel():
                 T_time_adjusted = int(min(T, 110*(t+1)))
             elif t > T_time_adjusted:
                 early_terminate = True
-                return (early_terminate, None, None, None)
+                return (early_terminate, 0, 0, t)
 
         # normalize and compute intermediates
         if np.min(nu_est) == 0:
@@ -228,7 +228,7 @@ class MDPModel():
                 T_time_adjusted = int(55*(t+1))
             elif t > T_time_adjusted:
                 early_terminate = True
-                return (early_terminate, None, None, None, None)
+                return (early_terminate, None, None, t)
             elif (t+1) == len(costs):
                 costs = np.append(costs, np.zeros(len(costs)))
                 states = np.append(states, np.zeros(len(states), dtype=int))
@@ -259,7 +259,7 @@ class MDPModel():
         V_pi = np.einsum('sa,as->s', Q, pi)
         psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
-        return (early_terminate, psi, V_pi, visit_len_state_action, T)
+        return (early_terminate, psi, V_pi, T)
 
     def estimate_advantage_online_ctd(
             self, pi, Phi, ukappa, iota_mult, state_expl, 
@@ -1324,11 +1324,11 @@ def get_env(name, gamma, seed=None):
     elif name == "gridworld_footnote_loop":
         env = GridWorldWithTraps(5, 3, gamma, seed=seed, ergodic=True, n_origins=1)
     elif name == "gridworld_tiny_loop":
-        env = GridWorldWithTraps(10, 5, gamma, seed=seed, ergodic=True, n_origins=1, eps=0.1)
+        env = GridWorldWithTraps(10, 5, gamma, seed=seed, ergodic=True, n_origins=1)
     elif name == "gridworld_small_loop":
-        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, n_origins=1, eps=0.1)
+        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, n_origins=1)
     elif name == "gridworld_large_loop":
-        env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True, n_origins=1, eps=0.1)
+        env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True, n_origins=1)
     elif name == "taxi":
         env = Taxi(gamma, ergodic=True)
     elif name == "taxi_sparse":

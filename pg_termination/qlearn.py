@@ -151,7 +151,7 @@ def _qlearn(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_va
             # dynamic stepsize
             alpha_t = 1./(sa_hit_arr[s_curr,a]+1)
             sa_hit_arr[s_curr,a] += 1
-        Q_t[s_curr,a] = (1-alpha_t)*Q_t[s_curr,a] + alpha_t*td_err_t
+        Q_t[s_curr,a] = Q_t[s_curr,a] + alpha_t*td_err_t
         s_curr = s_next
 
         V_t = np.einsum('sa,as->s', Q_t, pi_b)
