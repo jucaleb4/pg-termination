@@ -26,7 +26,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         "gridworld_small_loop", 
         "gridworld_large_loop", 
     ]
-    gamma_arr = [0.9, 0.99]
+    gamma_arr = [0.9, 0.99, 0.995]
     # we will set total budget to half a million
     total_samples = 100_000
     alpha_arr = [-1, 1e-2, 1./total_samples]
