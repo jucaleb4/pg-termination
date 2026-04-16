@@ -21,12 +21,15 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["alg"] = "qlearn"
     od["skip_true_model"] = False
     env_gamma_alpha_arr = [
-        ("gridworld_footnote_loop", 0.9, -1, int(1e6)),
-        ("gridworld_footnote_loop", 0.99, -1, int(1e7)),
-        ("gridworld_small_loop", 0.9, -1, int(1e6)),
+        ("gridworld_footnote_loop", 0.9, 0.01, int(1e6)),
+        ("gridworld_footnote_loop", 0.99, 0.01, int(1e7)),
+        ("gridworld_footnote_loop", 0.995, 0.01, int(5e7)),
+        ("gridworld_small_loop", 0.9, 1e-5, int(1e6)),
         ("gridworld_small_loop", 0.99, -1, int(1e6)), 
-        ("gridworld_large_loop", 0.9, 1e-2, int(1e7)),
-        ("gridworld_large_loop", 0.99, -1, int(1e7)),
+        ("gridworld_small_loop", 0.995, -1, int(5e6)), 
+        ("gridworld_large_loop", 0.9, 1e-5, int(1e7)),
+        ("gridworld_large_loop", 0.99, 1e-5, int(1e7)),
+        ("gridworld_large_loop", 0.995, 1e-5, int(5e7)),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)

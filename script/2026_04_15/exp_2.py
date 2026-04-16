@@ -25,10 +25,13 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     env_gamma_T_eta_arr = [
         ("gridworld_footnote_loop", 0.9, 400, 0.02),
         ("gridworld_footnote_loop", 0.99, 2000, 0.02),
+        ("gridworld_footnote_loop", 0.995, 2000, 0.02),
         ("gridworld_small_loop", 0.9, 10000, 0.5),
-        ("gridworld_small_loop", 0.99, 10000, 0.02), 
-        ("gridworld_large_loop", 0.9, 50000, 0.5),
-        ("gridworld_large_loop", 0.99, 50000, 0.02),
+        ("gridworld_small_loop", 0.99, 50000, 0.02), 
+        ("gridworld_small_loop", 0.995, 50000, 0.02), 
+        ("gridworld_large_loop", 0.9, 400, 0.005), 
+        ("gridworld_large_loop", 0.99, 400, 0.02),
+        ("gridworld_large_loop", 0.995, 400, 0.005),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
