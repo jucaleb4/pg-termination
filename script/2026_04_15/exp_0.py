@@ -13,7 +13,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Tune SPMD Monte-Carlo fixed MC length on GridWorld-loop"
+ABOUT = "Tune SPMD Monte-Carlo fixed MC length on GridWorld (switch from GridWorld-loop)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -22,9 +22,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = False
 
     env_name_arr = [
-        "gridworld_footnote_loop", 
-        "gridworld_small_loop", 
-        "gridworld_large_loop", 
+        "gridworld_footnote", 
+        "gridworld_small", 
+        "gridworld_large", 
     ]
     gamma_arr = [0.9, 0.99, 0.995]
     # we will set total budget to half a million
