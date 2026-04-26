@@ -25,13 +25,13 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     env_gamma_T_eta_arr = [
         ("garnet_50", 0.9, 10000, 0.5),
         ("garnet_50", 0.99, 50000, 0.5),
-        ("garnet_50", 0.999, 10000, 0.02),
+        ("garnet_50", 0.995, 10000, 0.02),
         ("garnet_200", 0.9, 50000, 0.5),
         ("garnet_200", 0.99, 50000, 0.02),
-        ("garnet_200", 0.999, 400, 0.5),
+        ("garnet_200", 0.995, 400, 0.5),
         ("garnet_1000", 0.9, 50000, 0.5),
         ("garnet_1000", 0.99, 400, 0.5),
-        ("garnet_1000", 0.999, 50000, 0.02),
+        ("garnet_1000", 0.995, 50000, 0.02),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)

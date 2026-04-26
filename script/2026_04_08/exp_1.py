@@ -26,7 +26,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         "garnet_200", 
         "garnet_1000", 
     ]
-    gamma_arr = [0.9, 0.99, 0.999]
+    gamma_arr = [0.9, 0.99, 0.995]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
