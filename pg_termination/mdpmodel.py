@@ -251,7 +251,7 @@ class MDPModel():
             Q[s,a] = cumulative_discounted_costs[t]
             visit_len_state_action[s,a] = T-t
 
-        # for proabibilities that are very low, set Q value to be high
+        # for low probability s-a, set a high value 
         (poor_sa_a, poor_sa_s) = np.where(pi <= threshold)
         Q_max = np.max(np.abs(self.c))/(1.-self.gamma)
         Q[poor_sa_s,poor_sa_a] = Q_max
@@ -260,6 +260,104 @@ class MDPModel():
         psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
         return (early_terminate, psi, V_pi, T)
+
+    def estimate_random_reset_value(self, pi, n_replicates=30, time_limit=np.inf):
+        """
+        Estimates the quantity
+
+        $$
+            E_(s ~ rho)[ E [ c_0 + gamma*c_1 + gamma**2 * c_2 + ... | s_0=s] ],
+        $$
+        
+        where $rho$ is the reset distribution. This requires the environment to
+        be have a termination condition in finite time to ensure non-infinite
+        runtime. A runtime can be supplied.
+
+        :param pi: policy 
+        :param n_replicates: how many Monte Carlo replicates to estimate
+        :param time_limit: maximum runtime to run for
+        :return V_est: estimate of randomly reset value function
+        """
+        s_time = time.time()
+
+        # run until reset
+        terminate = 0
+        while (not termiante):
+            a = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            (_, _, terminate) = self.step(a)
+            if time.time() - s_time > time_limit:
+                break
+
+        t = 0
+        replic_id = 0
+        curr_V = 0
+        V_est = 0
+        while replic_id < n_replicates:
+            a = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            (_, c, terminate) = self.step(a)
+            curr_V += (self.gamma**t) * c
+            t += 1
+            if terminate:
+                replic_id += 1
+                alpha = 1./replic_id
+                V_est = (1.-alpha) * V_est + alpha*curr_V
+                t = curr_V = 0
+            if time.time() - s_time > time_limit:
+                break
+
+        return V_est if replic_id > 0 else np.inf
+
+    def estimate_random_reset_advantage(self, pi, n_replicates=30, time_limit=np.inf):
+        """
+        Similar to `estimate_random_reset_value`, we estimate the quantity
+
+        $$
+            E_(s ~ rho)[ E [ c_0 + gamma*c_1 + gamma**2 * c_2 + ... | s_0=s, a_0=a] ],
+        $$
+        
+        where $rho$ is the reset distribution. 
+
+        :param pi: policy 
+        :param n_replicates: number of Monte Carlo estimates 
+        :param time_limit: maximum runtime to run for
+        :return V_est: estimate of randomly reset value function
+        """
+        s_time = time.time()
+
+        # run until reset
+        terminate = 0
+        while (not termiante):
+            a = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            (_, _, terminate) = self.step(a)
+            if time.time() - s_time > time_limit:
+                break
+
+        t = 0
+        replic_id = 0
+        curr_Q = np.zeros(self.n_actions, dtype=float)
+        Q_est = np.zeros(self.n_actions, dtype=float)
+        action_id = 0 # which action we are estimating
+
+        while replic_id < n_replicates:
+            a = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            if t == 0:
+                a = action_id
+                
+            (_, c, terminate) = self.step(a)
+            curr_Q[action_id] += (self.gamma**t) * c
+            t += 1
+            if terminate:
+                t = 0
+                action_id = (action_id + 1) % self.n_actions
+                if action_id == 0:
+                    replic_id += 1
+                    alpha = 1./replic_id
+                    Q_est = (1.-alpha) * Q_est + alpha*curr_Q
+                    curr_Q[:] = 0
+            if time.time() - s_time > time_limit:
+                break
+
+        return Q_est if replic_id > 0 else np.inf * np.ones(self.n_actions)
 
     def estimate_advantage_online_ctd(
             self, pi, Phi, ukappa, iota_mult, state_expl, 
@@ -481,7 +579,7 @@ class KnownModel(MDPModel):
         P_pi = np.einsum('psa,as->ps', self.P, pi)
         P_prime = np.vstack((np.eye(self.n_states) - P_pi, np.ones(self.n_states)))
         nu = la.lstsq(P_prime, np.append(np.zeros(self.n_states), 1))[0]
-        # normalizeg
+        # normalize
         nu = np.maximum(nu, 0)
         nu = nu/np.sum(nu)
 
@@ -535,32 +633,6 @@ class KnownModel(MDPModel):
         V_pi = la.solve(np.eye(self.n_states) - self.gamma*P_pi.T, c_pi)
         Q_pi = self.c + self.gamma*np.einsum('psa,p->sa', self.P, V_pi)
         psi = Q_pi - np.outer(V_pi, np.ones(self.n_actions))
-
-        return (psi, V_pi)
-
-    def estimate_advantage_generative_slow(self, pi, N, T):
-        """
-        :param N: number of Monte Carlo simulations to run per state-action pair
-        :param T: duration to for each Monte Carlo simulation
-        """
-        Q = np.zeros((self.n_states, self.n_actions), dtype=float)
-
-        for s in range(self.n_states):
-            for a in range(self.n_actions):
-                costs = 0.
-                for i in range(N):
-                    s_t = s
-                    a_t = a
-                    for t in range(T):
-                        Q[s,a] += self.gamma**t * self.c[s_t,a_t]
-                        s_t_next = self.rng.choice(self.P.shape[0], p=self.P[:,s_t,a_t])
-                        a_t = self.rng.choice(pi.shape[0], p=pi[:,s_t])
-                        s_t = s_t_next
-
-                Q[s,a] /= N
-
-        V_pi = np.einsum('sa,as->s', Q, pi)
-        psi = Q - np.outer(V_pi, np.ones(self.n_actions, dtype=float))
 
         return (psi, V_pi)
 
@@ -1249,8 +1321,16 @@ class Garnet(KnownModel):
         sigs_arr = np.sqrt(rng.uniform(sig_min_sq, sig_max_sq, size=((n_states, n_actions))))
         c = rng.normal(0, scale=sigs_arr)
         c = (c-np.min(c))/(np.max(c)-np.min(c))
+        self.time_ct = 0
+        self.disc_time_limit = int(20/(1.-gamma))
 
         super().__init__(n_states, n_actions, c, P, gamma)
+
+    def step(self, a):
+        (s, c, _) = super().step(a)
+        self.time_ct += 1
+        terminated = (self.time_ct % self.disc_time_limit) == 0
+        return (s, c, terminated)
 
 class BlackJack(KnownModel):
     """
