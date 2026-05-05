@@ -22,11 +22,11 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["n_iters"] = n_iters
 
     env_name_arr = [
-        "gridworld_footnote_loop", 
-        "gridworld_small_loop", 
-        "gridworld_large_loop", 
+        "gridworld_footnote", 
+        "gridworld_small", 
+        "gridworld_large", 
     ]
-    gamma_arr = [0.9, 0.99]
+    gamma_arr = [0.9, 0.99, 0.995]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)

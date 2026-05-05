@@ -21,17 +21,19 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["alg"] = "spmd"
     od["n_iters"] = n_iters
     od["skip_true_model"] = False
+    od["validation_mode"] = "random_reset"
+    od["validation_k"] = 30
     estimator_arr = ["online_mc_fixed", "online_mc_estimate", "online_mc_dynamic"]
     env_gamma_T_eta_arr = [
-        ("gridworld_footnote_loop", 0.9, 400, 0.02),
-        ("gridworld_footnote_loop", 0.99, 2000, 0.02),
-        ("gridworld_footnote_loop", 0.995, 2000, 0.02),
-        ("gridworld_small_loop", 0.9, 10000, 0.5),
-        ("gridworld_small_loop", 0.99, 50000, 0.02), 
-        ("gridworld_small_loop", 0.995, 50000, 0.02), 
-        ("gridworld_large_loop", 0.9, 400, 0.005), 
-        ("gridworld_large_loop", 0.99, 400, 0.02),
-        ("gridworld_large_loop", 0.995, 400, 0.005),
+        ("gridworld_footnote", 0.9, 2000, 0.02),
+        ("gridworld_footnote", 0.99, 10000, 0.02),
+        ("gridworld_footnote", 0.995, 400, 0.02),
+        ("gridworld_small", 0.9, 400, 0.5),
+        ("gridworld_small", 0.99, 2000, 0.5), 
+        ("gridworld_small", 0.995, 400, 0.5), 
+        ("gridworld_large", 0.9, 2000, 0.5), 
+        ("gridworld_large", 0.99, 2000, 0.5),
+        ("gridworld_large", 0.995, 2000, 0.5),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
