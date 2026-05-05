@@ -169,7 +169,7 @@ def _qlearn(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=Non
         (true_psi, true_V) = env.get_advantage(greedy_pi_t)
 
     if settings["validation_mode"] == "random_reset":
-        output = policy_validation_random_reset(env, greedy_pi_t, settings)
+        output = env.policy_validation_random_reset(greedy_pi_t, settings)
         (V, V_lb, uni_V_lb, true_V, true_V_lb, true_uni_V_lb) = output
         logger_validation.log(*output)
     else:
