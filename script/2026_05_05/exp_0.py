@@ -13,7 +13,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "SPMD full experiment on GridWorld"
+ABOUT = "SPMD full experiment on Garnet"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -24,16 +24,16 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     estimator_arr = ["online_mc_fixed", "online_mc_estimate", "online_mc_dynamic"]
-    env_gamma_T_eta_arr = [
-        ("gridworld_footnote", 0.9, 2000, 0.02),
-        ("gridworld_footnote", 0.99, 10000, 0.02),
-        ("gridworld_footnote", 0.995, 400, 0.02),
-        ("gridworld_small", 0.9, 400, 0.5),
-        ("gridworld_small", 0.99, 2000, 0.5), 
-        ("gridworld_small", 0.995, 400, 0.5), 
-        ("gridworld_large", 0.9, 2000, 0.5), 
-        ("gridworld_large", 0.99, 2000, 0.5),
-        ("gridworld_large", 0.995, 2000, 0.5),
+    env_gamma_T_eta_minobs_arr = [
+        ("garnet_50", 0.9, 10000, 0.5, 1e7),
+        ("garnet_50", 0.99, 50000, 0.5, 5e7),
+        ("garnet_50", 0.995, 10000, 0.02, 1e7),
+        ("garnet_200", 0.9, 50000, 0.5, 6e7),
+        ("garnet_200", 0.99, 50000, 0.02, 6e7),
+        ("garnet_200", 0.995, 400, 0.5, 4e7),
+        ("garnet_1000", 0.9, 50000, 0.5, 5e7),
+        ("garnet_1000", 0.99, 400, 0.5, 3e7),
+        ("garnet_1000", 0.995, 50000, 0.02, 5e7),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -48,19 +48,20 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
     exp_metadata = ["Exp id", "Env name", "gamma", "n_iters", "estimator", "eta"]
-    row_format ="{:>10}|{:>25}|{:>10}|{:>10}|{:>20}|{:>10}"
+    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>20}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (85+len(exp_metadata)-1))
+        print("-" * (75+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, gamma, T_mc, eta), estimator) in itertools.product(env_gamma_T_eta_arr, estimator_arr):
+    for ((env_name, gamma, T_mc, eta, min_obs), estimator) in itertools.product(env_gamma_T_eta_minobs_arr, estimator_arr):
         od["env_name"] = env_name
         od["gamma"] = gamma
         od["T_mc"] = T_mc
         od["eta"] = eta
         od["estimate_Q"] = estimator
+        od["min_obs"] = min_obs
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)

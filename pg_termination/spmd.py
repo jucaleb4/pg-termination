@@ -203,7 +203,14 @@ def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_p
 
 def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None):
     """
-    SPMD training procedure 
+    SPMD training procedure. There are two stopping mechanisms:
+        1. total runtime cannot exceed settings['max_runtime_in_sec']
+        2. total iters via `n_iters`
+
+    Item 1 takes precedent over 2. We added a new stopping requirement of
+    observing at least settings['min_obs'] samples before termination.  This
+    takes precedent over 2 but not over 1. This is added to ensure a fair
+    comparison between methods.
     
     :param settings: dictionary of all user-defined parameter values
     :param ukappa: estimation of ukappa (if using CTD and not set, will set warning and default to 0)
@@ -246,7 +253,8 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
         theta = np.zeros(settings["ctd_feature_size"])
 
     # SPMD main for-loop
-    for t in range(settings["n_iters"]):
+    t = 0 # SPMD iteration count
+    while (cum_samples >= settings["min_obs"]) and (t >= settings["n_iters"]):
         if not settings["skip_true_model"]:
             tmix, nu = env.get_mixing_time_ub(pi_t)
             unu = np.min(nu)
@@ -263,12 +271,12 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
         cum_est_samples += n_est_samples
         logger_mixing.log(t, e_time + time.time(), cum_samples, cum_est_samples, unu, tmix)
 
+        # do not print progress unless not early terminate, since it may return invalid values
+        print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger)
+
         if early_terminate: 
             print("=== Breaking early because we predicted exceeding the max runtime ===")
             break
-
-        # do not print progress unless not early terminate, since it may return invalid values
-        print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger)
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
         policy_update(pi_t, psi_t, eta_t, is_finite_state) 
@@ -279,8 +287,9 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
             print("=== Breaking early because we exceeded the max runtime ===")
             break
 
+        t += 1
+
     # policy validation
-    # TODO: Create new naming convention for value function with random reset or all states
     if settings["validation_mode"] == "random_reset":
         output = env.policy_validation_random_reset(pi_t, settings)
         (V, V_lb, uni_V_lb, true_V, true_V_lb, true_uni_V_lb) = output

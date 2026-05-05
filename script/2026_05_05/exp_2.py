@@ -13,7 +13,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "SPMD full experiment on GridWorld"
+ABOUT = "SPMD full experiment on GridWorld (updated iterations)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -24,16 +24,16 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     estimator_arr = ["online_mc_fixed", "online_mc_estimate", "online_mc_dynamic"]
-    env_gamma_T_eta_arr = [
-        ("gridworld_footnote", 0.9, 2000, 0.02),
-        ("gridworld_footnote", 0.99, 10000, 0.02),
-        ("gridworld_footnote", 0.995, 400, 0.02),
-        ("gridworld_small", 0.9, 400, 0.5),
-        ("gridworld_small", 0.99, 2000, 0.5), 
-        ("gridworld_small", 0.995, 400, 0.5), 
-        ("gridworld_large", 0.9, 2000, 0.5), 
-        ("gridworld_large", 0.99, 2000, 0.5),
-        ("gridworld_large", 0.995, 2000, 0.5),
+    env_gamma_T_eta_minobs_arr = [
+        ("gridworld_footnote", 0.9, 2000, 0.02, 5e6),
+        ("gridworld_footnote", 0.99, 10000, 0.02, 1.5e7),
+        ("gridworld_footnote", 0.995, 400, 0.02, 1e7),
+        ("gridworld_small", 0.9, 400, 0.5, 5e7),
+        ("gridworld_small", 0.99, 2000, 0.5, 0), 
+        ("gridworld_small", 0.995, 400, 0.5, 0), 
+        ("gridworld_large", 0.9, 2000, 0.5, 0), 
+        ("gridworld_large", 0.99, 2000, 0.5, 0),
+        ("gridworld_large", 0.995, 2000, 0.5, 0),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -55,12 +55,13 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("-" * (85+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, gamma, T_mc, eta), estimator) in itertools.product(env_gamma_T_eta_arr, estimator_arr):
+    for ((env_name, gamma, T_mc, eta, min_obs), estimator) in itertools.product(env_gamma_T_eta_minobs_arr, estimator_arr):
         od["env_name"] = env_name
         od["gamma"] = gamma
         od["T_mc"] = T_mc
         od["eta"] = eta
         od["estimate_Q"] = estimator
+        od["min_obs"] = min_obs
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)

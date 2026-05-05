@@ -97,8 +97,8 @@ def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_p
 
 def _qlearn(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None):
     """
-    SPMD training procedure 
-    
+    Qlearn training procedure.
+
     :param settings: dictionary of all user-defined parameter values
     :param ukappa: estimation of ukappa (if using CTD and not set, will set warning and default to 0)
     """
