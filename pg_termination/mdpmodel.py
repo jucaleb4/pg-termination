@@ -598,17 +598,16 @@ class MDPModel():
         :param settings: must have key 'max_runtime_in_sec', 'validation_k', and 'skip_true_model'.
         """
         # we only give validation 50% of the max runtime
-        validation_time = settings["max_runtime_in_sec"]
+        validation_time = settings["max_runtime_in_sec"]/2
         V = self.estimate_random_reset_value(pi, settings["validation_k"], validation_time/2)
         psi = self.estimate_random_reset_advantage(pi, settings["validation_k"], validation_time/2)
         true_V = -np.inf * np.ones(self.n_states)
         true_psi = -np.inf*np.ones((self.n_states, self.n_actions), dtype=float)
-        if settings["skip_true_model"]:
-            (true_psi, true_V) = self.get_advantage(pi)
-
-        V_lb = V - np.max(-psi)/(1.-self.gamma)
+        V_lb = V - max(0, np.max(-psi))/(1.-self.gamma)
         uni_V_lb = -np.inf
 
+        if settings["skip_true_model"]:
+            (true_psi, true_V) = self.get_advantage(pi)
         true_V_rho = np.dot(self.rho, true_V)
         true_V_lb = np.dot(self.rho, true_V - np.max(-true_psi, axis=1)/(1.-self.gamma))
         true_uni_V_lb = np.dot(self.rho, true_V) - np.max(-true_psi)/(1.-self.gamma)
