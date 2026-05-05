@@ -13,7 +13,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Q-learn full experiment on GridWorld (switch from GridWorld-loop)"
+ABOUT = "Q-learn full experiment on Garnet"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -23,15 +23,15 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     env_gamma_alpha_arr = [
-        ("gridworld_footnote", 0.9, -1, int(1e6)),
-        ("gridworld_footnote", 0.99, -1, int(1e7)),
-        ("gridworld_footnote", 0.995, -1, int(5e7)),
-        ("gridworld_small", 0.9, -1, int(1e6)),
-        ("gridworld_small", 0.99, -1, int(1e6)), 
-        ("gridworld_small", 0.995, -1, int(5e6)), 
-        ("gridworld_large", 0.9, -1, int(1e7)),
-        ("gridworld_large", 0.99, -1, int(1e7)),
-        ("gridworld_large", 0.995, -1, int(5e7)),
+        ("garnet_50", 0.9, -1, int(1e6)),
+        ("garnet_50", 0.99, -1, int(1e7)),
+        ("garnet_50", 0.995, -1, int(5e7)),
+        ("garnet_200", 0.9, -1, int(1e6)),
+        ("garnet_200", 0.99, -1, int(1e6)), 
+        ("garnet_200", 0.995, -1, int(5e6)), 
+        ("garnet_1000", 0.9, -1, int(1e7)),
+        ("garnet_1000", 0.99, -1, int(1e7)),
+        ("garnet_1000", 0.995, -1, int(5e7)),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
