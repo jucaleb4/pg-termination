@@ -20,8 +20,8 @@ def policy_validation(env, pi, settings):
     """
     See `spmd.py/policy_validation` for function details.
     """
-    V = env.estimate_random_reset_value(pi, settings["validation_k"])
-    psi = env.estimate_random_reset_advantage(pi, settings["validation_k"])
+    V = env.estimate_random_reset_value(pi, settings["validation_k"], settings["max_runtime_in_sec"])
+    psi = env.estimate_random_reset_advantage(pi, settings["validation_k"], settings["max_runtime_in_sec"])
     true_V = -np.inf * np.ones(env.n_states)
     true_psi = -np.inf*np.ones((env.n_states, env.n_actions), dtype=float)
     if settings["skip_true_model"]:

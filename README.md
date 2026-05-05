@@ -79,12 +79,19 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_04_09/exp_2.py`: SPMD tabular run all for GridWorld
 - `2026_04_13/exp_0.py`: Initial ppo_clean
 - `2026_04_14/exp_0.py`: tune SPMD CTD on GridWorld
-- `2026_04_15/exp_0.py`: tune SPMD tabular for GridWorld-loop 
-- `2026_04_15/exp_1.py`: auto-explore SPMD tabular on GridWorld-loop
-- `2026_04_15/exp_2.py`: SPMD tabular run all for GridWorld-loop
+- `2026_04_15/exp_0.py`: tune SPMD tabular for GridWorld (switch from GridWorld-loop)
+- `2026_04_15/exp_1.py`: auto-explore SPMD tabular on GridWorld (switch from GridWorld-loop)
+- `2026_04_15/exp_2.py`: SPMD tabular run all for GridWorld (switch from GridWorld-loop)
+- `2026_04_16/exp_0.py`: tune Q-learn on GridWorld (switch from GridWorld-loop)
+- `2026_04_16/exp_1.py`: opt on GridWorld (switch from GridWorld-loop)
+- `2026_04_16/exp_2.py`: Q-learn on GridWorld (switch from GridWorld-loop)
+- `2026_04_26/exp_0.py`: tune Q-learn on Garnet
 
 ## TODOs
-- Implement Q-learning for finite state and action
 - Implement CTD (both tabular and general state)
 - Convert MDPModel into gym style
 - Implement PPO, DQN
+- Add time to logging of all methods
+- Planner:
+    - Prefer validation incomplete
+    - Also decide between loop vs non-loop
