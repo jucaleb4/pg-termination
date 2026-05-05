@@ -16,6 +16,25 @@ from pg_termination.logger import BasicLogger
 TOL = 1e-10
 MSG_1 = "We changed 'pi_threshold'->'pi_threshold_mult'.Please update the yaml file (defaulting to 'pi_threshold_mult=1')"
 
+def policy_validation(env, pi, settings):
+    """
+    See `spmd.py/policy_validation` for function details.
+    """
+    V = env.estimate_random_reset_value(pi, settings["validation_k"])
+    psi = env.estimate_random_reset_advantage(pi, settings["validation_k"])
+    true_V = -np.inf * np.ones(env.n_states)
+    true_psi = -np.inf*np.ones((env.n_states, env.n_actions), dtype=float)
+    if settings["skip_true_model"]:
+        (true_psi, true_V) =  env.get_advantage(pi)
+
+    V_lb = V - np.max(-psi)/(1.-env.gamma)
+    uni_V_lb = -np.inf
+
+    true_V_rho = np.dot(env.rho, true_V)
+    true_V_lb = np.dot(env.rho, true_V - np.max(-true_psi, axis=1)/(1.-env.gamma))
+    true_uni_V_lb = np.dot(env.rho, true_V) - np.max(-true_psi)/(1.-env.gamma)
+    return (V, V_lb, uni_V_lb, true_V_rho, true_V_lb, true_uni_V_lb)
+
 def get_loggers(settings):
     seed = settings['seed']
     env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
@@ -26,21 +45,11 @@ def get_loggers(settings):
               "true opt_lb", "true uni_opt_lb"], 
         dtypes=['d'] + ['f'] * 9
     )
-    logger_agg_V = BasicLogger(
-        fname=os.path.join(settings["log_folder"], "agg_V_seed=%d.csv" % seed), 
-        keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
-        dtypes=['d'] + ['f'] * env.n_states,
-    )
-    logger_agg_advgap = BasicLogger(
-        fname=os.path.join(settings["log_folder"], "agg_advgap_seed=%d.csv" % seed), 
-        keys=["iter"] + ["s_%d" % s for s in range(env.n_states)],
-        dtypes=['d'] + ['f'] * env.n_states,
-    )
     logger_validation = BasicLogger(
         fname=os.path.join(settings["log_folder"], "validation_seed=%d.csv" % seed), 
-        keys=["agg value", "agg opt_lb", "agg uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb", "agg V_err", "avg total_V_err"],
+        keys=["value", "opt_lb", "uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb"],
 
-        dtypes=['f'] * 8,
+        dtypes=['f'] * 6,
     )
     logger_mixing = BasicLogger(
         fname=os.path.join(settings["log_folder"], "mixing_seed=%d.csv" % seed),  
@@ -48,19 +57,17 @@ def get_loggers(settings):
         dtypes=['d', 'f', 'd', 'd'] + ['f'] * 2,
     )
 
-    return [logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing]
+    return [logger, logger_validation, logger_mixing]
 
 def _train(settings):
-    logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing = get_loggers(settings)
+    logger, logger_validation, logger_mixing = get_loggers(settings)
 
     # TODO: Make this automated
     ukappa = (1.-settings['gamma'])**(-2)
-    _qlearn(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing)
+    _qlearn(settings, ukappa, logger, logger_validation, logger_mixing)
 
     logger.save()
     logger_mixing.save()
-    logger_agg_V.save()
-    logger_agg_advgap.save()
     logger_validation.save()
 
 def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger):
@@ -107,7 +114,7 @@ def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_p
 
     return agg_V_t, agg_psi_t
 
-def _qlearn(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_validation, logger_mixing, pi_0=None):
+def _qlearn(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None):
     """
     SPMD training procedure 
     
@@ -179,6 +186,13 @@ def _qlearn(settings, ukappa, logger, logger_agg_V, logger_agg_advgap, logger_va
     utils.set_greedy_policy(greedy_pi_t, Q_t)
     if not settings["skip_true_model"]:
         (true_psi, true_V) = env.get_advantage(greedy_pi_t)
+
+    if settings["validation_mode"] == "random_reset":
+        output = policy_validation(env, greedy_pi_t, settings)
+        (V, V_lb, uni_V_lb, true_V, true_V_lb, true_uni_V_lb) = output
+        logger_validation.log(*output)
+    else:
+        pass
 
     print("Total runtime: %.2fs" % (time.time() - s_time))
     returned_f = np.dot(env.rho, true_V) if settings.get("tune_true_cost", False) else np.dot(env.rho, last_V_t)

@@ -31,6 +31,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("gamma", 0.9),
         ("N_mc", 1), 
         ("T_mc", 1000), 
+        ("validation_mode", None),
         ("validation_k", 0), 
         ("pi_threshold_mult", 1.0),
         ("eta", 0.01),

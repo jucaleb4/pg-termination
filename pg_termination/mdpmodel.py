@@ -282,9 +282,10 @@ class MDPModel():
 
         # run until reset
         terminate = 0
-        while (not termiante):
-            a = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
-            (_, _, terminate) = self.step(a)
+        s = 0
+        while (not terminate):
+            a = self.rng.choice(pi.shape[0], p=pi[:,s])
+            (s, _, terminate) = self.step(a)
             if time.time() - s_time > time_limit:
                 break
 
@@ -293,8 +294,8 @@ class MDPModel():
         curr_V = 0
         V_est = 0
         while replic_id < n_replicates:
-            a = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
-            (_, c, terminate) = self.step(a)
+            a = self.rng.choice(pi.shape[0], p=pi[:,s])
+            (s, c, terminate) = self.step(a)
             curr_V += (self.gamma**t) * c
             t += 1
             if terminate:
@@ -326,9 +327,10 @@ class MDPModel():
 
         # run until reset
         terminate = 0
-        while (not termiante):
-            a = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
-            (_, _, terminate) = self.step(a)
+        s = 0
+        while (not terminate):
+            a = self.rng.choice(pi.shape[0], p=pi[:,s])
+            (s, _, terminate) = self.step(a)
             if time.time() - s_time > time_limit:
                 break
 
@@ -339,11 +341,11 @@ class MDPModel():
         action_id = 0 # which action we are estimating
 
         while replic_id < n_replicates:
-            a = self.rng.choice(pi.shape[0], p=pi[:,states[t]])
+            a = self.rng.choice(pi.shape[0], p=pi[:,s])
             if t == 0:
                 a = action_id
                 
-            (_, c, terminate) = self.step(a)
+            (s, c, terminate) = self.step(a)
             curr_Q[action_id] += (self.gamma**t) * c
             t += 1
             if terminate:
