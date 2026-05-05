@@ -21,7 +21,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("n_seeds", n_seeds), 
         ("n_iters", n_iters),
         ("max_runtime_in_sec", 3600),
-        ("min_samples_obs", 0), 
+        ("min_obs", 0), 
         ("alg", "spmd"),
         ("eps", math.exp(-10)),
         ("delta", 1e-2),

@@ -339,6 +339,8 @@ class MDPModel():
         curr_Q = np.zeros(self.n_actions, dtype=float)
         Q_est = np.zeros(self.n_actions, dtype=float)
         action_id = 0 # which action we are estimating
+        reset_state_hit = np.zeros(self.n_states, dtype=float) 
+        reset_state_hit[s] += 1
 
         while replic_id < n_replicates:
             a = self.rng.choice(pi.shape[0], p=pi[:,s])
@@ -350,6 +352,7 @@ class MDPModel():
             t += 1
             if terminate:
                 t = 0
+                reset_state_hit[s] += 1
                 action_id = (action_id + 1) % self.n_actions
                 if action_id == 0:
                     replic_id += 1
@@ -359,7 +362,12 @@ class MDPModel():
             if time.time() - s_time > time_limit:
                 break
 
-        return Q_est if replic_id > 0 else np.inf * np.ones(self.n_actions)
+        # convert Q to advantage
+        reset_state_avg = reset_state_hit/np.sum(reset_state_hit)
+        V_est = np.dot(Q_est, np.einsum("as,s->a", pi, reset_state_avg))
+        A_est = Q_est - V_est
+
+        return A_est if replic_id > 0 else np.inf * np.ones(self.n_actions)
 
     def estimate_advantage_online_ctd(
             self, pi, Phi, ukappa, iota_mult, state_expl, 

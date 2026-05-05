@@ -254,7 +254,7 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
 
     # SPMD main for-loop
     t = 0 # SPMD iteration count
-    while (cum_samples >= settings["min_obs"]) and (t >= settings["n_iters"]):
+    while (not ((cum_samples >= settings["min_obs"]) and (t >= settings["n_iters"]))):
         if not settings["skip_true_model"]:
             tmix, nu = env.get_mixing_time_ub(pi_t)
             unu = np.min(nu)
