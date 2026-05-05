@@ -16,25 +16,6 @@ from pg_termination.logger import BasicLogger
 TOL = 1e-10
 MSG_1 = "We changed 'pi_threshold'->'pi_threshold_mult'.Please update the yaml file (defaulting to 'pi_threshold_mult=1')"
 
-def policy_validation(env, pi, settings):
-    """
-    See `spmd.py/policy_validation` for function details.
-    """
-    V = env.estimate_random_reset_value(pi, settings["validation_k"], settings["max_runtime_in_sec"])
-    psi = env.estimate_random_reset_advantage(pi, settings["validation_k"], settings["max_runtime_in_sec"])
-    true_V = -np.inf * np.ones(env.n_states)
-    true_psi = -np.inf*np.ones((env.n_states, env.n_actions), dtype=float)
-    if settings["skip_true_model"]:
-        (true_psi, true_V) =  env.get_advantage(pi)
-
-    V_lb = V - np.max(-psi)/(1.-env.gamma)
-    uni_V_lb = -np.inf
-
-    true_V_rho = np.dot(env.rho, true_V)
-    true_V_lb = np.dot(env.rho, true_V - np.max(-true_psi, axis=1)/(1.-env.gamma))
-    true_uni_V_lb = np.dot(env.rho, true_V) - np.max(-true_psi)/(1.-env.gamma)
-    return (V, V_lb, uni_V_lb, true_V_rho, true_V_lb, true_uni_V_lb)
-
 def get_loggers(settings):
     seed = settings['seed']
     env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
@@ -188,7 +169,7 @@ def _qlearn(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=Non
         (true_psi, true_V) = env.get_advantage(greedy_pi_t)
 
     if settings["validation_mode"] == "random_reset":
-        output = policy_validation(env, greedy_pi_t, settings)
+        output = policy_validation_random_reset(env, greedy_pi_t, settings)
         (V, V_lb, uni_V_lb, true_V, true_V_lb, true_uni_V_lb) = output
         logger_validation.log(*output)
     else:

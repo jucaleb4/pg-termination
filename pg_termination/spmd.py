@@ -27,91 +27,6 @@ def policy_update(pi, psi, eta, is_finite_state):
     pi *= np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
     pi /= np.outer(np.ones(n_actions), np.sum(pi, axis=0))
 
-def policy_validation(env, pi, curr_psi, curr_V, settings):
-    """
-    TODO: Revert so it matches the termination/strong-polynomial paper.
-
-    Evaluates state-action (i.e., advantage) and state value function using
-    current policy for `settings["validation_k"]` steps.
-
-    See `policy_validation` below, which may be more sample efficient since it
-    uses the random set model.
-
-    :param env: environment from mdpmodel 
-    :param pi: policy
-    :param curr_psi: current online advantage function
-    :param curr_V: current online value function
-    :return agg_psi: advantage function 
-    :return agg_V: value function 
-    :return true_psi: true advantage function
-    :return true_V: true value function
-    """
-    agg_psi = np.zeros((env.n_states, env.n_actions), dtype=float)
-    agg_V = np.zeros(env.n_states, dtype=float)
-    true_V = -np.inf 
-    true_psi = -np.inf*np.ones((env.n_states, env.n_actions), dtype=float)
-    if settings["skip_true_model"]:
-        (true_psi, true_V) =  env.get_advantage(pi)
-
-    if settings["validation_k"] == 0:
-        return agg_psi, agg_V, true_psi, true_V
-
-    if settings["validation_mode"] == "generative":
-        for i in range(settings["validation_k"]):
-            (psi, V, _) = env.estimate_advantage_generative(pi, settings["N_mc"], settings["T_mc"])
-            agg_psi += psi
-            agg_V += V
-        agg_psi /= N
-        agg_V /= N
-    elif settings["validation_mode"] == "online_mc_fixed":
-        for i in range(settings["validation_k"]):
-            (_, psi, V, _) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"])
-            agg_psi += psi
-            agg_V += V
-        agg_psi /= N
-        agg_V /= N
-    elif settings["validation_mode"] == "random_reset":
-        V = env.estimate_random_reset_value(pi, settings["validation_k"])
-        psi = env.estimate_random_reset_advantage(pi, settings["validation_k"])
-    else:
-        warning.warn("Unknown validation mode %s" % settings["validation_mode"])
-
-    return (agg_psi, agg_V, true_psi, true_V)
-
-    # Old code from before (TODO: integrate with above code)
-    alpha = float(settings["validation_k"])/(settings["validation_k"] + settings["n_iters"])
-    double_agg_V = alpha*agg_V + (1.-alpha)*agg_V_t
-    double_agg_psi = alpha*agg_psi + (1.-alpha)*agg_psi_t
-
-    # logger_agg_adv.log(t+1, *list(double_agg_psi.ravel()))
-    logger_agg_V.log(t+1, *list(agg_V_t))
-    double_agg_advgap = np.maximum(0, np.max(-agg_psi_t, axis=1))
-    logger_agg_advgap.log(t+1, *list(double_agg_advgap))
-
-def policy_validation(env, pi, settings):
-    """
-    Evaluates current policy for `settings["validation_k"]` steps.
-    This is different from the `policy_validation` above since we do use a 
-    random set model and do not explicitly evaluate all states.
-
-    :param env: environment from mdpmodel 
-    :param pi: policy
-    """
-    V = env.estimate_random_reset_value(pi, settings["validation_k"], settings["max_runtime_in_sec"])
-    psi = env.estimate_random_reset_advantage(pi, settings["validation_k"], settings["max_runtime_in_sec"])
-    true_V = -np.inf * np.ones(env.n_states)
-    true_psi = -np.inf*np.ones((env.n_states, env.n_actions), dtype=float)
-    if settings["skip_true_model"]:
-        (true_psi, true_V) =  env.get_advantage(pi)
-
-    V_lb = V - np.max(-psi)/(1.-env.gamma)
-    uni_V_lb = -np.inf
-
-    true_V_rho = np.dot(env.rho, true_V)
-    true_V_lb = np.dot(env.rho, true_V - np.max(-true_psi, axis=1)/(1.-env.gamma))
-    true_uni_V_lb = np.dot(env.rho, true_V) - np.max(-true_psi)/(1.-env.gamma)
-    return (V, V_lb, uni_V_lb, true_V_rho, true_V_lb, true_uni_V_lb)
-
 def get_loggers(settings):
     seed = settings['seed']
     env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
@@ -367,7 +282,7 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
     # policy validation
     # TODO: Create new naming convention for value function with random reset or all states
     if settings["validation_mode"] == "random_reset":
-        output = policy_validation(env, pi_t, settings)
+        output = env.policy_validation_random_reset(pi_t, settings)
         (V, V_lb, uni_V_lb, true_V, true_V_lb, true_uni_V_lb) = output
         logger_validation.log(*output)
     else:
