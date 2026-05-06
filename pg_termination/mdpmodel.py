@@ -64,7 +64,7 @@ class MDPModel():
         actions = np.zeros(init_size, dtype=int)
         s_time = time.time()
         early_terminate = False
-        psi = np.zeros(self.n_states, self.n_actions)
+        psi = np.zeros((self.n_states, self.n_actions))
         V_pi = 0
 
         has_adjusted_time = False
@@ -204,7 +204,7 @@ class MDPModel():
         actions = np.zeros(T, dtype=int)
         unvisited_sa = (pi >= threshold).astype(int)
 
-        psi = np.zeros(self.n_states, self.n_actions)
+        psi = np.zeros((self.n_states, self.n_actions))
         V_pi = 0
 
         t = 0
