@@ -64,6 +64,8 @@ class MDPModel():
         actions = np.zeros(init_size, dtype=int)
         s_time = time.time()
         early_terminate = False
+        psi = np.zeros(self.n_states, self.n_actions)
+        V_pi = 0
 
         has_adjusted_time = False
         T_time_adjusted = np.inf
@@ -80,7 +82,7 @@ class MDPModel():
                 T_time_adjusted = int(min(T, 55*(t+1)))
             elif t > T_time_adjusted:
                 early_terminate = True
-                return (early_terminate, None, None, t)
+                return (early_terminate, psi, V_pi, t)
             elif (t+1) == len(costs):
                 costs = np.append(costs, np.zeros(len(costs)))
                 states = np.append(states, np.zeros(len(states), dtype=int))
@@ -202,6 +204,9 @@ class MDPModel():
         actions = np.zeros(T, dtype=int)
         unvisited_sa = (pi >= threshold).astype(int)
 
+        psi = np.zeros(self.n_states, self.n_actions)
+        V_pi = 0
+
         t = 0
         s_time = time.time()
         has_adjusted_time = False
@@ -228,7 +233,7 @@ class MDPModel():
                 T_time_adjusted = int(55*(t+1))
             elif t > T_time_adjusted:
                 early_terminate = True
-                return (early_terminate, None, None, t)
+                return (early_terminate, psi, V_pi, t)
             elif (t+1) == len(costs):
                 costs = np.append(costs, np.zeros(len(costs)))
                 states = np.append(states, np.zeros(len(states), dtype=int))
