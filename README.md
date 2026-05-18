@@ -74,9 +74,9 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_04_08/exp_0.py`: tune SPMD tabular for GARNET (5-100)
 - `2026_04_08/exp_1.py`: auto-explore SPMD tabular on GARNET (5-100)
 - `2026_04_08/exp_2.py`: SPMD tabular run all for GARNET
-- `2026_04_09/exp_0.py`: tune SPMD tabular for GridWorld
-- `2026_04_09/exp_1.py`: auto-explore SPMD tabular on GridWorld
-- `2026_04_09/exp_2.py`: SPMD tabular run all for GridWorld
+- `2026_04_09/exp_0.py`: tune SPMD tabular for GridWorld *DEPRECEATED*
+- `2026_04_09/exp_1.py`: auto-explore SPMD tabular on GridWorld *DEPRECEATED*
+- `2026_04_09/exp_2.py`: SPMD tabular run all for GridWorld *DEPRECEATED*
 - `2026_04_13/exp_0.py`: Initial ppo_clean
 - `2026_04_14/exp_0.py`: tune SPMD CTD on GridWorld
 - `2026_04_15/exp_0.py`: tune SPMD tabular for GridWorld (switch from GridWorld-loop)
@@ -85,7 +85,16 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_04_16/exp_0.py`: tune Q-learn on GridWorld (switch from GridWorld-loop)
 - `2026_04_16/exp_1.py`: opt on GridWorld (switch from GridWorld-loop)
 - `2026_04_16/exp_2.py`: Q-learn on GridWorld (switch from GridWorld-loop)
-- `2026_04_26/exp_0.py`: tune Q-learn on Garnet
+- `2026_04_25/exp_0.py`: tune Q-learn on Garnet
+- `2026_04_25/exp_2.py`: Q-learn on Garnet
+- `2026_05_05/exp_0.py`: SPMD full run on Garnet (set minimum sample count)
+- `2026_05_05/exp_1.py`: Q-learn full run on Garnet (set minimum sample count)
+- `2026_05_05/exp_2.py`: SPMD full run on GridWorld (set minimum sample count)
+- `2026_05_05/exp_3.py`: Q-learn full run on GridWorld (set minimum sample count)
+- `2026_05_06/exp_0.py`: tune SARSA on Garnet
+- `2026_05_06/exp_1.py`: full SARSA run on Garnet
+- `2026_05_06/exp_2.py`: tune SARSA on GridWorld
+- `2026_05_06/exp_3.py`: full SARSA run on GridWorld
 
 ## TODOs
 - Implement CTD (both tabular and general state)
