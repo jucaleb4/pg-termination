@@ -19,7 +19,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
     od["alg"] = "sarsa"
-    od["skip_true_model"] = False
+    od["skip_true_model"] = True
 
     env_name_arr = [
         "gridworld_footnote_loop", 
