@@ -20,7 +20,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
     od["alg"] = "spmd"
     od["n_iters"] = n_iters
-    od["skip_true_model"] = False
+    od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     estimator_arr = ["online_mc_fixed", "online_mc_estimate", "online_mc_dynamic"]
