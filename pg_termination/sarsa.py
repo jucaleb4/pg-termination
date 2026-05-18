@@ -1,4 +1,4 @@
-""" Q-learn """
+""" SARSA """
 import time
 import os
 import warnings
@@ -44,7 +44,7 @@ def _train(settings):
 
     # TODO: Make this automated
     ukappa = (1.-settings['gamma'])**(-2)
-    _qlearn(settings, ukappa, logger, logger_validation, logger_mixing)
+    _sarsa(settings, ukappa, logger, logger_validation, logger_mixing)
 
     logger.save()
     logger_mixing.save()
@@ -94,9 +94,9 @@ def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_p
 
     return agg_V_t, agg_psi_t
 
-def _qlearn(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None):
+def _sarsa(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None):
     """
-    Qlearn training procedure.
+    SARSA training procedure.
 
     :param settings: dictionary of all user-defined parameter values
     :param ukappa: estimation of ukappa (if using CTD and not set, will set warning and default to 0)
@@ -128,17 +128,24 @@ def _qlearn(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=Non
     has_first_log = False
     T_log_freq = -1
 
+    a_curr = env.rng.choice(env.n_actions)
+    pi_t_s = np.zeros(env.n_actions)
+
     # SPMD main for-loop
     for t in range(settings["n_iters"]):
-        # use uniform as behavior policy
-        a = env.rng.choice(env.n_actions)
-        (s_next,c,term) = env.step(a)
-        td_err_t = c + env.gamma*np.min(Q_t[s_next,:]) - Q_t[s_curr,a]
+        (s_next,c,term) = env.step(a_curr)
+
+        eps_t = 1./(t+1)
+        pi_t_s[:] = eps_t/env.n_actions
+        pi_t_s[np.argmin(Q_t[s_next,:])] += 1-eps_t
+        a_next = env.rng.choice(env.n_actions, p=pi_t_s)
+
+        td_err_t = c + env.gamma*Q_t[s_next,a_next] - Q_t[s_curr,a_curr]
         if settings['qlearn_alpha'] < 0:
             # dynamic stepsize
-            alpha_t = 1./(sa_hit_arr[s_curr,a]+1)
-            sa_hit_arr[s_curr,a] += 1
-        Q_t[s_curr,a] = Q_t[s_curr,a] + alpha_t*td_err_t
+            alpha_t = 1./(sa_hit_arr[s_curr,a_curr]+1)
+            sa_hit_arr[s_curr,a_curr] += 1
+        Q_t[s_curr,a_curr] = Q_t[s_curr,a_curr] + alpha_t*td_err_t
         s_curr = s_next
 
         V_t = np.einsum('sa,as->s', Q_t, pi_b)
