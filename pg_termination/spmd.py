@@ -23,8 +23,13 @@ def policy_update(pi, psi, eta, is_finite_state):
     """
     (n_states, n_actions) = psi.shape
 
-    assert (not np.any(np.isnan(psi))), "Found NaN in psi, quitting program"
-    pi *= np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
+    if np.any(np.isnan(psi)):
+        return
+    mult = np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
+    # TODO: Why does adding this improve performance so much (for SPMD+CTD)?
+    if np.any(pi * mult <= 1e-10):
+        return
+    pi *= mult
     pi /= np.outer(np.ones(n_actions), np.sum(pi, axis=0))
 
 def get_loggers(settings):
@@ -109,14 +114,14 @@ def _train(settings):
     logger, logger_validation, logger_mixing = get_loggers(settings)
 
     # TODO: Make this automated
-    ukappa = (1.-settings['gamma'])**(-2)
+    ukappa = settings["ukappa"]
     _spmd(settings, ukappa, logger, logger_validation, logger_mixing)
 
     logger.save()
     logger_mixing.save()
     logger_validation.save()
 
-def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time_limit=np.inf):
+def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time_limit=np.inf, max_obs=np.inf):
     """ Policy evaluation
     :param env: environment from mdpmodel 
     :param settings: (dict) 
@@ -148,7 +153,8 @@ def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time
         # TODO: Define 'ctd_state_expl'
         output = env.estimate_advantage_online_ctd(
             pi, Phi, ukappa, settings['ctd_iota_mult'], 
-            settings['ctd_state_expl'], is_finite_state, time_limit
+            settings['ctd_state_expl'], is_finite_state, time_limit, max_obs,
+            settings['s_origin'],
         )
         (early_terminate, psi, V, n_samples) = output
     else: 
@@ -247,10 +253,11 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
 
     if settings["estimate_Q"] == "ctd": 
         if is_finite_state: # finite state and action
-            Phi = env.rng.normal(size=(env.n_states*env.n_actions, settings["ctd_feature_size"]))
+            n_Z = env.n_states*env.n_actions
+            d = int(settings["ctd_feature_size_ratio"] * n_Z)
+            Phi = env.rng.normal(size=(n_Z, d))
         else: # finite action and continuous state
-            Phi = env.rng.normal(size=(env.n_states, env.n_state_dim, settings["ctd_feature_size"]))
-        theta = np.zeros(settings["ctd_feature_size"])
+            Phi = env.rng.normal(size=(env.n_states, env.n_state_dim, d))
 
     # SPMD main for-loop
     t = 0 # SPMD iteration count
@@ -263,8 +270,10 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
             e_time -= time.time()
 
         time_left = (settings["max_runtime_in_sec"] - (time.time() - s_time)) * 1.05
+        obs_left  = settings["max_obs"] - cum_samples
         (early_terminate, psi_t, V_t, n_samples, n_est_samples) = policy_eval(
-                env, settings, pi_t, tmix, unu, Phi, ukappa, is_finite_state, time_left
+                env, settings, pi_t, tmix, unu, Phi, ukappa, is_finite_state, 
+                time_left, obs_left,
         )
         # log mixing information before possibly early termination
         cum_samples += n_samples
@@ -275,7 +284,7 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
         print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger)
 
         if early_terminate: 
-            print("=== Breaking early because we predicted exceeding the max runtime ===")
+            print("=== Breaking early because we exceeded the max runtime/samples ===")
             break
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
@@ -285,6 +294,9 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
         total_runtime = time.time() - s_time
         if total_runtime >= settings["max_runtime_in_sec"]:
             print("=== Breaking early because we exceeded the max runtime ===")
+            break
+        if cum_samples >= settings["max_obs"]:
+            print("=== Breaking early because we exceeded the max observations ===")
             break
 
         t += 1

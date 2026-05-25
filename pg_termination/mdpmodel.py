@@ -375,8 +375,8 @@ class MDPModel():
         return A_est if replic_id > 0 else np.inf * np.ones(self.n_actions)
 
     def estimate_advantage_online_ctd(
-            self, pi, Phi, ukappa, iota_mult, state_expl, 
-            is_finite_state, time_limit=np.inf, s_origin=None
+            self, pi, Phi, ukappa, iota_mult, state_expl, is_finite_state, 
+            time_limit=np.inf, max_obs=np.inf, s_origin=None,
     ):
         """
         Forms nearly unbiased TD estimator that is bounded w.h.p.
@@ -388,6 +388,7 @@ class MDPModel():
         :parmas state_expl: whether we want explicit state exploration
         :params is_finite_state: TODO - whether state space is finite
         :params time_limit: amount of time left (in sec)
+        :params max_obs: number of samples left (in sec)
         :params s_origin: Origin state. If 'None' (default), will choose reset
         :returns early_terminate: whether time ran out
         :returns hpsi: estimate of advantage function
@@ -396,53 +397,77 @@ class MDPModel():
         """
 
         # parameter setup (for operator F)
-        Phi_sigs = la.svd(Phi)[0]
+        Phi_sigs = la.svd(Phi)[1]
         # TODO: If finite state, changes Phi_max/Phi_min and how we access Phi
-        Phi_max, Phi_min = Phi_sig[0], Phi_sig[-1]
+        Phi_max, Phi_min = Phi_sigs[0], Phi_sigs[-1]
+        # TODO: Better Phi_max, Phi_min
+        Phi_max = 1.; Phi_min = 1.0
         C1 = C2 = L = Phi_max
 
         # parameter setup (for operator F with unknown kappa)
         uLam = ukappa * Phi_min**2
-        umu  = (1.-gamma)*uLam
-        oTheta = 1./np.sqrt((1.-gamma)*umu)
+        umu  = (1.-self.gamma)*uLam
+        oTheta = 1./np.sqrt((1.-self.gamma)*umu)
+        theta = np.zeros(Phi.shape[1])
 
         # parameter setup (algorithmic terms)
-        ell_0 = max((L/umu)**2, C/umu**2)
-        um   = (np.log(1./umu) + np.log(C1))/np.log(1./gamma)
+        # ell_0 = max((L/umu)**2, C2/umu**2)
+        ell_0 = (1.-self.gamma)*max((L/umu)**2, C2/umu**2) # weaken 1-gamma dep
+        um   = (np.log(1./umu) + np.log(C1))/np.log(1./self.gamma)
         sig = C1*oTheta
-        R    = np.sqrt(np.max([oTheta**2, sig**2/mu**2, np.sqrt(C2)/mu]))
+        R    = np.sqrt(np.max([oTheta**2, sig**2/umu**2, np.sqrt(C2)/umu]))
         B_1  = np.max([
-                np.sqrt((1.-gamma)*ell_0)/oTheta, 
-                ((1.-gamma)*sig/umu)**2, 
-                ((1.-gamma)**4 * R**2 * C2)/(umu**2)
+                np.sqrt((1.-self.gamma)*ell_0)/oTheta, 
+                # ((1.-self.gamma)*sig/umu)**2, 
+                (1.-self.gamma)*((1.-self.gamma)*sig/umu)**2, # weaken 1-gamma dep
+                # ((1.-self.gamma)**4 * R**2 * C2)/(umu**2)
+                (1.-self.gamma)*((1.-self.gamma)**4 * R**2 * C2)/(umu**2) # weaken 1-gamma dep
         ])
-        N    = max(B_1, ell_0)
-        eps_expl_a = (1.-gamma)*ukappa
-        eps_expl_s = (1.-gamma)/(-np.log(1.-gamma))**2 if state_expl else 0.
+        N    = int(max(B_1, ell_0))
+        eps_expl_a = (1.-self.gamma)*ukappa
+        eps_expl_s = (1.-self.gamma)/(-np.log(1.-self.gamma))**2 if state_expl else 0.
 
         theta_t = np.zeros(Phi.shape[1])
         cum_samples = 0
         s_time = time.time()
         early_terminate = False
 
+        # random s_origin 
+        if s_origin == 'rand':
+            pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
+            s_visit_count = np.zeros(self.n_states)
+            for t in range(10*self.n_states):
+                a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
+                (self.s, _, terminate) = self.step(a)
+                s_visit_count[self.s] += 1
+            s_origin = s_visit_count/(10*self.n_states)
+
         for t in range(N):
             time_left = time_limit - (time.time() - s_time)
+            obs_left = max_obs - cum_samples
             iota = iota_mult/((ell_0 + t)*umu)
             (early_terminate, hF_t, n_samples) = self._get_hF_estimate(
-                pi, Phi, um, eps_expl_a, eps_expl_s, time_left, s_origin, 
+                pi, Phi, theta, um, eps_expl_a, eps_expl_s, time_left, 
+                obs_left, s_origin, 
             )
             if early_terminate:
-                return (early_terminate, None, None, None)
+                empty_psi = np.zeros((self.n_states, self.n_actions))
+                empty_V = np.zeros(self.n_states)
+                return (early_terminate, empty_psi, empty_V, cum_samples)
             theta_t -= iota*hF_t
             cum_samples += n_samples
 
-        hQ = Phi@theta_t
-        hV = np.einsum('sa,as->s', robust_Q, pi)
+        (n_actions, n_states) = pi.shape
+        hQ = np.reshape(Phi@theta_t, newshape=(n_states,n_actions), order='C')
+        hV = np.einsum('sa,as->s', hQ, pi)
         hpsi = hQ - np.outer(hV, np.ones(self.n_actions))
 
         return (early_terminate, hpsi, hV, cum_samples)
 
-    def _get_hF_estimate(self, pi, Phi, m, eps_expl_a, eps_expl_s, time_limit, s_origin):
+    def _get_hF_estimate(
+            self, pi, Phi, theta, m, eps_expl_a, eps_expl_s, time_limit, 
+            max_obs, s_origin
+        ):
         """
         Forms stochastic TD estimator
 
@@ -462,21 +487,28 @@ class MDPModel():
         rand_t = self.rng.geometric(1.-self.gamma)
         s_time = time.time()
         early_terminate = False
+        terminate = False
         checkpoint = 128
+        is_s_origin_random = isinstance(s_origin, np.ndarray)
 
-        if rand_t >= m: return (np.zeros(Phi.shape[1]), cum_samples)
+        if rand_t >= m: return (early_terminate, np.zeros(Phi.shape[1]), cum_samples)
 
         pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
-        while self.s != s_origin:
-            a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
-            # TODO: Write this in a gymnasium way
-            self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s,a])
-            cum_samples += 1
+        while 1:
+            if (s_origin is None) and terminate:
+                break
+            if (not is_s_origin_random) and self.s == s_origin:
+                break
+            if is_s_origin_random and (self.rng.random() < s_origin[self.s]):
+                break
             if cum_samples == checkpoint:
-                if (time.time() - s_time) > time_limit:
+                if ((time.time() - s_time) > time_limit) or (cum_samples > max_obs):
                     early_terminate = True
-                    return (early_terminate, None, None)
+                    return (early_terminate, np.zeros(Phi.shape[1]), cum_samples)
                 checkpoint *= 2
+            a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
+            (self.s, _, terminate) = self.step(a)
+            cum_samples += 1
 
         for t in range(rand_t):
             a = self.rng.choice(pi.shape[0], p=pi[:,self.s])
