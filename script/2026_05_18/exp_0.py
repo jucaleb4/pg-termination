@@ -24,7 +24,8 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     total_samples_base = 20_000
     # use validation to tune...
     od["validation_mode"] = "random_reset"
-    od["validation_k"] = 30
+    od["validation_k"] = 10
+    od["max_runtime_in_sec"] = 600
 
     env_name_arr = [
         # "gridworld_footnote", 
