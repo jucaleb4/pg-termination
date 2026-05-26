@@ -228,17 +228,17 @@ class MDPModel():
                 countdown -= 1
 
             # early termination due to time
+            t += 1
             if (not has_adjusted_time) and ((time.time() - s_time) >= 0.01 * time_limit):
                 has_adjusted_time = True
-                T_time_adjusted = int(55*(t+1))
+                T_time_adjusted = int(55*t)
             elif t > T_time_adjusted:
                 early_terminate = True
                 return (early_terminate, psi, V_pi, t)
-            elif (t+1) == len(costs):
-                costs = np.append(costs, np.zeros(len(costs)))
-                states = np.append(states, np.zeros(len(states), dtype=int))
-                actions = np.append(actions, np.zeros(len(actions), dtype=int))
-            t += 1
+            elif t == len(costs):
+                costs = np.append(costs, np.zeros(t))
+                states = np.append(states, np.zeros(t, dtype=int))
+                actions = np.append(actions, np.zeros(t, dtype=int))
 
         # form advantage (DP style)
         T = t # dynamic mixing time
@@ -1389,6 +1389,10 @@ class DiscretizedGymnasiumModel(MDPModel):
         # self.env = gym.make(env_name, render_mode="human")
         self.env = gym.make(env_name)
 
+        assert isinstance(env.action_space, gym.spaces.discrete.Discrete), "Discretized env's act. space must be discrete (was %s)" % type(env.action_space)
+        assert isinstance(env.observation_space, gym.spaces.box.Box), "Space %s cannot be discretized" % type(env.observation_space)
+
+        # import ipdb; ipdb.set_trace()
         self.low, self.high = self.env.observation_space.low, self.env.observation_space.high
         self.diff = self.high - self.low
         state_dim = len(self.low)
@@ -1554,6 +1558,8 @@ def get_env(name, gamma, seed=None):
         env = SimpleBattery(3, 2, 4, gamma, seed=seed)
     elif name == "discrete_mountaincar":
         env = DiscretizedGymnasiumModel("MountainCar-v0", gamma, 100, seed=seed)
+    elif name == "discrete_cartpole":
+        env = DiscretizedGymnasiumModel("CartPole-v1", gamma, 100, seed=seed)
     elif name == "garnet_50":
         env = Garnet(50, 5, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "garnet_100":
