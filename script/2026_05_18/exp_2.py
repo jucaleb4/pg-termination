@@ -14,28 +14,27 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Full run SPMD+CTD on GridWorld (no limit except 1hr)"
+ABOUT = "SPMD full experiment on GridWorld (no limit except 1hr)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
     od["alg"] = "spmd"
-    od["estimate_Q"] = "ctd"
+    od["n_iters"] = math.inf
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
-    od["max_runtime_in_sec"] = 5
-    od["ctd_feature_size_ratio"] = 1.0
-    od["max_obs"] = math.inf
-    od["n_iters"] = math.inf
-
-    env_gamma_sorig_eta_iota_ukappa_arr = [
-        ("gridworld_small", 0.9, "rand", 0.02, 0.005, 0.562),
-        ("gridworld_small", 0.99, "rand", 0.02, 0.5, 0.562),
-        ("gridworld_small", 0.995, "rand", 0.02, 0.5, 0.668),
-        ("gridworld_large", 0.9, "rand", 0.02, 0.005, 1.0),
-        ("gridworld_large", 0.99, "rand", 0.005, 0.5, 0.562),
-        ("gridworld_large", 0.995, "rand", 0.02, 0.005, 0.562),
+    estimator_arr = ["online_mc_dynamic"]
+    env_gamma_T_eta_minobs_arr = [
+        ("gridworld_footnote", 0.9, 2000, 0.02, 5e6),
+        ("gridworld_footnote", 0.99, 10000, 0.02, 1.5e7),
+        ("gridworld_footnote", 0.995, 400, 0.02, 1e7),
+        ("gridworld_small", 0.9, 400, 0.5, 5e7),
+        ("gridworld_small", 0.99, 2000, 0.5, 0), 
+        ("gridworld_small", 0.995, 400, 0.5, 0), 
+        ("gridworld_large", 0.9, 2000, 0.5, 0), 
+        ("gridworld_large", 0.99, 2000, 0.5, 0),
+        ("gridworld_large", 0.995, 2000, 0.5, 0),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -49,31 +48,27 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "feat frac", "s_orig", "eta", "iota", "ukappa"]
-    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "n_iters", "estimator", "eta"]
+    row_format ="{:>10}|{:>25}|{:>10}|{:>10}|{:>20}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (90+len(exp_metadata)-1))
+        print("-" * (85+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, gamma, s_orig, eta, iota, ukappa),) in itertools.product(
-            env_gamma_sorig_eta_iota_ukappa_arr
-    ):
+    for ((env_name, gamma, T_mc, eta, min_obs), estimator) in itertools.product(env_gamma_T_eta_minobs_arr, estimator_arr):
         od["env_name"] = env_name
         od["gamma"] = gamma
-        od["s_origin"] = s_orig
+        od["T_mc"] = T_mc
         od["eta"] = eta
-        od["iota"] = iota
-        od["ukappa"] = ukappa
+        od["estimate_Q"] = estimator
+        od["min_obs"] = min_obs
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], od["gamma"], od["ctd_feature_size_ratio"], 
-            od["s_origin"] if od["s_origin"] is not None else "none", 
-            od["eta"], od["iota"], od["ukappa"]))
+            print(row_format.format(ct, od["env_name"], od["gamma"], od["n_iters"], od["estimate_Q"], od["eta"]))
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])

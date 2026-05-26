@@ -46,6 +46,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("min_T_mc", 100), # change to 1e2
         ("max_T_mc", 2e6), # change to 1e4
         ("qlearn_alpha", -1),
+        ("ukappa", 1),
     ])
 
     od_info = [
@@ -75,6 +76,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("successive_half_trials", "Number of trials in successive halving tuning"),
         ("min_T_mc", "Minimum Monte Carlo exploration time in tuning"),
         ("max_T_mc", "Maximum Monte Carlo exploration time in tuning"),
+        ("ukappa", "Lower bound on kappa"),
     ]
 
     if print_info:
@@ -115,6 +117,7 @@ def get_clean_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("vf_coef", 0.5),
         ("max_grad_norm", 0.5),
         ("target_kl", None),
+        ("ukappa", 1),
     ])
 
     # TODO: Update this
@@ -143,6 +146,7 @@ def get_clean_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("successive_half_trials", "Number of trials in successive halving tuning"),
         ("min_T_mc", "Minimum Monte Carlo exploration time in tuning"),
         ("max_T_mc", "Maximum Monte Carlo exploration time in tuning"),
+        ("ukappa", "Lower bound on kappa"),
     ]
 
     if print_info:
