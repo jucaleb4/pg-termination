@@ -26,9 +26,6 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_k"] = 30
     estimator_arr = ["online_mc_dynamic"]
     env_gamma_T_eta_minobs_arr = [
-        ("gridworld_footnote", 0.9, 2000, 0.02, 5e6),
-        ("gridworld_footnote", 0.99, 10000, 0.02, 1.5e7),
-        ("gridworld_footnote", 0.995, 400, 0.02, 1e7),
         ("gridworld_small", 0.9, 400, 0.5, 5e7),
         ("gridworld_small", 0.99, 2000, 0.5, 0), 
         ("gridworld_small", 0.995, 400, 0.5, 0), 
