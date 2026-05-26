@@ -105,10 +105,10 @@ def _train_with_tuning(settings):
         tune_id_arr = tune_id_arr[sorted_idx]
         tune_round += 1
 
-    logger.save()
-    logger_mixing.save()
-    logger_validation.save()
-    logger_tune.save()
+    logger.save(max_size=1_000)
+    logger_mixing.save(max_size=1_000)
+    logger_validation.save(max_size=1_000)
+    logger_tune.save(max_size=1_000)
 
 def _train(settings):
     logger, logger_validation, logger_mixing = get_loggers(settings)
@@ -117,9 +117,9 @@ def _train(settings):
     ukappa = settings["ukappa"]
     _spmd(settings, ukappa, logger, logger_validation, logger_mixing)
 
-    logger.save()
-    logger_mixing.save()
-    logger_validation.save()
+    logger.save(max_size=1_000)
+    logger_mixing.save(max_size=1_000)
+    logger_validation.save(max_size=1_000)
 
 def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time_limit=np.inf, max_obs=np.inf):
     """ Policy evaluation
