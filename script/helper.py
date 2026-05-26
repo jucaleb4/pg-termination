@@ -22,6 +22,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("n_iters", n_iters),
         ("max_runtime_in_sec", 3600),
         ("min_obs", 0), 
+        ("max_obs", math.inf),
         ("alg", "spmd"),
         ("eps", math.exp(-10)),
         ("delta", 1e-2),
@@ -37,7 +38,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("pi_threshold_mult", 1.0),
         ("eta", 0.01),
         ("skip_true_model", True),
-        ("ctd_feature_size", 1_000), # change to 100
+        ("ctd_feature_size_ratio", 1.), 
         ("ctd_iota_mult", 40), # change to 1
         ("ctd_state_expl", False), 
         ("tune_exploration", False),
@@ -66,9 +67,10 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("pi_threshold_mult", "constant factor in cut-off for sub-opt actions"),
         ("eta", "base step size"),
         ("skip_true_model", "skips validation on true model - only works for non-gym envs"),
-        ("ctd_feature_size", "feature size for CTD (only)"),
+        ("ctd_feature_size_ratio", "feature size for CTD (only)"),
         ("ctd_iota_mult", "User chosen CTD stepsize multiplier"),
         ("ctd_state_expl", "Apply explicit state exploration [if func-approx unknown]"), 
+        ("ctd_Phi_d", "Feature size in CTD. If -1, defaults to full size"),
         ("tune_exploration", "Tune exploration time in Monte Carlo"),
         ("successive_half_trials", "Number of trials in successive halving tuning"),
         ("min_T_mc", "Minimum Monte Carlo exploration time in tuning"),
