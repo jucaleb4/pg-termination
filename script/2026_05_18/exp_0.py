@@ -29,7 +29,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     env_name_ctd_size_arr = [
         # "gridworld_footnote", 
         ("gridworld_small", 1.),
-        ("gridworld_large", 0.5),
+        ("gridworld_large", 1.0),
     ]
     s_origin_arr = [None, 'rand']
     gamma_arr = [0.9, 0.99, 0.995]
