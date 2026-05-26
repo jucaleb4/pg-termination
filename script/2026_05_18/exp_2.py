@@ -24,7 +24,11 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
+    od["max_runtime_in_sec"] = 3600
+    od["max_obs"] = math.inf
+    od["n_iters"] = math.inf
     estimator_arr = ["online_mc_dynamic"]
+
     env_gamma_T_eta_minobs_arr = [
         ("gridworld_small", 0.9, 400, 0.5, 5e7),
         ("gridworld_small", 0.99, 2000, 0.5, 0), 
