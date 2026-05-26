@@ -32,7 +32,6 @@ class BasicLogger():
         m = self.data.shape[1]
 
         # partial indices to prevent overflow size
-        import ipdb; ipdb.set_trace()
         idxs = np.arange(0, self.ct, int(self.ct//min(self.ct, max_size)))
         if idxs[-1] != self.ct-1:
             idxs = np.append(idxs, sself.ct-1)
