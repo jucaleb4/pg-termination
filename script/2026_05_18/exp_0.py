@@ -20,16 +20,15 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
     od["estimate_Q"] = "ctd"
     od["skip_true_model"] = True
-    total_samples_base = 20_000
     # use validation to tune...
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 10
     od["max_runtime_in_sec"] = 600
 
-    env_name_ctd_size_arr = [
+    env_name_obs_base_ctd_size_arr = [
         # "gridworld_footnote", 
-        ("gridworld_small", 1.),
-        ("gridworld_large", 1.0),
+        ("gridworld_small", 20_000, 1.),
+        ("gridworld_large", 100_000, 1.0),
     ]
     s_origin_arr = [None, 'rand']
     gamma_arr = [0.9, 0.99, 0.995]
@@ -58,13 +57,13 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("-" * (90+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, ratio), gamma, s_origin, eta, iota, ukappa) in itertools.product(
-            env_name_ctd_size_arr, gamma_arr, s_origin_arr, eta_arr, ctd_iota_arr, ukappa_arr
+    for ((env_name, obs_base, ratio), gamma, s_origin, eta, iota, ukappa) in itertools.product(
+            env_name_obs_base_ctd_size_arr, gamma_arr, s_origin_arr, eta_arr, ctd_iota_arr, ukappa_arr
     ):
         od["env_name"] = env_name
         od["ctd_feature_size_ratio"] = ratio
         od["gamma"] = gamma
-        od["max_obs"] = total_samples_base/(1.-gamma)
+        od["max_obs"] = obs_base/(1.-gamma)
         od["s_origin"] = s_origin
         od["eta"] = eta
         od["iota"] = iota
