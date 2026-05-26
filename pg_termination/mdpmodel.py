@@ -397,9 +397,9 @@ class MDPModel():
         """
 
         # parameter setup (for operator F)
-        Phi_sigs = la.svd(Phi)[1]
+        # Phi_sigs = la.svd(Phi)[1]
         # TODO: If finite state, changes Phi_max/Phi_min and how we access Phi
-        Phi_max, Phi_min = Phi_sigs[0], Phi_sigs[-1]
+        # Phi_max, Phi_min = Phi_sigs[0], Phi_sigs[-1]
         # TODO: Better Phi_max, Phi_min
         Phi_max = 1.; Phi_min = 1.0
         C1 = C2 = L = Phi_max
