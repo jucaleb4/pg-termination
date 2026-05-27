@@ -16,14 +16,14 @@ from pg_termination.logger import BasicLogger
 TOL = 1e-10
 MSG_1 = "We changed 'pi_threshold'->'pi_threshold_mult'.Please update the yaml file (defaulting to 'pi_threshold_mult=1')"
 
-def policy_update(pi, psi, eta, is_finite_state, gamma, settings):
+def policy_update(pi, psi, eta, is_finite_state, gamma, settings, pi_scratch):
     """ 
     :params pi:
     :return succeeded:
     """
     succeeded = False
     if settings["update_rule"] == int(pmd.Update.KL_UPDATE):
-        succeeded = utils.kl_policy_update(psi, pi, eta)
+        succeeded = utils.kl_policy_update(psi, pi, eta, pi_scratch)
     elif settings["update_rule"] == int(pmd.Update.TSALLIS_UPDATE):
         succeeded = utils.tsallis_policy_update(psi, pi, eta, gamma)
     else:
@@ -228,6 +228,7 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
     if pi_0 is None:
         pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
     pi_t = pi_0
+    pi_scratch = np.copy(pi_0)
     greedy_pi_t = np.copy(pi_0)
     next_greedy_pi_t = np.copy(pi_0)
     pi_star = None
@@ -287,7 +288,9 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
             break
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
-        update_success = policy_update(pi_t, psi_t, eta_t, is_finite_state, env.gamma, settings) 
+        update_success = policy_update(
+            pi_t, psi_t, eta_t, is_finite_state, env.gamma, settings, pi_scratch
+        ) 
         if not update_success:
             print("=== Breaking early policy update (iter %d) failed ===" % t)
             break

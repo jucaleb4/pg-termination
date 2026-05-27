@@ -22,7 +22,7 @@ def set_rounded_policy(greedy_pi, pi):
     greedy_as = np.argmin(pi, axis=0)
     greedy_pi[greedy_as, np.arange(n_states)] = 1.
 
-def kl_policy_update(psi, pi, eta):
+def kl_policy_update(psi, pi, eta, pi_scratch):
     (n_states, n_actions) = psi.shape
 
     if np.any(np.isnan(psi)):
@@ -31,14 +31,17 @@ def kl_policy_update(psi, pi, eta):
     # # TODO: Why does adding this improve performance so much (for SPMD+CTD)?
     # if np.any(pi * mult <= 1e-32):
     #     return
-    pi *= mult
-    pi_sum = np.sum(pi, axis=0)
+    pi_scratch[:,:] = pi
+    pi_scratch *= mult
+    pi_sum = np.sum(pi_scratch, axis=0)
     if np.any(pi_sum == 0):
         return False
+
+    pi[:,:] = pi_scratch
     pi /= np.outer(np.ones(n_actions), pi_sum)
     return True
 
-def tsallis_policy_update(psi, pi, eta, gamma):
+def tsallis_policy_update(psi, pi, eta, gamma, pi_scratch):
     """ Policy update for Tsallis Inf. Solves up to accuracy 1e-6 if warm-start
     and 1e-8 for cold start.
 
@@ -78,9 +81,13 @@ def tsallis_policy_update(psi, pi, eta, gamma):
         g = psi[s,:] + np.power(pi[:,s], p-1)/((1.-p) * eta)
         get_x_star = lambda y : np.power(np.maximum(tol, (1.-p) * eta * (g + y)), 1./(p-1))
         lam = tsallis_update_lambda(get_x_star, tol)
-        pi[:,s] = get_x_star(lam)
-        pi[:,s] /= np.sum(pi[:,s])
+        pi_scratch[:,s] = get_x_star(lam)
+        pi_sum_s = np.sum(pi_scratch[:,s])
+        if pi_sum_s == 0:
+            return False
+        pi_scratch[:,s] /= pi_sum_s
 
+    pi[:,:] = pi_scratch
     return True
 
 def tsallis_update_lambda(get_x_star, tol):

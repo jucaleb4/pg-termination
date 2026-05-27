@@ -13,7 +13,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Tune SPMD+CTD on GridWorld. We set tune limit based on # samples and not iterations (sensitive to hyperparameters)"
+ABOUT = "Tune SPMD+CTD on GridWorld. Budget based on #sample # and not iterations"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -30,10 +30,11 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         ("gridworld_small", 20_000, 1.),
         ("gridworld_large", 100_000, 1.0),
     ]
+    update_rule_arr = [int(pmd.Update.KL_UPDATE), int(pmd.Update.TSALLIS_UPDATE)]
     s_origin_arr = [None, 'rand']
-    gamma_arr = [0.9, 0.99, 0.995]
-    eta_arr = [5e-3, 2e-2, 5e-1]
-    ukappa_arr = [1e0,1e0/(5**0.25),1e0/(10**0.25)] # [1e0, 2e-1]
+    gamma_arr = [0.9, 0.99]
+    eta_arr = [5e-3, 5e-1]
+    ukappa_arr = [1e0,1e0/(10**0.25)] # [1e0, 2e-1]
     for i in range(len(ukappa_arr)):
         ukappa_arr[i] = int(1e3*ukappa_arr[i])/1e3
     ctd_iota_arr = [5e-3, 5e-1]
@@ -49,21 +50,23 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "feat frac", "s_orig", "eta", "iota", "ukappa"]
-    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "feat frac", "update", "s_orig", "eta", "iota", "ukappa"]
+    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (90+len(exp_metadata)-1))
+        print("-" * (95+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, obs_base, ratio), gamma, s_origin, eta, iota, ukappa) in itertools.product(
-            env_name_obs_base_ctd_size_arr, gamma_arr, s_origin_arr, eta_arr, ctd_iota_arr, ukappa_arr
+    for ((env_name, obs_base, ratio), gamma, update, s_origin, eta, iota, ukappa) in itertools.product(
+            env_name_obs_base_ctd_size_arr, gamma_arr, update_rule_arr,
+            s_origin_arr, eta_arr, ctd_iota_arr, ukappa_arr,
     ):
         od["env_name"] = env_name
         od["ctd_feature_size_ratio"] = ratio
         od["gamma"] = gamma
         od["max_obs"] = obs_base/(1.-gamma)
+        od["update_rule"] = update
         od["s_origin"] = s_origin
         od["eta"] = eta
         od["iota"] = iota
@@ -73,9 +76,12 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], od["gamma"], od["ctd_feature_size_ratio"], 
-            od["s_origin"] if od["s_origin"] is not None else "none", 
-            od["eta"], od["iota"], od["ukappa"]))
+            print(row_format.format(ct, od["env_name"], od["gamma"], 
+                od["ctd_feature_size_ratio"], 
+                pmd.Update(od["update_rule"]).name[:7],
+                od["s_origin"] if od["s_origin"] is not None else "none", 
+                od["eta"], od["iota"], od["ukappa"])
+            )
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])
