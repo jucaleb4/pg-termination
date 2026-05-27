@@ -229,16 +229,16 @@ class MDPModel():
 
             # early termination due to time
             t += 1
+            if t == len(costs):
+                costs = np.append(costs, np.zeros(t))
+                states = np.append(states, np.zeros(t, dtype=int))
+                actions = np.append(actions, np.zeros(t, dtype=int))
             if (not has_adjusted_time) and ((time.time() - s_time) >= 0.01 * time_limit):
                 has_adjusted_time = True
                 T_time_adjusted = int(55*t)
             elif t > T_time_adjusted:
                 early_terminate = True
                 return (early_terminate, psi, V_pi, t)
-            elif t == len(costs):
-                costs = np.append(costs, np.zeros(t))
-                states = np.append(states, np.zeros(t, dtype=int))
-                actions = np.append(actions, np.zeros(t, dtype=int))
 
         # form advantage (DP style)
         T = t # dynamic mixing time
@@ -1384,16 +1384,17 @@ class DiscretizedGymnasiumModel(MDPModel):
     """
     We form an approximate Gymnasium model by discretizing the state space.
     """
-    def __init__(self, env_name, gamma, resolution, seed=None):
+    def __init__(self, env_name, gamma, resolution, seed=None, max_space_val=np.inf):
         super().__init__(gamma, seed)
         # self.env = gym.make(env_name, render_mode="human")
         self.env = gym.make(env_name)
 
-        assert isinstance(env.action_space, gym.spaces.discrete.Discrete), "Discretized env's act. space must be discrete (was %s)" % type(env.action_space)
-        assert isinstance(env.observation_space, gym.spaces.box.Box), "Space %s cannot be discretized" % type(env.observation_space)
+        assert isinstance(self.env.action_space, gym.spaces.discrete.Discrete), "Discretized env's act. space must be discrete (was %s)" % type(self.env.action_space)
+        assert isinstance(self.env.observation_space, gym.spaces.box.Box), "Space %s cannot be discretized" % type(self.env.observation_space)
 
-        # import ipdb; ipdb.set_trace()
         self.low, self.high = self.env.observation_space.low, self.env.observation_space.high
+        self.low = np.maximum(-max_space_val, self.low)
+        self.high = np.minimum(max_space_val, self.high)
         self.diff = self.high - self.low
         state_dim = len(self.low)
         self.state_flatten_mult_arr = np.power(resolution, np.arange(state_dim)[::-1])
@@ -1559,7 +1560,7 @@ def get_env(name, gamma, seed=None):
     elif name == "discrete_mountaincar":
         env = DiscretizedGymnasiumModel("MountainCar-v0", gamma, 100, seed=seed)
     elif name == "discrete_cartpole":
-        env = DiscretizedGymnasiumModel("CartPole-v1", gamma, 100, seed=seed)
+        env = DiscretizedGymnasiumModel("CartPole-v1", gamma, 100, seed=seed, max_space_val=100.)
     elif name == "garnet_50":
         env = Garnet(50, 5, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "garnet_100":
