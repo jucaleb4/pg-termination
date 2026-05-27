@@ -26,9 +26,9 @@ def policy_update(pi, psi, eta, is_finite_state):
     if np.any(np.isnan(psi)):
         return
     mult = np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
-    # TODO: Why does adding this improve performance so much (for SPMD+CTD)?
-    if np.any(pi * mult <= 1e-10):
-        return
+    # # TODO: Why does adding this improve performance so much (for SPMD+CTD)?
+    # if np.any(pi * mult <= 1e-32):
+    #     return
     pi *= mult
     pi /= np.outer(np.ones(n_actions), np.sum(pi, axis=0))
 
