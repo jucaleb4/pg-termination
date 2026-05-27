@@ -34,7 +34,7 @@ class BasicLogger():
         # partial indices to prevent overflow size
         idxs = np.arange(0, self.ct, int(self.ct//min(self.ct, max_size)))
         if idxs[-1] != self.ct-1:
-            idxs = np.append(idxs, sself.ct-1)
+            idxs = np.append(idxs, self.ct-1)
 
         for i in idxs:
             for j in range(m):
