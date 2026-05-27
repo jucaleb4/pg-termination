@@ -375,14 +375,15 @@ class MDPModel():
         return A_est if replic_id > 0 else np.inf * np.ones(self.n_actions)
 
     def estimate_advantage_online_ctd(
-            self, pi, Phi, ukappa, iota_mult, state_expl, is_finite_state, 
-            time_limit=np.inf, max_obs=np.inf, s_origin=None,
+            self, pi, Phi, Phi_max, Phi_min, ukappa, iota_mult, state_expl,
+            is_finite_state, time_limit=np.inf, max_obs=np.inf, s_origin=None,
     ):
         """
         Forms nearly unbiased TD estimator that is bounded w.h.p.
 
         :params pi: policy
         :params Phi: feature matrix
+        :params Phi_max, Phi_min: estimate of largest and small sig-val of Phi
         :params ukappa: lower bound estimate of minimum discounted visit distribution
         :params iota_mult: multiplier for iota (prefer >= 1)
         :parmas state_expl: whether we want explicit state exploration
@@ -397,12 +398,9 @@ class MDPModel():
         """
 
         # parameter setup (for operator F)
-        # Phi_sigs = la.svd(Phi)[1]
-        # TODO: If finite state, changes Phi_max/Phi_min and how we access Phi
-        # Phi_max, Phi_min = Phi_sigs[0], Phi_sigs[-1]
-        # TODO: Better Phi_max, Phi_min
-        Phi_max = 1.; Phi_min = 1.0
-        C1 = C2 = L = Phi_max
+        L = Phi_max**2
+        C1 = np.sqrt(Phi.shape[0])*L
+        C2 = L
 
         # parameter setup (for operator F with unknown kappa)
         uLam = ukappa * Phi_min**2
@@ -411,19 +409,16 @@ class MDPModel():
         theta = np.zeros(Phi.shape[1])
 
         # parameter setup (algorithmic terms)
-        # ell_0 = max((L/umu)**2, C2/umu**2)
-        ell_0 = (1.-self.gamma)*max((L/umu)**2, C2/umu**2) # weaken 1-gamma dep
+        ell_0 = max((L/umu)**2, C2/umu**2)
         um   = (np.log(1./umu) + np.log(C1))/np.log(1./self.gamma)
         sig = C1*oTheta
         R    = np.sqrt(np.max([oTheta**2, sig**2/umu**2, np.sqrt(C2)/umu]))
         B_1  = np.max([
                 np.sqrt((1.-self.gamma)*ell_0)/oTheta, 
-                # ((1.-self.gamma)*sig/umu)**2, 
-                (1.-self.gamma)*((1.-self.gamma)*sig/umu)**2, # weaken 1-gamma dep
-                # ((1.-self.gamma)**4 * R**2 * C2)/(umu**2)
-                (1.-self.gamma)*((1.-self.gamma)**4 * R**2 * C2)/(umu**2) # weaken 1-gamma dep
+                ((1.-self.gamma)*sig/umu)**2, 
+                ((1.-self.gamma)**4 * R**2 * C2)/(umu**2)
         ])
-        N    = int(max(B_1, ell_0))
+        N    = int(max(1, (1.-self.gamma)*max(B_1, ell_0))) # weak 1-gamma dependence
         eps_expl_a = (1.-self.gamma)*ukappa
         eps_expl_s = (1.-self.gamma)/(-np.log(1.-self.gamma))**2 if state_expl else 0.
 

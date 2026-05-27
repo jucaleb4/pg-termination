@@ -7,6 +7,7 @@ import multiprocessing as mp
 import warnings
 
 import numpy as np
+import numpy.linalg as la
 
 from pg_termination import pmd
 from pg_termination import mdpmodel 
@@ -25,7 +26,7 @@ def policy_update(pi, psi, eta, is_finite_state, gamma, settings, pi_scratch):
     if settings["update_rule"] == int(pmd.Update.KL_UPDATE):
         succeeded = utils.kl_policy_update(psi, pi, eta, pi_scratch)
     elif settings["update_rule"] == int(pmd.Update.TSALLIS_UPDATE):
-        succeeded = utils.tsallis_policy_update(psi, pi, eta, gamma)
+        succeeded = utils.tsallis_policy_update(psi, pi, eta, gamma, pi_scratch)
     else:
         raise Exception("Unknown update type %s" % update_type)
 
@@ -120,7 +121,10 @@ def _train(settings):
     logger_mixing.save(max_size=1_000)
     logger_validation.save(max_size=1_000)
 
-def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time_limit=np.inf, max_obs=np.inf):
+def policy_eval(
+        env, settings, pi, tmix, unu, Phi, Phi_max, Phi_min, ukappa,
+        is_finite_state, time_limit=np.inf, max_obs=np.inf
+    ):
     """ Policy evaluation
     :param env: environment from mdpmodel 
     :param settings: (dict) 
@@ -151,7 +155,7 @@ def policy_eval(env, settings, pi, tmix, unu, Phi, ukappa, is_finite_state, time
     elif settings["estimate_Q"] == "ctd": 
         # TODO: Define 'ctd_state_expl'
         output = env.estimate_advantage_online_ctd(
-            pi, Phi, ukappa, settings['ctd_iota_mult'], 
+            pi, Phi, Phi_max, Phi_min, ukappa, settings['ctd_iota_mult'], 
             settings['ctd_state_expl'], is_finite_state, time_limit, max_obs,
             settings['s_origin'],
         )
@@ -251,11 +255,18 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
         settings["pi_threshold_mult"] = 1.
     settings["pi_threshold"] = settings["pi_threshold_mult"] * (1.-env.gamma)/env.n_actions
 
+    Phi_max = 1.; Phi_min = 1.0
     if settings["estimate_Q"] == "ctd": 
         if is_finite_state: # finite state and action
             n_Z = env.n_states*env.n_actions
-            d = int(settings["ctd_feature_size_ratio"] * n_Z)
-            Phi = env.rng.normal(size=(n_Z, d))
+            Phi = env.rng.normal(size=(n_Z, n_Z))
+            Phi_max = la.norm(Phi, ord=2)
+            Phi += (settings["ctd_reg_ratio"]*Phi_max)*np.eye(n_Z)
+
+            d = min(n_Z, int(settings["ctd_feature_size_ratio"] * n_Z))
+            Phi = Phi[:,:d]
+            Phi_min = max(1.0, settings["ctd_reg_ratio"]*Phi_max)
+            Phi_max = max(1.0, Phi_max + settings["ctd_reg_ratio"]*Phi_max)
         else: # finite action and continuous state
             Phi = env.rng.normal(size=(env.n_states, env.n_state_dim, d))
 
@@ -272,8 +283,8 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
         time_left = (settings["max_runtime_in_sec"] - (time.time() - s_time)) * 1.05
         obs_left  = settings["max_obs"] - cum_samples
         (early_terminate, psi_t, V_t, n_samples, n_est_samples) = policy_eval(
-                env, settings, pi_t, tmix, unu, Phi, ukappa, is_finite_state, 
-                time_left, obs_left,
+                env, settings, pi_t, tmix, unu, Phi, Phi_max, Phi_min, ukappa,
+                is_finite_state, time_left, obs_left,
         )
         # log mixing information before possibly early termination
         cum_samples += n_samples
@@ -284,7 +295,13 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
         print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger)
 
         if early_terminate: 
-            print("=== Breaking early because we exceeded the max runtime/samples ===")
+            # print("=== Breaking early because we exceeded the max runtime/samples (samps=%d, time=%.2f) ===" % (cum_sample, e_time + time.time()))
+            # break
+            total_runtime = time.time() - s_time
+            if total_runtime >= settings["max_runtime_in_sec"]:
+                print("=== Breaking early because we exceeded the max runtime ===")
+                break
+            print("=== Breaking early because we exceeded the max observations (%d/%d) ===" % (cum_samples, settings["max_obs"]))
             break
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)

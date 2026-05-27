@@ -24,11 +24,12 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 10
     od["max_runtime_in_sec"] = 600
+    od["ctd_reg_ratio"] = 1.0
 
     env_name_obs_base_ctd_size_arr = [
         # "gridworld_footnote", 
-        ("gridworld_small", 20_000, 1.),
-        ("gridworld_large", 100_000, 1.0),
+        ("gridworld_small", 200_000, 1.),
+        ("gridworld_large", 1_000_000, 1.0),
     ]
     update_rule_arr = [int(pmd.Update.KL_UPDATE), int(pmd.Update.TSALLIS_UPDATE)]
     s_origin_arr = [None, 'rand']
