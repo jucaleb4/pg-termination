@@ -21,3 +21,113 @@ def set_rounded_policy(greedy_pi, pi):
     (_, n_states) = pi.shape
     greedy_as = np.argmin(pi, axis=0)
     greedy_pi[greedy_as, np.arange(n_states)] = 1.
+
+def kl_policy_update(psi, pi, eta):
+    (n_states, n_actions) = psi.shape
+
+    if np.any(np.isnan(psi)):
+        return False
+    mult = np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
+    # # TODO: Why does adding this improve performance so much (for SPMD+CTD)?
+    # if np.any(pi * mult <= 1e-32):
+    #     return
+    pi *= mult
+    pi_sum = np.sum(pi, axis=0)
+    if np.any(pi_sum == 0):
+        return False
+    pi /= np.outer(np.ones(n_actions), pi_sum)
+    return True
+
+def tsallis_policy_update(psi, pi, eta, gamma):
+    """ Policy update for Tsallis Inf. Solves up to accuracy 1e-6 if warm-start
+    and 1e-8 for cold start.
+
+    We want to solve
+    $$
+        min_{x in Delta_n} { <psi + eta^{-1}*u**(p-1)/(1-p), x> + eta^{-1} Psi(x) }
+    $$
+    where $u$ is the most recent policy and
+    $$
+        Psi(x) := sumlimits_{i=1}^n -(x_i^p)/[(1-p)p]
+    $$
+    Let us denote g = psi + eta^{-1}*u**(p-1)/(1-p). 
+
+    By KKT conditions, we want to find ({x_i}_i, y=lam) such 
+    $$
+        g_i - eta^{-1}/(1-p) * x_i^(p-1) + y = 0, for all i
+    $$
+    and x is probability simplex. Solving for x,
+    $$
+        x_i = [ (1-p) * eta * (g_i + y) ]^(1/(p-1))
+    $$
+    So we compute this x_i and do binary search on y until this quantity x_i is a probability simplex
+
+    :param grad: current gradient estimate
+    :param pi: current policy
+    :param eta: step size
+    :param lam: lam to use for warm start
+    """
+    (n_S, n_A) = psi.shape
+    assert n_A == pi.shape[0] and n_S == pi.shape[1], "psi (shape [%d, %d]) and pi (shape [%d, %d]) are not transpose to each other" % (n_S, n_A, pi.shape[0], pi.shape[1])
+
+    tol = 1e-6
+    p = 1/(2 - np.log(1.-gamma)/log(2))
+
+    # update state-by-state separately
+    for s in range(n_S):
+        g = psi[s,:] + np.power(pi[:,s], p-1)/((1.-p) * eta)
+        get_x_star = lambda y : np.power(np.maximum(tol, (1.-p) * eta * (g + y)), 1./(p-1))
+        lam = tsallis_update_lambda(get_x_star, tol)
+        pi[:,s] = get_x_star(lam)
+        pi[:,s] /= np.sum(pi[:,s])
+
+    return True
+
+def tsallis_update_lambda(get_x_star, tol):
+    # TODO: Add back Newton warm-start?
+
+    # cold start (if no warm_start flag or warm_start failed after 12 iterations)
+    direction = 0
+
+    # find whether lam should be positive or negative
+    u = get_x_star(0)
+    if abs(np.sum(u) - 1) <= tol:
+        x_star = u/np.sum(u)
+        return x_star
+    elif np.sum(u) > 1:
+        direction = 1
+    else:
+        direction = -1
+        
+    # exponential search
+    lam = direction
+    no_exp_search = True
+    u = get_x_star(lam)
+    while (direction == 1 and np.sum(u) > 1) or (direction == -1 and np.sum(u) < 1):
+        no_exp_search = False
+        lam *= 2
+        u = get_x_star(lam)
+
+    # binary search 
+    if direction == 1:
+        lo = 0 if no_exp_search else lam/(2.) 
+        hi = lam # value that made sum(u) <= 1
+        while hi-lo > tol:
+            lam = (hi+lo)/2
+            u = get_x_star(lam)
+            if abs(np.sum(u) - 1)<=tol: break
+            elif np.sum(u) < 1: hi = lam # makes the sum larger
+            else: lo = lam
+        best_lam = hi
+    else:
+        lo = lam # value that made sum(u) >= 1
+        hi = 0 if no_exp_search else lam/(2.)
+        while hi-lo > tol:
+            lam = (hi+lo)/2
+            u = get_x_star(lam)
+            if abs(np.sum(u) - 1)<=tol: break
+            elif np.sum(u) < 1: lo = lam
+            else: hi = lam
+        best_lam = lo
+
+    return best_lam

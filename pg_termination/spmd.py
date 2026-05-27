@@ -16,21 +16,20 @@ from pg_termination.logger import BasicLogger
 TOL = 1e-10
 MSG_1 = "We changed 'pi_threshold'->'pi_threshold_mult'.Please update the yaml file (defaulting to 'pi_threshold_mult=1')"
 
-def policy_update(pi, psi, eta, is_finite_state):
-    """ Closed-form solution with KL 
-
-    # TODO: Add other divergences, e.g., Tsallis...
+def policy_update(pi, psi, eta, is_finite_state, gamma, settings):
+    """ 
+    :params pi:
+    :return succeeded:
     """
-    (n_states, n_actions) = psi.shape
+    succeeded = False
+    if settings["update_rule"] == int(pmd.Update.KL_UPDATE):
+        succeeded = utils.kl_policy_update(psi, pi, eta)
+    elif settings["update_rule"] == int(pmd.Update.TSALLIS_UPDATE):
+        succeeded = utils.tsallis_policy_update(psi, pi, eta, gamma)
+    else:
+        raise Exception("Unknown update type %s" % update_type)
 
-    if np.any(np.isnan(psi)):
-        return
-    mult = np.exp(-eta*(psi - np.outer(np.min(psi, axis=1), np.ones(n_actions)))).T
-    # # TODO: Why does adding this improve performance so much (for SPMD+CTD)?
-    # if np.any(pi * mult <= 1e-32):
-    #     return
-    pi *= mult
-    pi /= np.outer(np.ones(n_actions), np.sum(pi, axis=0))
+    return succeeded
 
 def get_loggers(settings):
     seed = settings['seed']
@@ -288,7 +287,10 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
             break
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
-        policy_update(pi_t, psi_t, eta_t, is_finite_state) 
+        update_success = policy_update(pi_t, psi_t, eta_t, is_finite_state, env.gamma, settings) 
+        if not update_success:
+            print("=== Breaking early policy update (iter %d) failed ===" % t)
+            break
         last_V_t = V_t
 
         total_runtime = time.time() - s_time

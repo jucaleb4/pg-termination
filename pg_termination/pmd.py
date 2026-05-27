@@ -23,6 +23,7 @@ class StepSize(IntEnum):
 class Update(IntEnum):
     EUCLIDEAN_UPDATE = 100
     KL_UPDATE = 101
+    TSALLIS_UPDATE = 102
 
 def simplex_projection(x):
     """ Strongly polynomial time for projecting onto simplex.

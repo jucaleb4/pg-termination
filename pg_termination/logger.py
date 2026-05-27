@@ -31,6 +31,10 @@ class BasicLogger():
         fp.write("%s\n" % (','.join(self.keys)))
         m = self.data.shape[1]
 
+        if self.ct == 0:
+            fp.close()
+            return
+
         # partial indices to prevent overflow size
         idxs = np.arange(0, self.ct, int(self.ct//min(self.ct, max_size)))
         if idxs[-1] != self.ct-1:
