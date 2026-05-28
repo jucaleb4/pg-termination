@@ -958,7 +958,6 @@ class GridWorldWithTraps(KnownModel):
     def step(self, a):
         (self.s, c, terminated) = super().step(a)
         if self.t % self.time_limit == 0:
-            import ipdb; ipdb.set_trace()
             self.s = self.rng.choice(self.origins)
         return (self.s, c, terminated)
 
