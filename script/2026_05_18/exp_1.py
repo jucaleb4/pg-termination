@@ -29,13 +29,14 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["max_obs"] = math.inf
     od["n_iters"] = math.inf
 
-    env_gamma_sorig_eta_iota_ukappa_arr = [
-        ("gridworld_small", 0.9, "rand", 0.02, 0.005, 0.562),
-        ("gridworld_small", 0.99, "rand", 0.02, 0.5, 0.562),
-        ("gridworld_small", 0.995, "rand", 0.02, 0.5, 0.668),
-        ("gridworld_large", 0.9, "rand", 0.02, 0.005, 1.0),
-        ("gridworld_large", 0.99, "rand", 0.005, 0.5, 0.562),
-        ("gridworld_large", 0.995, "rand", 0.02, 0.005, 0.562),
+    KL = int(pmd.Update.KL_UPDATE)
+    TS = int(pmd.Update.TSALLIS_UPDATE) 
+
+    env_gamma_update_sorig_eta_iota_ukappa_arr = [
+        ("gridworld_small", 0.9, KL, "none", 0.005, 0.5, 1.0),
+        ("gridworld_small", 0.99, TS, "none", 0.005, 0.5, 1.0),
+        ("gridworld_large", 0.9, TS, "none", 0.005, 0.5, 0.562),
+        ("gridworld_large", 0.99, KL, "none", 0.005, 0.5, 0.562),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)

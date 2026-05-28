@@ -86,15 +86,17 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_04_16/exp_1.py`: opt on GridWorld (switch from GridWorld-loop)
 - `2026_04_16/exp_2.py`: Q-learn on GridWorld (switch from GridWorld-loop)
 - `2026_04_25/exp_0.py`: tune Q-learn on Garnet
-- `2026_04_25/exp_2.py`: Q-learn on Garnet
+- `2026_04_25/exp_2.py`: SARSA on Garnet
 - `2026_05_05/exp_0.py`: SPMD full run on Garnet (set minimum sample count)
-- `2026_05_05/exp_1.py`: Q-learn full run on Garnet (set minimum sample count)
+- `2026_05_05/exp_1.py`: SARSA full run on Garnet (set minimum sample count)
 - `2026_05_05/exp_2.py`: SPMD full run on GridWorld (set minimum sample count)
-- `2026_05_05/exp_3.py`: Q-learn full run on GridWorld (set minimum sample count)
+- `2026_05_05/exp_3.py`: SARSA full run on GridWorld (set minimum sample count)
 - `2026_05_06/exp_0.py`: tune SARSA on Garnet
 - `2026_05_06/exp_1.py`: full SARSA run on Garnet
 - `2026_05_06/exp_2.py`: tune SARSA on GridWorld
 - `2026_05_06/exp_3.py`: full SARSA run on GridWorld
+- `2026_05_18/exp_0.py`: tune SPMD+CTD on GridWorld (idea: use empirical distribution to form rho)
+- `2026_05_18/exp_1.py`: full run SPMD+CTD on GridWorld 
 
 ## TODOs
 - Implement CTD (both tabular and general state)

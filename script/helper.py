@@ -38,7 +38,8 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("pi_threshold_mult", 1.0),
         ("eta", 0.01),
         ("skip_true_model", True),
-        ("ctd_feature_size_ratio", 1.), 
+        ("ctd_feature_size_ratio", 0.), 
+        ("ctd_reg_ratio", 0.),
         ("ctd_iota_mult", 40), # change to 1
         ("ctd_state_expl", False), 
         ("tune_exploration", False),
@@ -69,6 +70,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("eta", "base step size"),
         ("skip_true_model", "skips validation on true model - only works for non-gym envs"),
         ("ctd_feature_size_ratio", "feature size for CTD (only)"),
+        ("ctd_reg_ratio", "regularization added to features"),
         ("ctd_iota_mult", "User chosen CTD stepsize multiplier"),
         ("ctd_state_expl", "Apply explicit state exploration [if func-approx unknown]"), 
         ("ctd_Phi_d", "Feature size in CTD. If -1, defaults to full size"),

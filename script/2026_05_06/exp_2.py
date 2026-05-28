@@ -24,7 +24,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     env_name_arr = [
         "gridworld_footnote_loop", 
         "gridworld_small_loop", 
-        # "gridworld_large_loop", 
+        "gridworld_large_loop", 
     ]
     gamma_arr = [0.9, 0.99, 0.995]
     # we will set total budget to half a million
@@ -47,7 +47,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (75+len(exp_metadata)-1))
+        print("-" * (65+len(exp_metadata)-1))
 
     ct = 0
     for (env_name, gamma, alpha) in itertools.product(env_name_arr, gamma_arr, alpha_arr):
@@ -60,7 +60,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], od["gamma"], od["n_iters"], od["T_mc"], od["eta"]))
+            print(row_format.format(ct, od["env_name"], od["gamma"], od["n_iters"], od["qlearn_alpha"]))
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])
