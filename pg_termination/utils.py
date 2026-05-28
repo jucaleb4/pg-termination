@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.linalg as la
 
 def set_greedy_policy(greedy_pi, psi):
     """ 
@@ -138,3 +139,23 @@ def tsallis_update_lambda(get_x_star, tol):
         best_lam = lo
 
     return best_lam
+
+def rand_l2(A, rng, max_iters=100, tol=1e-1):
+    """
+    Compute approximate largest singular value via randomized initial point.
+
+    Source: https://arxiv.org/pdf/2402.17873 (Section 3.1)
+    """
+    x_t = rng.normal(size=A.shape[1])
+    xi_t_prev = 0
+
+    for t in range(max_iters):
+        q_t = x_t/la.norm(x_t, ord=2)
+        x_t = A.T.dot(A.dot(q_t))
+        xi_t = np.dot(q_t, x_t) # eig(A'A)
+        zeta_t = xi_t**0.5 # sig(A) = sqrt(eig(A'A))
+        if t > 0 and (abs(xi_t - xi_t_prev)/xi_t <= 1e-6):
+            break   
+        xi_t_prev = xi_t
+    
+    return zeta_t

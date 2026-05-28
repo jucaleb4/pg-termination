@@ -399,7 +399,7 @@ class MDPModel():
 
         # parameter setup (for operator F)
         L = Phi_max**2
-        C1 = np.sqrt(Phi.shape[0])*L
+        C1 = np.log(max(np.exp(1), Phi.shape[0]))*L
         C2 = L
 
         # parameter setup (for operator F with unknown kappa)
@@ -419,6 +419,7 @@ class MDPModel():
                 ((1.-self.gamma)**4 * R**2 * C2)/(umu**2)
         ])
         N    = int(max(1, (1.-self.gamma)*max(B_1, ell_0))) # weak 1-gamma dependence
+        # print("N=%d" % N)
         eps_expl_a = (1.-self.gamma)*ukappa
         eps_expl_s = (1.-self.gamma)/(-np.log(1.-self.gamma))**2 if state_expl else 0.
 
@@ -655,7 +656,7 @@ class MDPModel():
 
 class KnownModel(MDPModel):
     """ Known (S,A,c,P,gamma) """
-    def __init__(self, n_states, n_actions, c, P, gamma, rho=None, seed=None, term_map=None):
+    def __init__(self, n_states, n_actions, c, P, gamma, rho=None, seed=None, term_map=None, time_limit=np.inf):
         super().__init__(gamma, seed)
 
         assert len(c.shape) == 2, "Input cost vector c must be a 2-D vector, recieved %d dimensions" % len(c.shape)
@@ -686,21 +687,26 @@ class KnownModel(MDPModel):
         self.P = P
         self.term_map = term_map
         self.gamma = gamma
+        self.time_limit=time_limit
         if rho is None:
             rho = np.ones(self.n_states, dtype=float)/self.n_states
         self.rho = rho
 
         # initialize a 
         self.s = self.rng.integers(0, self.n_states)
+        self.t = 0
 
         # initialize rbf for solving with linear function approx
         self.init_linear = False
 
     def step(self, a):
+        self.t += 1
         c = self.c[self.s, a]
         curr_s = self.s
         self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s, a])
         terminated = 0 if (self.term_map is None) else self.term_map[self.s, curr_s, a]
+        if self.t % self.time_limit == 0:
+            terminated = True
         return (self.s, c, terminated)
 
     def get_stationary(self, pi):
@@ -836,7 +842,7 @@ class Bandits(KnownModel):
         super().__init__(n_states, n_actions, c, P, gamma, rho, seed)
 
 class GridWorldWithTraps(KnownModel):
-    def __init__(self, length, n_traps, gamma, n_origins=-1, eps=0.05, seed=None, ergodic=False):
+    def __init__(self, length, n_traps, gamma, n_origins=-1, eps=0.05, time_limit=1024, seed=None, ergodic=False):
         """ Creates 2D gridworld with side length @length grid world with traps.
 
         Each step incurs a cost of +1
@@ -863,15 +869,15 @@ class GridWorldWithTraps(KnownModel):
 
         rng = np.random.default_rng(seed)
         traps = rnd_pts[:n_traps]
-        origins = rnd_pts[n_traps:n_traps+n_origins]
+        self.origins = rnd_pts[n_traps:n_traps+n_origins]
         rho = np.zeros(length*length, dtype=float)
-        rho[origins] = 1./len(origins)
+        rho[self.origins] = 1./len(self.origins)
         self.target = target = rnd_pts[-1]
         print("==== ENV INFO ====")
         print("  Target at index %d" % target)
         print("  Traps at ", np.sort(traps))
-        if len(origins) < 10:
-            print("  Origins at ", np.sort(origins))
+        if len(self.origins) < 10:
+            print("  Origins at ", np.sort(self.origins))
 
         P = np.zeros((n_states, n_states, n_actions), dtype=float)
         c = np.zeros((n_states, n_actions), dtype=float)
@@ -931,8 +937,8 @@ class GridWorldWithTraps(KnownModel):
 
             P[:,target,:] = 0
             # go to random non-target non-trap location
-            P[origins,target,:] = 1./len(origins)
-            term_map[origins,target,:] = 1
+            P[self.origins,target,:] = 1./len(self.origins)
+            term_map[self.origins,target,:] = 1
         else:
             P[:,target,:] = 0
             # stay at target
@@ -944,10 +950,17 @@ class GridWorldWithTraps(KnownModel):
         c[traps,:] = 10.
         c[target,:] = -10.
 
-        super().__init__(n_states, n_actions, c, P, gamma, rho, seed, term_map=term_map)
+        super().__init__(n_states, n_actions, c, P, gamma, rho, seed, term_map=term_map, time_limit=time_limit)
 
     def get_target(self):
         return self.target
+
+    def step(self, a):
+        (self.s, c, terminated) = super().step(a)
+        if self.t % self.time_limit == 0:
+            import ipdb; ipdb.set_trace()
+            self.s = self.rng.choice(self.origins)
+        return (self.s, c, terminated)
 
 class GridWorldWithTrapsAndHills(KnownModel):
     def __init__(self, length, n_traps, gamma, eps=0.05, seed=None, ergodic=False):
@@ -1454,16 +1467,9 @@ class Garnet(KnownModel):
         sigs_arr = np.sqrt(rng.uniform(sig_min_sq, sig_max_sq, size=((n_states, n_actions))))
         c = rng.normal(0, scale=sigs_arr)
         c = (c-np.min(c))/(np.max(c)-np.min(c))
-        self.time_ct = 0
-        self.disc_time_limit = int(20/(1.-gamma))
+        time_limit = int(20/(1.-gamma))
 
-        super().__init__(n_states, n_actions, c, P, gamma)
-
-    def step(self, a):
-        (s, c, _) = super().step(a)
-        self.time_ct += 1
-        terminated = (self.time_ct % self.disc_time_limit) == 0
-        return (s, c, terminated)
+        super().__init__(n_states, n_actions, c, P, gamma, time_limit=time_limit)
 
 class BlackJack(KnownModel):
     """

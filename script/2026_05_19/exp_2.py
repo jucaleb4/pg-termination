@@ -27,13 +27,13 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
     estimator_arr = ["online_mc_fixed", "online_mc_estimate", "online_mc_dynamic"]
     env_gamma_T_eta_minobs_arr = [
-        ("garnet_50", 0.9, 10_000, 0.5, 1e7),
+        ("garnet_50", 0.9, 2_000, 0.5, 1e7),
         ("garnet_50", 0.99, 400, 0.02, 5e7), 
         ("garnet_50", 0.995, 400, 0.02, 1e7), 
         ("garnet_200", 0.9, 400, 0.02, 6e7), 
         ("garnet_200", 0.99, 400, 0.005, 6e7), 
-        ("garnet_200", 0.995, 400, 0.02, 4e7), 
-        ("garnet_1000", 0.9, 10_000, 0.005, 5e7), 
+        ("garnet_200", 0.995, 400, 0.005, 4e7), 
+        ("garnet_1000", 0.9, 400, 0.005, 5e7), 
         ("garnet_1000", 0.99, 400, 0.005, 3e7), 
         ("garnet_1000", 0.995, 400, 0.005, 5e7), 
     ]

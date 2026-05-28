@@ -260,7 +260,9 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
         if is_finite_state: # finite state and action
             n_Z = env.n_states*env.n_actions
             Phi = env.rng.normal(size=(n_Z, n_Z))
-            Phi_max = la.norm(Phi, ord=2)
+            s_time = time.time()
+            Phi_max = utils.rand_l2(Phi, env.rng) # la.norm(Phi, ord=2) <- too slow
+            print("Finished estimating l2 of feature matrix (time=%.2fs)" % (time.time() - s_time))
             Phi += (settings["ctd_reg_ratio"]*Phi_max)*np.eye(n_Z)
 
             d = min(n_Z, int(settings["ctd_feature_size_ratio"] * n_Z))
