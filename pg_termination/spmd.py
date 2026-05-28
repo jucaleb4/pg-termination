@@ -303,7 +303,7 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
             if total_runtime >= settings["max_runtime_in_sec"]:
                 print("=== Breaking early because we exceeded the max runtime ===")
                 break
-            print("=== Breaking early because we exceeded the max observations (%d/%d) ===" % (cum_samples, settings["max_obs"]))
+            print("=== Breaking early because we exceeded the max observations (%d) ===" % (cum_samples))
             break
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
