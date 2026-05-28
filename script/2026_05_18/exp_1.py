@@ -33,10 +33,12 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     TS = int(pmd.Update.TSALLIS_UPDATE) 
 
     env_gamma_update_sorig_eta_iota_ukappa_arr = [
-        ("gridworld_small", 0.9, KL, "none", 0.005, 0.5, 1.0),
+        ("gridworld_small", 0.9, TS, "rand", 0.005, 0.5, 1.0),
         ("gridworld_small", 0.99, TS, "none", 0.005, 0.5, 1.0),
-        ("gridworld_large", 0.9, TS, "none", 0.005, 0.5, 0.562),
-        ("gridworld_large", 0.99, KL, "none", 0.005, 0.5, 0.562),
+        ("gridworld_small", 0.995, TS, "none", 0.5, 0.005, 1.0),
+        ("gridworld_large", 0.9, KL, "rand", 0.005, 0.5, 1.0),
+        ("gridworld_large", 0.99, KL, "none", 0.5, 0.005, 1.0),
+        ("gridworld_large", 0.995, TS, "none", 0.5, 0.5, 1.0),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -50,19 +52,20 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "feat frac", "s_orig", "eta", "iota", "ukappa"]
-    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "update", "s_orig", "eta", "iota", "ukappa"]
+    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
         print("-" * (90+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, gamma, s_orig, eta, iota, ukappa),) in itertools.product(
-            env_gamma_sorig_eta_iota_ukappa_arr
+    for ((env_name, gamma, update, s_orig, eta, iota, ukappa),) in itertools.product(
+            env_gamma_update_sorig_eta_iota_ukappa_arr
     ):
         od["env_name"] = env_name
         od["gamma"] = gamma
+        od["update_rule"] = update
         od["s_origin"] = s_orig
         od["eta"] = eta
         od["iota"] = iota
@@ -72,7 +75,8 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], od["gamma"], od["ctd_feature_size_ratio"], 
+            print(row_format.format(ct, od["env_name"], od["gamma"], 
+            pmd.Update(od["update_rule"]).name[:7],
             od["s_origin"] if od["s_origin"] is not None else "none", 
             od["eta"], od["iota"], od["ukappa"]))
 
