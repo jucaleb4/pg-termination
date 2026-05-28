@@ -97,6 +97,8 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_06/exp_3.py`: full SARSA run on GridWorld
 - `2026_05_18/exp_0.py`: tune SPMD+CTD on GridWorld (idea: use empirical distribution to form rho)
 - `2026_05_18/exp_1.py`: full run SPMD+CTD on GridWorld 
+- `2026_05_19/exp_0.py`: tune SPMD on GARNET with Tsallis
+- `2026_05_19/exp_1.py`: tune SPMD on GridWorld with Tsallis
 
 ## TODOs
 - Implement CTD (both tabular and general state)

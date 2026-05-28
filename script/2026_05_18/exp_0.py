@@ -4,6 +4,7 @@ import itertools
 import argparse
 import yaml
 import re
+import math
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "."+".", "."+"."))
 sys.path.insert(0, parent_dir)
@@ -25,15 +26,17 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_k"] = 10
     od["max_runtime_in_sec"] = 600
     od["ctd_reg_ratio"] = 1.0
+    od["ctd_feature_size_ratio"] = 1.0
+    od["max_obs"] = math.inf
 
-    env_name_obs_base_ctd_size_arr = [
+    env_name_arr = [
         # "gridworld_footnote", 
-        ("gridworld_small", 200_000, 1.),
-        ("gridworld_large", 1_000_000, 1.0),
+        "gridworld_small",
+        "gridworld_large",
     ]
     update_rule_arr = [int(pmd.Update.KL_UPDATE), int(pmd.Update.TSALLIS_UPDATE)]
     s_origin_arr = [None, 'rand']
-    gamma_arr = [0.9, 0.99]
+    gamma_arr = [0.9, 0.99, 0.995]
     eta_arr = [5e-3, 5e-1]
     ukappa_arr = [1e0,1e0/(10**0.25)] # [1e0, 2e-1]
     for i in range(len(ukappa_arr)):
@@ -59,14 +62,12 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("-" * (95+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, obs_base, ratio), gamma, update, s_origin, eta, iota, ukappa) in itertools.product(
-            env_name_obs_base_ctd_size_arr, gamma_arr, update_rule_arr,
+    for (env_name, gamma, update, s_origin, eta, iota, ukappa) in itertools.product(
+            env_name_arr, gamma_arr, update_rule_arr,
             s_origin_arr, eta_arr, ctd_iota_arr, ukappa_arr,
     ):
         od["env_name"] = env_name
-        od["ctd_feature_size_ratio"] = ratio
         od["gamma"] = gamma
-        od["max_obs"] = obs_base/(1.-gamma)
         od["update_rule"] = update
         od["s_origin"] = s_origin
         od["eta"] = eta
