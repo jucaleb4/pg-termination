@@ -53,12 +53,17 @@ def get_loggers(settings):
         keys=["iter", "cum_time", "cum_samples", "cum_est_samples"] + ["nu_lb", "t_mix"],
         dtypes=['d', 'f', 'd', 'd'] + ['f'] * 2,
     )
+    logger_ep = BasicLogger(
+        fname=os.path.join(settings["log_folder"], "ep_cost_seed=%d.csv" % seed),  
+        keys=["ep_cost", "ep_len"],
+        dtypes=['f', 'd'],
+    )
 
-    return [logger, logger_validation, logger_mixing]
+    return [logger, logger_validation, logger_mixing, logger_ep]
 
 def _train_with_tuning(settings):
     print("=== Running tuning via successive halving ===")
-    logger, logger_validation, logger_mixing = get_loggers(settings)
+    logger, logger_validation, logger_mixing, logger_ep = get_loggers(settings)
     seed = settings['seed']
 
     logger_tune = BasicLogger(
@@ -86,7 +91,7 @@ def _train_with_tuning(settings):
         for i, T in enumerate(Ts):
             settings['T_mc'] = T
             pi_0 = None if tune_round == 0 else Pi_arr[i]
-            pi_t, f_t = _spmd(settings, 1.0, logger, logger_validation, logger_mixing, pi_0=pi_0)
+            pi_t, f_t, _, _ = _spmd(settings, 1.0, logger, logger_validation, logger_mixing, pi_0=pi_0)
             if Pi_arr is None:
                 Pi_arr = np.zeros((len(Ts),) + pi_t.shape)
             Pi_arr[i,:,:] = pi_t
@@ -111,15 +116,19 @@ def _train_with_tuning(settings):
     logger_tune.save(max_size=1_000)
 
 def _train(settings):
-    logger, logger_validation, logger_mixing = get_loggers(settings)
+    logger, logger_validation, logger_mixing, logger_ep = get_loggers(settings)
 
     # TODO: Make this automated
     ukappa = settings["ukappa"]
-    _spmd(settings, ukappa, logger, logger_validation, logger_mixing)
+    (_, _, cost_arr, len_arr) = _spmd(settings, ukappa, logger, logger_validation, logger_mixing)
 
     logger.save(max_size=1_000)
     logger_mixing.save(max_size=1_000)
     logger_validation.save(max_size=1_000)
+
+    for (ep_cost, ep_len) in zip(cost_arr, len_arr):
+        logger_ep.log(ep_cost, ep_len)
+    logger_ep.save()
 
 def policy_eval(
         env, settings, pi, Phi, Phi_max, Phi_min, ukappa,
@@ -160,7 +169,7 @@ def policy_eval(
         output = env.estimate_advantage_online_ctd(
             pi, Phi, Phi_max, Phi_min, ukappa, settings['ctd_iota_mult'], 
             settings['ctd_state_expl'], is_finite_state, time_limit, max_obs,
-            settings['s_origin'],
+            settings['s_origin'], settings['ctd_burn_in'],
         )
         (early_terminate, psi, V, n_samples) = output
     else: 
@@ -300,12 +309,11 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
         print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger)
 
         if early_terminate: 
-            # print("=== Breaking early because we exceeded the max runtime/samples (samps=%d, time=%.2f) ===" % (cum_sample, e_time + time.time()))
-            # break
             total_runtime = time.time() - s_time
             if total_runtime >= settings["max_runtime_in_sec"]:
                 print("=== Breaking early because we exceeded the max runtime ===")
                 break
+            # TODO: May break early if predicted runtime exceeds... so swap?
             print("=== Breaking early because we exceeded the max observations (%d) ===" % (cum_samples))
             break
 
@@ -356,7 +364,10 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
     # )
 
     returned_f = true_V if settings.get("tune_true_cost", False) else np.dot(env.rho, last_V_t)
-    return pi_t, returned_f
+
+    cost_arr, len_arr = env.get_cum_cost_and_len_arr()
+
+    return [pi_t, returned_f,cost_arr, len_arr] 
 
 def train(settings):
     seed_0 = settings["seed_0"]

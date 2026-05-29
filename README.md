@@ -71,31 +71,31 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2025_12_11/exp_2.py`: running with best fixed exploration time from `exp_1.py` above
 - `2025_12_24/exp_0.py`: testing CTD on discretized MountainCar
 
-- `2026_04_08/exp_0.py`: tune SPMD tabular for GARNET (5-100)
-- `2026_04_08/exp_1.py`: auto-explore SPMD tabular on GARNET (5-100)
-- `2026_04_08/exp_2.py`: SPMD tabular run all for GARNET
-- `2026_04_09/exp_0.py`: tune SPMD tabular for GridWorld *DEPRECEATED*
-- `2026_04_09/exp_1.py`: auto-explore SPMD tabular on GridWorld *DEPRECEATED*
-- `2026_04_09/exp_2.py`: SPMD tabular run all for GridWorld *DEPRECEATED*
+- `2026_04_08/exp_0.py`: tune SPMD for GARNET (5-100)
+- `2026_04_08/exp_1.py`: opt on GARNET
+- `2026_04_08/exp_2.py`: full SPMD on GARNET (*DEPRECEATED* use 2026_05_05/exp_0.py)
+- `2026_04_09/exp_0.py`: tune SPMD for GridWorld *DEPRECEATED*
+- `2026_04_09/exp_1.py`: GridWorld OPT *DEPRECEATED*
+- `2026_04_09/exp_2.py`: full SPMD on GridWorld *DEPRECEATED*
 - `2026_04_13/exp_0.py`: Initial ppo_clean
-- `2026_04_14/exp_0.py`: tune SPMD CTD on GridWorld
-- `2026_04_15/exp_0.py`: tune SPMD tabular for GridWorld (switch from GridWorld-loop)
-- `2026_04_15/exp_1.py`: auto-explore SPMD tabular on GridWorld (switch from GridWorld-loop)
-- `2026_04_15/exp_2.py`: SPMD tabular run all for GridWorld (switch from GridWorld-loop)
-- `2026_04_16/exp_0.py`: tune Q-learn on GridWorld (switch from GridWorld-loop)
-- `2026_04_16/exp_1.py`: opt on GridWorld (switch from GridWorld-loop)
-- `2026_04_16/exp_2.py`: Q-learn on GridWorld (switch from GridWorld-loop)
-- `2026_04_25/exp_0.py`: tune Q-learn on Garnet
+- `2026_04_14/exp_0.py`: tune SPMD+CTD on GridWorld *DEPRECEATED*
+- `2026_04_15/exp_0.py`: tune SPMD on GridWorld 
+- `2026_04_15/exp_1.py`: GridWorld OPT
+- `2026_04_15/exp_2.py`: full SPMD on GridWorld (*DEPRECEATED* use 2026_05_05/exp_2.py)
+- `2026_04_16/exp_0.py`: tune Q-learn on GridWorld 
+- `2026_04_16/exp_1.py`: opt on GridWorld 
+- `2026_04_16/exp_2.py`: full Q-learn on GridWorld 
+- `2026_04_25/exp_0.py`: tune SARSA on Garnet
 - `2026_04_25/exp_2.py`: SARSA on Garnet
-- `2026_05_05/exp_0.py`: SPMD full run on Garnet (set minimum sample count)
-- `2026_05_05/exp_1.py`: SARSA full run on Garnet (set minimum sample count)
-- `2026_05_05/exp_2.py`: SPMD full run on GridWorld (set minimum sample count)
-- `2026_05_05/exp_3.py`: SARSA full run on GridWorld (set minimum sample count)
+- `2026_05_05/exp_0.py`: SPMD full run on Garnet (w/ min sample count)
+- `2026_05_05/exp_1.py`: SARSA full run on Garnet (w/ min sample count)
+- `2026_05_05/exp_2.py`: SPMD full run on GridWorld (w/ min sample count)
+- `2026_05_05/exp_3.py`: SARSA full run on GridWorld (w/ min sample count)
 - `2026_05_06/exp_0.py`: tune SARSA on Garnet
 - `2026_05_06/exp_1.py`: full SARSA run on Garnet
 - `2026_05_06/exp_2.py`: tune SARSA on GridWorld
 - `2026_05_06/exp_3.py`: full SARSA run on GridWorld
-- `2026_05_18/exp_0.py`: tune SPMD+CTD on GridWorld (idea: use empirical distribution to form rho)
+- `2026_05_18/exp_0.py`: tune SPMD+CTD on GridWorld 
 - `2026_05_18/exp_1.py`: full run SPMD+CTD on GridWorld 
 - `2026_05_19/exp_0.py`: tune SPMD on GARNET with Tsallis
 - `2026_05_19/exp_1.py`: tune SPMD on GridWorld with Tsallis

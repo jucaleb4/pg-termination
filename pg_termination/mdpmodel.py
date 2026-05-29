@@ -377,6 +377,7 @@ class MDPModel():
     def estimate_advantage_online_ctd(
             self, pi, Phi, Phi_max, Phi_min, ukappa, iota_mult, state_expl,
             is_finite_state, time_limit=np.inf, max_obs=np.inf, s_origin=None,
+            burn_in=False
     ):
         """
         Forms nearly unbiased TD estimator that is bounded w.h.p.
@@ -444,7 +445,7 @@ class MDPModel():
             iota = iota_mult/((ell_0 + t)*umu)
             (early_terminate, hF_t, n_samples) = self._get_hF_estimate(
                 pi, Phi, theta, um, eps_expl_a, eps_expl_s, time_left, 
-                obs_left, s_origin, 
+                obs_left, s_origin, burn_in
             )
             if early_terminate:
                 empty_psi = np.zeros((self.n_states, self.n_actions))
@@ -460,34 +461,11 @@ class MDPModel():
 
         return (early_terminate, hpsi, hV, cum_samples)
 
-    def _get_hF_estimate(
-            self, pi, Phi, theta, m, eps_expl_a, eps_expl_s, time_limit, 
-            max_obs, s_origin
-        ):
-        """
-        Forms stochastic TD estimator
-
-        :params pi: policy
-        :params Phi: feature matrix
-        :params m: max mixing time
-        :parmas eps_expl_a: action exploration constant
-        :parmas eps_expl_s: state exploration constant
-        :params time_limit: amount of time left (in sec)
-        :params s_origin: see 'estimate_advantage_online_ctd'
-        :returns early_terminate: whether time ran out
-        :returns hF: stochastic estimator
-        :returns cum_samples: total number of samples used
-        """
-        # setup
-        cum_samples = 0
-        rand_t = self.rng.geometric(1.-self.gamma)
-        s_time = time.time()
-        early_terminate = False
-        terminate = False
+    def _hF_waiting_period(self, pi, eps_expl_s, s_time, time_limit, max_obs, s_origin, cum_samples):
+        terminate = False # for env
+        early_terminate = False # for budget
         checkpoint = 128
         is_s_origin_random = isinstance(s_origin, np.ndarray)
-
-        if rand_t >= m: return (early_terminate, np.zeros(Phi.shape[1]), cum_samples)
 
         pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
         while 1:
@@ -500,32 +478,93 @@ class MDPModel():
             if cum_samples == checkpoint:
                 if ((time.time() - s_time) > time_limit) or (cum_samples > max_obs):
                     early_terminate = True
-                    return (early_terminate, np.zeros(Phi.shape[1]), cum_samples)
+                    return (early_terminate, cum_samples)
                 checkpoint *= 2
             a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
             (self.s, _, terminate) = self.step(a)
             cum_samples += 1
 
-        for t in range(rand_t):
-            a = self.rng.choice(pi.shape[0], p=pi[:,self.s])
-            self.step(a)
-        cum_samples += rand_t
+        return (early_terminate, cum_samples)
 
-        # form TD operator
-        pi_expl_a = (1.-eps_expl_a)*pi + (eps_expl_a/self.n_actions)
-        s_t = self.s
-        a_t = self.rng.choice(pi.shape[0], p=pi_expl_a[:,s_t])
-        # TODO: Regularization
-        (s_t_next, c_t, _) = self.step(a_t)
-        a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
-        self.step(a_t_next)
+    def _get_hF_estimate(
+            self, pi, Phi, theta, m, eps_expl_a, eps_expl_s, time_limit, 
+            max_obs, s_origin, burn_in,
+        ):
+        """
+        Forms stochastic TD estimator
 
-        z_t_idx = s_t*self.n_actions + a_t
-        z_t_next_idx = s_t_next*self.n_actions + a_t_next
-        phi_t = Phi[z_t_idx,:]
-        phi_t_next = Phi[z_t_next_idx,:]
-        hF = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
-        cum_samples += 2 
+        :params pi: policy
+        :params Phi: feature matrix
+        :params m: max mixing time
+        :parmas eps_expl_a: action exploration constant
+        :parmas eps_expl_s: state exploration constant
+        :params time_limit: amount of time left (in sec)
+        :params s_origin: see 'estimate_advantage_online_ctd'
+        :params burn_in: use burn in to construct hF estimate
+        :returns early_terminate: whether time ran out
+        :returns hF: stochastic estimator
+        :returns cum_samples: total number of samples used
+        """
+        # setup
+        cum_samples = 0
+        rand_t = self.rng.geometric(1.-self.gamma)
+        s_time = time.time()
+        early_terminate = False
+        hF = np.zeros(Phi.shape[1])
+
+        if rand_t >= m: 
+            return (early_terminate, hF, cum_samples)
+
+        (early_terminate, cum_samples) = self._hF_waiting_period(
+            pi, eps_expl_s, s_time, time_limit, max_obs, s_origin, cum_samples
+        )
+        if early_terminate:
+            return (early_terminate, hF, cum_samples)
+
+        # TODO: Combine these two
+        if burn_in:
+            s_t = self.s
+            a_t = self.rng.choice(pi.shape[0], p=pi[:,s_t])
+            z_t_idx = s_t*self.n_actions + a_t
+            (s_t_next, c_t, _) = self.step(a_t)
+            cum_samples += 1
+
+            for t in range(rand_t+1):
+                a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
+
+                # form estimator
+                z_t_next_idx = s_t_next*self.n_actions + a_t_next
+                phi_t = Phi[z_t_idx,:]
+                phi_t_next = Phi[z_t_next_idx,:]
+                hF_t = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
+                hF += (self.gamma**t) * hF_t
+
+                s_t = s_t_next
+                a_t = a_t_next 
+                (s_t_next, c_t, _) = self.step(a_t)
+                cum_samples += 1
+
+        else:
+            for t in range(rand_t):
+                a = self.rng.choice(pi.shape[0], p=pi[:,self.s])
+                self.step(a)
+            cum_samples += rand_t
+
+            # form TD operator
+            pi_expl_a = (1.-eps_expl_a)*pi + (eps_expl_a/self.n_actions)
+            s_t = self.s
+            a_t = self.rng.choice(pi.shape[0], p=pi_expl_a[:,s_t])
+            # TODO: Regularization
+            (s_t_next, c_t, _) = self.step(a_t)
+            a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
+            self.step(a_t_next)
+
+            z_t_idx = s_t*self.n_actions + a_t
+            z_t_next_idx = s_t_next*self.n_actions + a_t_next
+            phi_t = Phi[z_t_idx,:]
+            phi_t_next = Phi[z_t_next_idx,:]
+            hF = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
+            cum_samples += 2 
 
         return (early_terminate, hF, cum_samples)
 
@@ -699,15 +738,35 @@ class KnownModel(MDPModel):
         # initialize rbf for solving with linear function approx
         self.init_linear = False
 
+        # initialize for tracking episode cost
+        self.ep_t = 0
+        self.ep_cum_cost = 0.
+        self.ep_cum_cost_arr = []
+        self.ep_len_arr = []
+
     def step(self, a):
-        self.t += 1
         c = self.c[self.s, a]
         curr_s = self.s
         self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s, a])
         terminated = 0 if (self.term_map is None) else self.term_map[self.s, curr_s, a]
+        self.ep_cum_cost += self.gamma**(self.ep_t) * c
+        self.t += 1
+        self.ep_t += 1
+
         if self.t % self.time_limit == 0:
             terminated = True
+            self.ep_cum_cost_arr.append(self.ep_cum_cost)
+            self.ep_len_arr.append(self.ep_t)
+            
+            self.ep_cum_cost = 0
+            self.ep_t = 0
+
         return (self.s, c, terminated)
+
+    def get_cum_cost_and_len_arr(self):
+        ep_cum_cost_arr_with_curr = self.ep_cum_cost_arr + [self.ep_cum_cost]
+        ep_len_arr_with_curr = self.ep_len_arr + [self.ep_t]
+        return ep_cum_cost_arr_with_curr, ep_len_arr_with_curr
 
     def get_stationary(self, pi):
         P_pi = np.einsum('psa,as->ps', self.P, pi)
