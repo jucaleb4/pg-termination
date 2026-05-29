@@ -122,15 +122,13 @@ def _train(settings):
     logger_validation.save(max_size=1_000)
 
 def policy_eval(
-        env, settings, pi, tmix, unu, Phi, Phi_max, Phi_min, ukappa,
+        env, settings, pi, Phi, Phi_max, Phi_min, ukappa,
         is_finite_state, time_limit=np.inf, max_obs=np.inf
     ):
     """ Policy evaluation
     :param env: environment from mdpmodel 
     :param settings: (dict) 
     :param pi: policy
-    :param tmix: (only for TOMC) mixing time
-    :param unu: (only for TOMC) minimum stationary dist
     :param Phi: (only for CTD) features
     :param ukappa: (only for CTD) estimate of minimum of kappa (distribution)
     :param is_finite_state: (only for CTD, boolean)
@@ -138,15 +136,20 @@ def policy_eval(
     n_est_samples = 0
     s_time = time.time()
     early_terminate = False
+    empty_psi = np.zeros((env.n_states, env.n_actions), dtype=float)
+    empty_V = np.zeros(env.n_states, dtype=float)
 
     if settings["estimate_Q"] == "generative":
         (psi, V, n_samples) = env.estimate_advantage_generative(pi, settings["N_mc"], settings["T_mc"])
     elif settings["estimate_Q"] == "online_mc_fixed":
         (early_terminate, psi, V, n_samples) = env.estimate_advantage_online_mc(pi, settings["T_mc"], settings["pi_threshold"], time_limit)
     elif settings["estimate_Q"] == "online_mc_estimate":
+        tmix, nu = env.get_mixing_time_ub(pi)
+        unu = np.min(nu)
         (early_terminate, nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=unu, time_limit=time_limit/2)
         if early_terminate:
-            return (early_terminate, None, None, 0, n_est_samples)
+            n_eval_samples = 0
+            return (early_terminate, empty_psi, empty_V, n_eval_samples, n_est_samples)
         T = int(1./(1-env.gamma) + (tmix_est*env.n_actions)/(np.min(nu_est)*(1.-env.gamma)) + 1)
         time_left_adj = max(time_limit/2, time_limit - (time.time()-s_time))
         (early_terminate, psi, V, n_samples) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"], time_limit=time_left_adj)
@@ -285,7 +288,7 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
         time_left = (settings["max_runtime_in_sec"] - (time.time() - s_time)) * 1.05
         obs_left  = settings["max_obs"] - cum_samples
         (early_terminate, psi_t, V_t, n_samples, n_est_samples) = policy_eval(
-                env, settings, pi_t, tmix, unu, Phi, Phi_max, Phi_min, ukappa,
+                env, settings, pi_t, Phi, Phi_max, Phi_min, ukappa,
                 is_finite_state, time_left, obs_left,
         )
         # log mixing information before possibly early termination
