@@ -4,6 +4,7 @@ import itertools
 import argparse
 import yaml
 import re
+import math
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "."+".", "."+"."))
 sys.path.insert(0, parent_dir)
@@ -31,11 +32,11 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         ("gridworld_footnote", 0.99, 400, 0.5, 1.5e7),
         ("gridworld_footnote", 0.995, 2000, 0.02, 1e7),
         ("gridworld_small", 0.9, 400, 0.02, 5e7),
-        ("gridworld_small", 0.99, 2000, 0.5, 0), 
-        ("gridworld_small", 0.995, 400, 0.5, 0), 
-        ("gridworld_large", 0.9, 400, 0.02, 0), 
-        ("gridworld_large", 0.99, 400, 0.02, 0),
-        ("gridworld_large", 0.995, 400, 0.02, 0),
+        ("gridworld_small", 0.99, 2000, 0.5, math.inf), 
+        ("gridworld_small", 0.995, 400, 0.5, math.inf), 
+        ("gridworld_large", 0.9, 400, 0.02, math.inf), 
+        ("gridworld_large", 0.99, 400, 0.02, math.inf),
+        ("gridworld_large", 0.995, 400, 0.02, math.inf),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)

@@ -4,6 +4,7 @@ import itertools
 import argparse
 import yaml
 import re
+import math
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "."+".", "."+"."))
 sys.path.insert(0, parent_dir)
@@ -13,7 +14,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "SPMD full experiment on GridWorld (updated iterations)"
+ABOUT = "Full SPMD on GridWorld (w/ min samples)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -25,15 +26,15 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_k"] = 30
     estimator_arr = ["online_mc_fixed", "online_mc_estimate", "online_mc_dynamic"]
     env_gamma_T_eta_minobs_arr = [
-        ("gridworld_footnote", 0.9, 2000, 0.02, 5e6),
-        ("gridworld_footnote", 0.99, 10000, 0.02, 1.5e7),
-        ("gridworld_footnote", 0.995, 400, 0.02, 1e7),
+        ("gridworld_footnote", 0.9, 2_000, 0.02, 5e6),
+        ("gridworld_footnote", 0.99, 2_000, 0.02, 1.5e7),
+        ("gridworld_footnote", 0.995, 10_000, 0.02, 1e7),
         ("gridworld_small", 0.9, 400, 0.5, 5e7),
-        ("gridworld_small", 0.99, 2000, 0.5, 0), 
-        ("gridworld_small", 0.995, 400, 0.5, 0), 
-        ("gridworld_large", 0.9, 2000, 0.5, 0), 
-        ("gridworld_large", 0.99, 2000, 0.5, 0),
-        ("gridworld_large", 0.995, 2000, 0.5, 0),
+        ("gridworld_small", 0.99, 400, 0.5, math.inf), 
+        ("gridworld_small", 0.995, 400, 0.5, math.inf), 
+        ("gridworld_large", 0.9, 400, 0.02, math.inf), 
+        ("gridworld_large", 0.99, 400, 0.02, math.inf),
+        ("gridworld_large", 0.995, 400, 0.02, math.inf),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
