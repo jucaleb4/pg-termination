@@ -42,6 +42,8 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("ctd_reg_ratio", 0.),
         ("ctd_iota_mult", 40), # change to 1
         ("ctd_state_expl", False), 
+        ("ctd_burn_in", False),
+        ("s_origin", None),
         ("tune_exploration", False),
         ("successive_half_trials", 16), # change to 4
         ("min_T_mc", 100), # change to 1e2
@@ -73,7 +75,8 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("ctd_reg_ratio", "regularization added to features"),
         ("ctd_iota_mult", "User chosen CTD stepsize multiplier"),
         ("ctd_state_expl", "Apply explicit state exploration [if func-approx unknown]"), 
-        ("ctd_Phi_d", "Feature size in CTD. If -1, defaults to full size"),
+        ("ctd_burn_in", "Burn in for CTD operator to use all discounted sums"),
+        ("s_origin", "Origin rule for CTD. None for reset, otherwise 'rand' for empirical distribution"),
         ("tune_exploration", "Tune exploration time in Monte Carlo"),
         ("successive_half_trials", "Number of trials in successive halving tuning"),
         ("min_T_mc", "Minimum Monte Carlo exploration time in tuning"),
