@@ -24,7 +24,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     # use validation to tune...
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 10
-    od["max_runtime_in_sec"] = 3600
+    od["max_runtime_in_sec"] = 900
     od["ctd_reg_ratio"] = 1.0
     od["ctd_feature_size_ratio"] = 1.0
     od["ctd_burn_in"] = True
