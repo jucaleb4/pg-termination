@@ -128,7 +128,7 @@ def _train(settings):
 
     for (ep_cost, ep_len) in zip(cost_arr, len_arr):
         logger_ep.log(ep_cost, ep_len)
-    logger_ep.save()
+    logger_ep.save(max_size=10_000)
 
 def policy_eval(
         env, settings, pi, Phi, Phi_max, Phi_min, ukappa,

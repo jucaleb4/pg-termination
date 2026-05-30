@@ -753,7 +753,7 @@ class KnownModel(MDPModel):
         self.t += 1
         self.ep_t += 1
 
-        if self.t % self.time_limit == 0:
+        if self.ep_t % self.time_limit == 0:
             terminated = True
 
         if terminated:
@@ -1016,9 +1016,18 @@ class GridWorldWithTraps(KnownModel):
     def get_target(self):
         return self.target
 
+    def step(self, a):
+        (s, c, terminated) = super().step(a)
+
+        # means we just reset due to termination (either time limit or reach target)
+        if terminated:
+            self.s = self.rng.choice(self.origins)
+
+        return (s, c, terminated)
+
 class GridWorldWithTrapsAndHills(KnownModel):
     def __init__(self, length, n_traps, gamma, eps=0.05, seed=None, ergodic=False):
-        """ Same 2D gridworld, but the probablity of moving towards the target
+        """ Same 2D gridworld, but the probability of moving towards the target
         gets harder as you get closer.
 
         Let the current location b (x,y) and the target location (t_x,t_y). To move 

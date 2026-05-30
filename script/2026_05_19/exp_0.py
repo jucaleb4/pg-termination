@@ -19,7 +19,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
     od["estimate_Q"] = "online_mc_fixed"
-    od["skip_true_model"] = False
+    od["skip_true_model"] = True
     od["update_rule"] = int(pmd.Update.TSALLIS_UPDATE)
 
     env_name_arr = [

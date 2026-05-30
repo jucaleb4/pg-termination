@@ -75,7 +75,7 @@ def tsallis_policy_update(psi, pi, eta, gamma, pi_scratch):
     assert n_A == pi.shape[0] and n_S == pi.shape[1], "psi (shape [%d, %d]) and pi (shape [%d, %d]) are not transpose to each other" % (n_S, n_A, pi.shape[0], pi.shape[1])
 
     tol = 1e-6
-    p = 1/(2 - np.log(1.-gamma)/np.log(2))
+    p = 1/(1 - np.log(1.-gamma)/np.log(2))
 
     # update state-by-state separately
     for s in range(n_S):

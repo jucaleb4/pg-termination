@@ -27,7 +27,7 @@ class BasicLogger():
         if not self.fname.endswith(".csv"):
             self.fname += ".csv"
         fp = open(self.fname, "w+")
-        fmt = ','.join(["%d" if self.dtypes[i] == "d" else "%.6e" for i in range(len(self.dtypes))])
+        fmt = ','.join(["%d" if self.dtypes[i] == "d" else "%.2e" for i in range(len(self.dtypes))])
         fp.write("%s\n" % (','.join(self.keys)))
         m = self.data.shape[1]
 
@@ -42,7 +42,7 @@ class BasicLogger():
 
         for i in idxs:
             for j in range(m):
-                fp.write(("%d" if self.dtypes[j] == "d" else "%.6e") % self.data[i,j])
+                fp.write(("%d" if self.dtypes[j] == "d" else "%.2e") % self.data[i,j])
                 if j < m-1:
                     fp.write(",")
                 else:

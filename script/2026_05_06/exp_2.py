@@ -22,9 +22,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = True
 
     env_name_arr = [
-        "gridworld_footnote_loop", 
-        "gridworld_small_loop", 
-        "gridworld_large_loop", 
+        "gridworld_footnote", 
+        "gridworld_small", 
+        "gridworld_large", 
     ]
     gamma_arr = [0.9, 0.99, 0.995]
     # we will set total budget to half a million
