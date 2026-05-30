@@ -27,18 +27,21 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["max_runtime_in_sec"] = 3600
     od["ctd_feature_size_ratio"] = 1.0
     od["max_obs"] = math.inf
-    od["n_iters"] = math.inf
+    od["n_iters"] = n_iters
 
     KL = int(pmd.Update.KL_UPDATE)
     TS = int(pmd.Update.TSALLIS_UPDATE) 
 
-    env_gamma_update_sorig_eta_iota_ukappa_arr = [
-        ("gridworld_small", 0.9, TS, "rand", 0.005, 0.5, 1.0),
-        ("gridworld_small", 0.99, TS, "none", 0.005, 0.5, 1.0),
-        ("gridworld_small", 0.995, TS, "none", 0.5, 0.005, 1.0),
-        ("gridworld_large", 0.9, KL, "rand", 0.005, 0.5, 1.0),
-        ("gridworld_large", 0.99, KL, "none", 0.5, 0.005, 1.0),
-        ("gridworld_large", 0.995, TS, "none", 0.5, 0.5, 1.0),
+    env_gamma_update_eta_iota_ukappa_burn_in_arr = [
+        ("gridworld_small", 0.9, TS, 0.005, 0.005, 0.1, False),
+        ("gridworld_small", 0.99, TS, 0.005, 0.005, 1.0, False),
+        ("gridworld_small", 0.995, KL, 0.005, 0.005, 1.0, False),
+        ("gridworld_large", 0.9, TS, 0.5, 0.005, 0.562, False),
+        ("gridworld_large", 0.99, KL, 0.005, 0.5, 0.562, False),
+        ("gridworld_large", 0.995, TS, 0.5, 0.5, 0.1, False),
+        ("gridworld_small", 0.9, TS, 0.5, 0.005, 0.562, False),
+        ("gridworld_small", 0.99, KL, 0.005, 0.5, 0.562, False),
+        ("gridworld_small", 0.995, TS, 0.5, 0.5, 0.1, False),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -52,24 +55,24 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "update", "s_orig", "eta", "iota", "ukappa"]
-    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "update", "eta", "iota", "ukappa", "burn_in"]
+    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
         print("-" * (90+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, gamma, update, s_orig, eta, iota, ukappa),) in itertools.product(
-            env_gamma_update_sorig_eta_iota_ukappa_arr
+    for ((env_name, gamma, update, eta, iota, ukappa, ctd_burn_in),) in itertools.product(
+            env_gamma_update_eta_iota_ukappa_burn_in_arr
     ):
         od["env_name"] = env_name
         od["gamma"] = gamma
         od["update_rule"] = update
-        od["s_origin"] = s_orig
         od["eta"] = eta
         od["iota"] = iota
         od["ukappa"] = ukappa
+        od["ctd_burn_in"] = ctd_burn_in
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
@@ -77,8 +80,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         if not skip_save:
             print(row_format.format(ct, od["env_name"], od["gamma"], 
             pmd.Update(od["update_rule"]).name[:7],
-            od["s_origin"] if od["s_origin"] is not None else "none", 
-            od["eta"], od["iota"], od["ukappa"]))
+            od["eta"], od["iota"], od["ukappa"], od["ctd_burn_in"]))
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])

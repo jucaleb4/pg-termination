@@ -98,7 +98,7 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_18/exp_0.py`: tune SPMD+CTD on GridWorld 
 - `2026_05_18/exp_1.py`: full run SPMD+CTD on GridWorld 
 - `2026_05_19/exp_0.py`: tune SPMD on GARNET with Tsallis
-- `2026_05_19/exp_1.py`: tune SPMD on GridWorld with Tsallis
+- `2026_05_19/exp_1.py`: full SPMD on GridWorld with Tsallis
 
 ## TODOs
 - Implement CTD (both tabular and general state)

@@ -37,18 +37,28 @@ def get_loggers(settings):
         keys=["iter", "cum_time", "cum_samples", "cum_est_samples"] + ["nu_lb", "t_mix"],
         dtypes=['d', 'f', 'd', 'd'] + ['f'] * 2,
     )
+    logger_ep = BasicLogger(
+        fname=os.path.join(settings["log_folder"], "ep_cost_seed=%d.csv" % seed),  
+        keys=["ep_cost", "ep_len"],
+        dtypes=['f', 'd'],
+    )
 
-    return [logger, logger_validation, logger_mixing]
+    return [logger, logger_validation, logger_mixing, logger_ep]
+
 def _train(settings):
-    logger, logger_validation, logger_mixing = get_loggers(settings)
+    logger, logger_validation, logger_mixing, logger_ep = get_loggers(settings)
 
     # TODO: Make this automated
     ukappa = (1.-settings['gamma'])**(-2)
-    _sarsa(settings, ukappa, logger, logger_validation, logger_mixing)
+    (_, _, cost_arr, len_arr) = _sarsa(settings, ukappa, logger, logger_validation, logger_mixing)
 
-    logger.save()
-    logger_mixing.save()
-    logger_validation.save()
+    logger.save(max_size=10_000)
+    logger_mixing.save(max_size=10_000)
+    logger_validation.save(max_size=1_000)
+
+    for (ep_cost, ep_len) in zip(cost_arr, len_arr):
+        logger_ep.log(ep_cost, ep_len)
+    logger_ep.save(max_size=10_000)
 
 def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger):
     """ Print and updates SPMD certificates.
@@ -183,7 +193,10 @@ def _sarsa(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None
 
     print("Total runtime: %.2fs" % (time.time() - s_time))
     returned_f = np.dot(env.rho, true_V) if settings.get("tune_true_cost", False) else np.dot(env.rho, last_V_t)
-    return greedy_pi_t, returned_f
+
+    cost_arr, len_arr = env.get_cum_cost_and_len_arr()
+
+    return greedy_pi_t, returned_f, cost_arr, len_arr
 
 def train(settings):
     seed_0 = settings["seed_0"]
