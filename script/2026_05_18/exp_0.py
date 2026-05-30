@@ -24,10 +24,11 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     # use validation to tune...
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 10
-    od["max_runtime_in_sec"] = 600
+    od["max_runtime_in_sec"] = 900
     od["ctd_reg_ratio"] = 1.0
     od["ctd_feature_size_ratio"] = 1.0
     od["max_obs"] = math.inf
+    od["s_origin"] = None
 
     env_name_arr = [
         # "gridworld_footnote", 
@@ -35,13 +36,13 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         "gridworld_large",
     ]
     update_rule_arr = [int(pmd.Update.KL_UPDATE), int(pmd.Update.TSALLIS_UPDATE)]
-    s_origin_arr = [None, 'rand']
     gamma_arr = [0.9, 0.99, 0.995]
     eta_arr = [5e-3, 5e-1]
-    ukappa_arr = [1e0,1e0/(10**0.25)] # [1e0, 2e-1]
+    ukappa_arr = [1e0,1e0/(10**0.25), 1e0/10] # [1e0, 2e-1]
     for i in range(len(ukappa_arr)):
         ukappa_arr[i] = int(1e3*ukappa_arr[i])/1e3
     ctd_iota_arr = [5e-3, 5e-1]
+    ctd_burn_in_arr = [False, True]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
@@ -54,7 +55,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "feat frac", "update", "s_orig", "eta", "iota", "ukappa"]
+    exp_metadata = ["Exp id", "Env name", "gamma", "feat frac", "update", "eta", "iota", "ukappa", "burn_in"]
     row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
@@ -62,17 +63,17 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("-" * (95+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, gamma, update, s_origin, eta, iota, ukappa) in itertools.product(
-            env_name_arr, gamma_arr, update_rule_arr,
-            s_origin_arr, eta_arr, ctd_iota_arr, ukappa_arr,
+    for (env_name, gamma, update, eta, iota, ukappa, ctd_burn_in) in itertools.product(
+            env_name_arr, gamma_arr, update_rule_arr, eta_arr, ctd_iota_arr, 
+            ukappa_arr, ctd_burn_in_arr,
     ):
         od["env_name"] = env_name
         od["gamma"] = gamma
         od["update_rule"] = update
-        od["s_origin"] = s_origin
         od["eta"] = eta
         od["iota"] = iota
         od["ukappa"] = ukappa
+        od["ctd_burn_in"] = ctd_burn_in
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
@@ -81,8 +82,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
             print(row_format.format(ct, od["env_name"], od["gamma"], 
                 od["ctd_feature_size_ratio"], 
                 pmd.Update(od["update_rule"]).name[:7],
-                od["s_origin"] if od["s_origin"] is not None else "none", 
-                od["eta"], od["iota"], od["ukappa"])
+                od["eta"], od["iota"], od["ukappa"], od["ctd_burn_in"])
             )
 
             if not(os.path.exists(od["log_folder"])):

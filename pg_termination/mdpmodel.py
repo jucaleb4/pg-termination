@@ -537,7 +537,7 @@ class MDPModel():
                 phi_t = Phi[z_t_idx,:]
                 phi_t_next = Phi[z_t_next_idx,:]
                 hF_t = phi_t*(phi_t@theta - c_t - self.gamma*phi_t_next@theta)
-                hF += (self.gamma**t) * hF_t
+                hF += (1-self.gamma)*(self.gamma**t) * hF_t
 
                 s_t = s_t_next
                 a_t = a_t_next 
@@ -755,6 +755,8 @@ class KnownModel(MDPModel):
 
         if self.t % self.time_limit == 0:
             terminated = True
+
+        if terminated:
             self.ep_cum_cost_arr.append(self.ep_cum_cost)
             self.ep_len_arr.append(self.ep_t)
             
@@ -1013,12 +1015,6 @@ class GridWorldWithTraps(KnownModel):
 
     def get_target(self):
         return self.target
-
-    def step(self, a):
-        (self.s, c, terminated) = super().step(a)
-        if self.t % self.time_limit == 0:
-            self.s = self.rng.choice(self.origins)
-        return (self.s, c, terminated)
 
 class GridWorldWithTrapsAndHills(KnownModel):
     def __init__(self, length, n_traps, gamma, eps=0.05, seed=None, ergodic=False):
@@ -1588,6 +1584,9 @@ def get_env(name, gamma, seed=None):
         env = Bandits(4, gamma, seed=seed)
     elif name == "gridworld_footnote":
         env = GridWorldWithTraps(5, 3, gamma, seed=seed, ergodic=True)
+    # TEMP
+    elif name == "gridworld_verytiny":
+        env = GridWorldWithTraps(2, 0, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_tiny":
         env = GridWorldWithTraps(10, 5, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_small":
