@@ -24,15 +24,15 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     estimator_arr = ["online_mc_fixed", "online_mc_estimate", "online_mc_dynamic"]
-    env_gamma_T_eta_minobs_arr = [
+    env_gamma_T_eta_maxobs_arr = [
         ("garnet_50", 0.9, 10000, 0.5, 1e7),
-        ("garnet_50", 0.99, 400, 0.02, 5e7), # (400, 0.005), but (400, 0.02) not too far away
+        ("garnet_50", 0.99, 400, 0.02, 1e7), # (400, 0.005), but (400, 0.02) not too far away
         ("garnet_50", 0.995, 400, 0.02, 1e7), # (400, 0.005), but (400, 0.02) not too far away
-        ("garnet_200", 0.9, 400, 0.02, 6e7), # (400, 0.005), but (400, 0.02) not too far away
-        ("garnet_200", 0.99, 400, 0.005, 6e7), # (400, 0.005), but 
-        ("garnet_200", 0.995, 400, 0.005, 4e7), # (400, 0.005)
+        ("garnet_200", 0.9, 400, 0.02, 2e7), # (400, 0.005), but (400, 0.02) not too far away
+        ("garnet_200", 0.99, 400, 0.005, 2e7), # (400, 0.005), but 
+        ("garnet_200", 0.995, 400, 0.005, 2e7), # (400, 0.005)
         ("garnet_1000", 0.9, 400, 0.02, 5e7), # (400, 0.02)
-        ("garnet_1000", 0.99, 400, 0.005, 3e7), # (400, 0.005)
+        ("garnet_1000", 0.99, 400, 0.005, 5e7), # (400, 0.005)
         ("garnet_1000", 0.995, 400, 0.005, 5e7), # (400, 0.005)
     ]
 
@@ -55,13 +55,13 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("-" * (75+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, gamma, T_mc, eta, min_obs), estimator) in itertools.product(env_gamma_T_eta_minobs_arr, estimator_arr):
+    for ((env_name, gamma, T_mc, eta, max_obs), estimator) in itertools.product(env_gamma_T_eta_maxobs_arr, estimator_arr):
         od["env_name"] = env_name
         od["gamma"] = gamma
         od["T_mc"] = T_mc
         od["eta"] = eta
         od["estimate_Q"] = estimator
-        od["min_obs"] = min_obs
+        od["max_obs"] = max_obs
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
