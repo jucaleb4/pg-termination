@@ -27,11 +27,11 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         ("gridworld_footnote", 0.99, 1e-5, int(1.5e7)),
         ("gridworld_footnote", 0.995, 1e-5, int(1e7)),
         ("gridworld_small", 0.9, 1e-5, int(5e7)),
-        ("gridworld_small", 0.99, 1e-5, int(1e6)), # unchanged
-        ("gridworld_small", 0.995, 1e-5, int(5e6)), # unchanged
-        ("gridworld_large", 0.9, 1e-5, int(5e8)), # unchanged
-        ("gridworld_large", 0.99, 1e-5, int(1e9)), # unchanged
-        ("gridworld_large", 0.995, 1e-5, int(1e9)), # unchanged
+        ("gridworld_small", 0.99, 1e-5, int(5e7)), # unchanged
+        ("gridworld_small", 0.995, 1e-5, int(5e7)), # unchanged
+        ("gridworld_large", 0.9, 1e-5, int(1e8)), # unchanged
+        ("gridworld_large", 0.99, 1e-5, int(5e8)), # unchanged
+        ("gridworld_large", 0.995, 1e-5, int(5e8)), # unchanged
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
