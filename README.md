@@ -81,16 +81,16 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_04_14/exp_0.py`: tune SPMD+CTD on GridWorld *DEPRECEATED*
 - `2026_04_15/exp_0.py`: tune SPMD on GridWorld 
 - `2026_04_15/exp_1.py`: GridWorld OPT
-- `2026_04_15/exp_2.py`: full SPMD on GridWorld (*DEPRECEATED* use 2026_05_05/exp_2.py)
-- `2026_04_16/exp_0.py`: tune Q-learn on GridWorld 
-- `2026_04_16/exp_1.py`: opt on GridWorld 
-- `2026_04_16/exp_2.py`: full Q-learn on GridWorld 
-- `2026_04_25/exp_0.py`: tune SARSA on Garnet
-- `2026_04_25/exp_2.py`: SARSA on Garnet
-- `2026_05_05/exp_0.py`: SPMD full run on Garnet (w/ min sample count)
-- `2026_05_05/exp_1.py`: SARSA full run on Garnet (w/ min sample count)
-- `2026_05_05/exp_2.py`: SPMD full run on GridWorld (w/ min sample count)
-- `2026_05_05/exp_3.py`: SARSA full run on GridWorld (w/ min sample count)
+- `2026_04_15/exp_2.py`: full SPMD on GridWorld 
+- `2026_04_16/exp_0.py`: tune Q-learn on GridWorld (*DEPRECEATED* since no more Q-learn)
+- `2026_04_16/exp_1.py`: opt on GridWorld (*DEPRECEATED* since no more Q-learn)
+- `2026_04_16/exp_2.py`: full Q-learn on GridWorld (*DEPRECEATED* since no more Q-learn)
+- `2026_04_25/exp_0.py`: tune SARSA on Garnet (*DEPRECEATED* since duplicate)
+- `2026_04_25/exp_2.py`: SARSA on Garnet (*DEPRECEATED* since duplicate)
+- `2026_05_05/exp_0.py`: SPMD full run on Garnet (w/ min sample count) (*DEPRECEATED* since duplicate)
+- `2026_05_05/exp_1.py`: SARSA full run on Garnet (w/ min sample count) (*DEPRECEATED* since duplicate)
+- `2026_05_05/exp_2.py`: SPMD full run on GridWorld (w/ min sample count) (*DEPRECEATED* since duplicate)
+- `2026_05_05/exp_3.py`: SARSA full run on GridWorld (w/ min sample count) (*DEPRECEATED* since duplicate)
 - `2026_05_06/exp_0.py`: tune SARSA on Garnet
 - `2026_05_06/exp_1.py`: full SARSA run on Garnet
 - `2026_05_06/exp_2.py`: tune SARSA on GridWorld
@@ -98,7 +98,11 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_18/exp_0.py`: tune SPMD+CTD on GridWorld 
 - `2026_05_18/exp_1.py`: full run SPMD+CTD on GridWorld 
 - `2026_05_19/exp_0.py`: tune SPMD on GARNET with Tsallis
-- `2026_05_19/exp_1.py`: full SPMD on GridWorld with Tsallis
+- `2026_05_19/exp_1.py`: tune SPMD on GridWorld with Tsallis
+- `2026_05_19/exp_2.py`: full SPMD on GARNET with Tsallis
+- `2026_05_19/exp_3.py`: full SPMD on GridWorld with Tsallis
+- `2026_05_20/exp_0.py`: GARNET OPT
+- `2026_05_20/exp_1.py`: GridWorld OPT (TBD)
 
 ## TODOs
 - Implement CTD (both tabular and general state)

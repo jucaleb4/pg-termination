@@ -32,16 +32,16 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     KL = int(pmd.Update.KL_UPDATE)
     TS = int(pmd.Update.TSALLIS_UPDATE) 
 
-    env_gamma_update_eta_iota_ukappa_burn_in_arr = [
-        ("gridworld_small", 0.9, TS, 0.005, 0.005, 0.1, False),
-        ("gridworld_small", 0.99, TS, 0.005, 0.005, 1.0, False),
-        ("gridworld_small", 0.995, KL, 0.005, 0.005, 1.0, False),
-        ("gridworld_large", 0.9, TS, 0.5, 0.005, 0.562, False),
-        ("gridworld_large", 0.99, KL, 0.005, 0.5, 0.562, False),
-        ("gridworld_large", 0.995, TS, 0.5, 0.5, 0.1, False),
-        ("gridworld_small", 0.9, TS, 0.5, 0.005, 0.562, False),
-        ("gridworld_small", 0.99, KL, 0.005, 0.5, 0.562, False),
-        ("gridworld_small", 0.995, TS, 0.5, 0.5, 0.1, False),
+    env_gamma_maxobs_update_eta_iota_ukappa_burn_in_arr = [
+        ("gridworld_small", 0.9, 2e7, TS, 0.005, 0.005, 0.1, False),
+        ("gridworld_small", 0.99, 2e7, TS, 0.005, 0.005, 1.0, False),
+        ("gridworld_small", 0.995, 2e7, KL, 0.005, 0.005, 1.0, False),
+        ("gridworld_large", 0.9, 5e7, TS, 0.5, 0.005, 0.562, False),
+        ("gridworld_large", 0.99, 5e7, KL, 0.005, 0.5, 0.562, False),
+        ("gridworld_large", 0.995, 5e7, TS, 0.5, 0.5, 0.1, False),
+        ("gridworld_small", 0.9, 2e7, TS, 0.5, 0.005, 0.562, False),
+        ("gridworld_small", 0.99, 2e7, KL, 0.005, 0.5, 0.562, False),
+        ("gridworld_small", 0.995, 2e7, TS, 0.5, 0.5, 0.1, False),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -63,10 +63,11 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("-" * (90+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, gamma, update, eta, iota, ukappa, ctd_burn_in),) in itertools.product(
-            env_gamma_update_eta_iota_ukappa_burn_in_arr
+    for ((env_name, gamma, max_obs, update, eta, iota, ukappa, ctd_burn_in),) in itertools.product(
+            env_gamma_maxobs_update_eta_iota_ukappa_burn_in_arr
     ):
         od["env_name"] = env_name
+        od["max_obs"] = max_obs
         od["gamma"] = gamma
         od["update_rule"] = update
         od["eta"] = eta
