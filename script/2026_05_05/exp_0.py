@@ -25,15 +25,15 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_k"] = 30
     estimator_arr = ["online_mc_fixed", "online_mc_estimate", "online_mc_dynamic"]
     env_gamma_T_eta_maxobs_arr = [
-        ("garnet_50", 0.9, 10000, 0.5, 1e7),
-        ("garnet_50", 0.99, 400, 0.02, 1e7), # (400, 0.005), but (400, 0.02) not too far away
-        ("garnet_50", 0.995, 400, 0.02, 1e7), # (400, 0.005), but (400, 0.02) not too far away
-        ("garnet_200", 0.9, 400, 0.02, 2e7), # (400, 0.005), but (400, 0.02) not too far away
-        ("garnet_200", 0.99, 400, 0.005, 2e7), # (400, 0.005), but 
-        ("garnet_200", 0.995, 400, 0.005, 2e7), # (400, 0.005)
-        ("garnet_1000", 0.9, 400, 0.02, 5e7), # (400, 0.02)
-        ("garnet_1000", 0.99, 400, 0.005, 5e7), # (400, 0.005)
-        ("garnet_1000", 0.995, 400, 0.005, 5e7), # (400, 0.005)
+        ("garnet_50", 0.9, 10000, 0.5, 5e6),
+        ("garnet_50", 0.99, 400, 0.02, 5e6), # (400, 0.005), but (400, 0.02) not too far away
+        ("garnet_50", 0.995, 400, 0.02, 5e6), # (400, 0.005), but (400, 0.02) not too far away
+        ("garnet_200", 0.9, 400, 0.02, 1e7), # (400, 0.005), but (400, 0.02) not too far away
+        ("garnet_200", 0.99, 400, 0.005, 1e7), # (400, 0.005), but 
+        ("garnet_200", 0.995, 400, 0.005, 1e7), # (400, 0.005)
+        ("garnet_1000", 0.9, 400, 0.02, 2e7), # (400, 0.02)
+        ("garnet_1000", 0.99, 400, 0.005, 2e7), # (400, 0.005)
+        ("garnet_1000", 0.995, 400, 0.005, 2e7), # (400, 0.005)
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -62,6 +62,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         od["eta"] = eta
         od["estimate_Q"] = estimator
         od["max_obs"] = max_obs
+        od["min_obs"] = int(max_obs*0.9)
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)

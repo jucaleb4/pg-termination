@@ -31,8 +31,8 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
     env_name_max_obs_arr = [
         # "gridworld_footnote", 
-        ("garnet_200", 2e7),
-        ("garnet_1000", 5e7),
+        ("garnet_200", int(1e7)),
+        ("garnet_1000", int(2e7)),
     ]
     update_rule_arr = [int(pmd.Update.KL_UPDATE), int(pmd.Update.TSALLIS_UPDATE)]
     gamma_arr = [0.9, 0.99, 0.995]
@@ -75,6 +75,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         od["ukappa"] = ukappa
         od["ctd_burn_in"] = ctd_burn_in
         od["ctd_N_mult"] = 1.-gamma
+        od["min_obs"] = max_obs
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)

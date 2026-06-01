@@ -23,15 +23,15 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     env_gamma_alpha_arr = [
-        ("gridworld_footnote", 0.9, 1e-5, int(1e7)),
-        ("gridworld_footnote", 0.99, 1e-5, int(1e7)),
-        ("gridworld_footnote", 0.995, 1e-5, int(1e7)),
-        ("gridworld_small", 0.9, 1e-5, int(2e7)),
-        ("gridworld_small", 0.99, 1e-5, int(2e7)), 
-        ("gridworld_small", 0.995, 1e-5, int(2e7)), 
-        ("gridworld_large", 0.9, 1e-5, int(5e7)), 
-        ("gridworld_large", 0.99, 1e-5, int(5e7)), 
-        ("gridworld_large", 0.995, 1e-5, int(5e7)), 
+        ("gridworld_footnote", 0.9, 1e-5, int(5e6)),
+        ("gridworld_footnote", 0.99, 1e-5, int(5e6)),
+        ("gridworld_footnote", 0.995, 1e-5, int(5e6)),
+        ("gridworld_small", 0.9, 1e-5, int(1e7)),
+        ("gridworld_small", 0.99, 1e-5, int(1e7)), 
+        ("gridworld_small", 0.995, 1e-5, int(1e7)), 
+        ("gridworld_large", 0.9, 1e-5, int(2e7)), 
+        ("gridworld_large", 0.99, 1e-5, int(2e7)), 
+        ("gridworld_large", 0.995, 1e-5, int(2e7)), 
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
