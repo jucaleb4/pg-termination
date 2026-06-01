@@ -39,8 +39,8 @@ def get_loggers(settings):
     )
     logger_ep = BasicLogger(
         fname=os.path.join(settings["log_folder"], "ep_cost_seed=%d.csv" % seed),  
-        keys=["ep_cost", "ep_len"],
-        dtypes=['f', 'd'],
+        keys=["ep_cost", "ep_len", 'cum_samps'],
+        dtypes=['f', 'd', 'd'],
     )
 
     return [logger, logger_validation, logger_mixing, logger_ep]
@@ -50,14 +50,11 @@ def _train(settings):
 
     # TODO: Make this automated
     ukappa = (1.-settings['gamma'])**(-2)
-    (_, _, cost_arr, len_arr) = _sarsa(settings, ukappa, logger, logger_validation, logger_mixing)
+    _sarsa(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep)
 
     logger.save(max_size=10_000)
     logger_mixing.save(max_size=10_000)
     logger_validation.save(max_size=1_000)
-
-    for (ep_cost, ep_len) in zip(cost_arr, len_arr):
-        logger_ep.log(ep_cost, ep_len)
     logger_ep.save(max_size=10_000)
 
 def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger):
@@ -104,7 +101,7 @@ def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_p
 
     return agg_V_t, agg_psi_t
 
-def _sarsa(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None):
+def _sarsa(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep, pi_0=None):
     """
     SARSA training procedure.
 
@@ -194,9 +191,11 @@ def _sarsa(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None
     print("Total runtime: %.2fs" % (time.time() - s_time))
     returned_f = np.dot(env.rho, true_V) if settings.get("tune_true_cost", False) else np.dot(env.rho, last_V_t)
 
-    cost_arr, len_arr = env.get_cum_cost_and_len_arr()
+    cost_arr, len_arr, cum_samps_arr = env.get_cum_cost_and_len_arr()
+    for (ep_cost, ep_len, cum_samps) in zip(cost_arr, len_arr, cum_samps_arr):
+        logger_ep.log(ep_cost, ep_len, cum_samps)
 
-    return greedy_pi_t, returned_f, cost_arr, len_arr
+    return greedy_pi_t, returned_f
 
 def train(settings):
     seed_0 = settings["seed_0"]
