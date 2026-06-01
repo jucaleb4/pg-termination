@@ -55,8 +55,8 @@ def get_loggers(settings):
     )
     logger_ep = BasicLogger(
         fname=os.path.join(settings["log_folder"], "ep_cost_seed=%d.csv" % seed),  
-        keys=["ep_cost", "ep_len"],
-        dtypes=['f', 'd'],
+        keys=["ep_cost", "ep_len", 'cum_samps'],
+        dtypes=['f', 'd', 'd'],
     )
 
     return [logger, logger_validation, logger_mixing, logger_ep]
@@ -116,18 +116,16 @@ def _train_with_tuning(settings):
     logger_tune.save(max_size=1_000)
 
 def _train(settings):
+
     logger, logger_validation, logger_mixing, logger_ep = get_loggers(settings)
 
     # TODO: Make this automated
     ukappa = settings["ukappa"]
-    (_, _, cost_arr, len_arr) = _spmd(settings, ukappa, logger, logger_validation, logger_mixing)
+    _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep)
 
     logger.save(max_size=1_000)
     logger_mixing.save(max_size=1_000)
     logger_validation.save(max_size=1_000)
-
-    for (ep_cost, ep_len) in zip(cost_arr, len_arr):
-        logger_ep.log(ep_cost, ep_len)
     logger_ep.save(max_size=10_000)
 
 def policy_eval(
@@ -169,7 +167,7 @@ def policy_eval(
         output = env.estimate_advantage_online_ctd(
             pi, Phi, Phi_max, Phi_min, ukappa, settings['ctd_iota_mult'], 
             settings['ctd_state_expl'], is_finite_state, time_limit, max_obs,
-            settings['s_origin'], settings['ctd_burn_in'],
+            settings['s_origin'], settings['ctd_burn_in'], settings["ctd_N_mult"],
         )
         (early_terminate, psi, V, n_samples) = output
     else: 
@@ -222,7 +220,7 @@ def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_p
 
     return agg_V_t, agg_psi_t
 
-def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None):
+def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep, pi_0=None):
     """
     SPMD training procedure. There are two stopping mechanisms:
         1. total runtime cannot exceed settings['max_runtime_in_sec']
@@ -365,7 +363,10 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, pi_0=None)
 
     returned_f = true_V if settings.get("tune_true_cost", False) else np.dot(env.rho, last_V_t)
 
-    cost_arr, len_arr = env.get_cum_cost_and_len_arr()
+    cost_arr, len_arr, cum_samps_arr = env.get_cum_cost_and_len_arr()
+
+    for (ep_cost, ep_len, cum_samps) in zip(cost_arr, len_arr, cum_samps_arr):
+        logger_ep.log(ep_cost, ep_len, cum_samps)
 
     return [pi_t, returned_f,cost_arr, len_arr] 
 

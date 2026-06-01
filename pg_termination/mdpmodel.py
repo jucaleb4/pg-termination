@@ -377,7 +377,7 @@ class MDPModel():
     def estimate_advantage_online_ctd(
             self, pi, Phi, Phi_max, Phi_min, ukappa, iota_mult, state_expl,
             is_finite_state, time_limit=np.inf, max_obs=np.inf, s_origin=None,
-            burn_in=False
+            burn_in=False, N_mult=1.0,
     ):
         """
         Forms nearly unbiased TD estimator that is bounded w.h.p.
@@ -392,6 +392,7 @@ class MDPModel():
         :params time_limit: amount of time left (in sec)
         :params max_obs: number of samples left (in sec)
         :params s_origin: Origin state. If 'None' (default), will choose reset
+        :params N_mult: CTD N multiplier
         :returns early_terminate: whether time ran out
         :returns hpsi: estimate of advantage function
         :returns hV: estimate of state value
@@ -419,7 +420,7 @@ class MDPModel():
                 ((1.-self.gamma)*sig/umu)**2, 
                 ((1.-self.gamma)**4 * R**2 * C2)/(umu**2)
         ])
-        N    = int(max(1, (1.-self.gamma)*max(B_1, ell_0))) # weak 1-gamma dependence
+        N    = int(max(1, N_mult*(1.-self.gamma)*max(B_1, ell_0))) # weak 1-gamma dependence
         # print("N=%d" % N)
         eps_expl_a = (1.-self.gamma)*ukappa
         eps_expl_s = (1.-self.gamma)/(-np.log(1.-self.gamma))**2 if state_expl else 0.
@@ -486,9 +487,10 @@ class MDPModel():
 
         return (early_terminate, cum_samples)
 
+
     def _get_hF_estimate(
             self, pi, Phi, theta, m, eps_expl_a, eps_expl_s, time_limit, 
-            max_obs, s_origin, burn_in,
+            max_obs, s_origin, burn_in, 
         ):
         """
         Forms stochastic TD estimator
@@ -743,6 +745,7 @@ class KnownModel(MDPModel):
         self.ep_cum_cost = 0.
         self.ep_cum_cost_arr = np.zeros(1024, dtype=float)
         self.ep_len_arr = np.zeros(1024, dtype=int)
+        self.ep_cum_samps_arr = np.zeros(1024, dtype=int)
         self.ep_ct = 0
 
     def step(self, a):
@@ -760,6 +763,8 @@ class KnownModel(MDPModel):
         if terminated:
             self.ep_cum_cost_arr[self.ep_ct] = self.ep_cum_cost
             self.ep_len_arr[self.ep_ct] = self.curr_ep_len
+            self.ep_cum_samps_arr[self.ep_ct] = \
+                self.ep_cum_samps_arr[max(0, self.ep_ct-1)] + self.curr_ep_len
 
             self.ep_ct += 1
             if self.ep_ct == len(self.ep_cum_cost_arr):
@@ -771,6 +776,10 @@ class KnownModel(MDPModel):
                     self.ep_len_arr, 
                     np.zeros(self.ep_ct, dtype=self.ep_len_arr.dtype)
                 )
+                self.ep_cum_samps_arr = np.append(
+                    self.ep_cum_samps_arr, 
+                    np.zeros(self.ep_ct, dtype=self.ep_cum_samps_arr.dtype)
+                )
 
             self.ep_cum_cost = 0
             self.curr_ep_len = 0
@@ -778,7 +787,11 @@ class KnownModel(MDPModel):
         return (self.s, c, terminated)
 
     def get_cum_cost_and_len_arr(self):
-        return self.ep_cum_cost_arr[:self.ep_ct], self.ep_len_arr[:self.ep_ct]
+        return (
+            self.ep_cum_cost_arr[:self.ep_ct], 
+            self.ep_len_arr[:self.ep_ct],
+            self.ep_cum_samps_arr[:self.ep_ct],
+        )
 
     def get_stationary(self, pi):
         P_pi = np.einsum('psa,as->ps', self.P, pi)
