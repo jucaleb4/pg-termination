@@ -739,36 +739,46 @@ class KnownModel(MDPModel):
         self.init_linear = False
 
         # initialize for tracking episode cost
-        self.ep_t = 0
+        self.curr_ep_len = 0
         self.ep_cum_cost = 0.
-        self.ep_cum_cost_arr = []
-        self.ep_len_arr = []
+        self.ep_cum_cost_arr = np.zeros(1024, dtype=float)
+        self.ep_len_arr = np.zeros(1024, dtype=int)
+        self.ep_ct = 0
 
     def step(self, a):
         c = self.c[self.s, a]
         curr_s = self.s
         self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s, a])
         terminated = 0 if (self.term_map is None) else self.term_map[self.s, curr_s, a]
-        self.ep_cum_cost += self.gamma**(self.ep_t) * c
+        self.ep_cum_cost += self.gamma**(self.curr_ep_len) * c
         self.t += 1
-        self.ep_t += 1
+        self.curr_ep_len += 1
 
-        if self.ep_t % self.time_limit == 0:
+        if self.curr_ep_len % self.time_limit == 0:
             terminated = True
 
         if terminated:
-            self.ep_cum_cost_arr.append(self.ep_cum_cost)
-            self.ep_len_arr.append(self.ep_t)
-            
+            self.ep_cum_cost_arr[self.ep_ct] = self.ep_cum_cost
+            self.ep_len_arr[self.ep_ct] = self.curr_ep_len
+
+            self.ep_ct += 1
+            if self.ep_ct == len(self.ep_cum_cost_arr):
+                self.ep_cum_cost_arr = np.append(
+                    self.ep_cum_cost_arr, 
+                    np.zeros(self.ep_ct, dtype=self.ep_cum_cost_arr.dtype)
+                )
+                self.ep_len_arr = np.append(
+                    self.ep_len_arr, 
+                    np.zeros(self.ep_ct, dtype=self.ep_len_arr.dtype)
+                )
+
             self.ep_cum_cost = 0
-            self.ep_t = 0
+            self.curr_ep_len = 0
 
         return (self.s, c, terminated)
 
     def get_cum_cost_and_len_arr(self):
-        ep_cum_cost_arr_with_curr = self.ep_cum_cost_arr + [self.ep_cum_cost]
-        ep_len_arr_with_curr = self.ep_len_arr + [self.ep_t]
-        return ep_cum_cost_arr_with_curr, ep_len_arr_with_curr
+        return self.ep_cum_cost_arr[:self.ep_ct], self.ep_len_arr[:self.ep_ct]
 
     def get_stationary(self, pi):
         P_pi = np.einsum('psa,as->ps', self.P, pi)
