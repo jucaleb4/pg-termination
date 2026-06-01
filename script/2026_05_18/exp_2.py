@@ -38,7 +38,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         ("gridworld_small", 0.99, 2e7, TS, 0.005, 0.005, 1.0, False),
         ("gridworld_small", 0.995, 2e7, KL, 0.005, 0.005, 1.0, False),
         ("gridworld_large", 0.9, 5e7, KL, 0.5, 0.005, 1.0, False), # second place
-        ("gridworld_large", 0.99, 5e7, KL, 0.005, 0.5, 0.562, False),
+        ("gridworld_large", 0.99, 5e7, KL, 0.005, 0.5, 1.0, False), # ukappa->1.0
         ("gridworld_large", 0.995, 5e7, KL, 0.005, 0.5, 1.0, False), # second place
     ]
 
