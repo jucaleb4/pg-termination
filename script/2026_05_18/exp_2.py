@@ -14,28 +14,32 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "SPMD full experiment on GridWorld (no limit except 1hr)"
+ABOUT = "Full run SPMD+CTD on GridWorld (more iterations)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
     od["alg"] = "spmd"
-    od["n_iters"] = math.inf
+    od["estimate_Q"] = "ctd"
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 3600
+    od["ctd_feature_size_ratio"] = 1.0
+    od["ctd_reg_ratio"] = 1.0
     od["max_obs"] = math.inf
-    od["n_iters"] = math.inf
-    estimator_arr = ["online_mc_dynamic"]
+    od["n_iters"] = n_iters
 
-    env_gamma_T_eta_minobs_arr = [
-        ("gridworld_small", 0.9, 400, 0.5, 5e7),
-        ("gridworld_small", 0.99, 2000, 0.5, 0), 
-        ("gridworld_small", 0.995, 400, 0.5, 0), 
-        ("gridworld_large", 0.9, 2000, 0.5, 0), 
-        ("gridworld_large", 0.99, 2000, 0.5, 0),
-        ("gridworld_large", 0.995, 2000, 0.5, 0),
+    KL = int(pmd.Update.KL_UPDATE)
+    TS = int(pmd.Update.TSALLIS_UPDATE) 
+
+    env_gamma_maxobs_update_eta_iota_ukappa_burn_in_arr = [
+        ("gridworld_small", 0.9, 2e7, TS, 0.005, 0.005, 1.0, False), # ukappa->1.0
+        ("gridworld_small", 0.99, 2e7, TS, 0.005, 0.005, 1.0, False),
+        ("gridworld_small", 0.995, 2e7, KL, 0.005, 0.005, 1.0, False),
+        ("gridworld_large", 0.9, 5e7, KL, 0.5, 0.005, 1.0, False), # second place
+        ("gridworld_large", 0.99, 5e7, KL, 0.005, 0.5, 0.562, False),
+        ("gridworld_large", 0.995, 5e7, KL, 0.005, 0.5, 1.0, False), # second place
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -49,27 +53,33 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "n_iters", "estimator", "eta"]
-    row_format ="{:>10}|{:>25}|{:>10}|{:>10}|{:>20}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "update", "eta", "iota", "ukappa", "burn_in"]
+    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (85+len(exp_metadata)-1))
+        print("-" * (90+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, gamma, T_mc, eta, min_obs), estimator) in itertools.product(env_gamma_T_eta_minobs_arr, estimator_arr):
+    for ((env_name, gamma, max_obs, update, eta, iota, ukappa, ctd_burn_in),) in itertools.product(
+            env_gamma_maxobs_update_eta_iota_ukappa_burn_in_arr
+    ):
         od["env_name"] = env_name
+        od["max_obs"] = max_obs
         od["gamma"] = gamma
-        od["T_mc"] = T_mc
+        od["update_rule"] = update
         od["eta"] = eta
-        od["estimate_Q"] = estimator
-        od["min_obs"] = min_obs
+        od["iota"] = iota
+        od["ukappa"] = ukappa
+        od["ctd_burn_in"] = ctd_burn_in
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], od["gamma"], od["n_iters"], od["estimate_Q"], od["eta"]))
+            print(row_format.format(ct, od["env_name"], od["gamma"], 
+            pmd.Update(od["update_rule"]).name[:7],
+            od["eta"], od["iota"], od["ukappa"], od["ctd_burn_in"]))
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])

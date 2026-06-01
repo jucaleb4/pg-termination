@@ -26,6 +26,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 3600
     od["ctd_feature_size_ratio"] = 1.0
+    od["ctd_reg_ratio"] = 1.0
     od["max_obs"] = math.inf
     od["n_iters"] = n_iters
 
@@ -39,9 +40,6 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         ("gridworld_large", 0.9, 5e7, TS, 0.5, 0.005, 0.562, False),
         ("gridworld_large", 0.99, 5e7, KL, 0.005, 0.5, 0.562, False),
         ("gridworld_large", 0.995, 5e7, TS, 0.5, 0.5, 0.1, False),
-        ("gridworld_small", 0.9, 2e7, TS, 0.5, 0.005, 0.562, False),
-        ("gridworld_small", 0.99, 2e7, KL, 0.005, 0.5, 0.562, False),
-        ("gridworld_small", 0.995, 2e7, TS, 0.5, 0.5, 0.1, False),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
