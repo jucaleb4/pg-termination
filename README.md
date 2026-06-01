@@ -95,6 +95,7 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_06/exp_1.py`: full SARSA run on Garnet
 - `2026_05_06/exp_2.py`: tune SARSA on GridWorld
 - `2026_05_06/exp_3.py`: full SARSA run on GridWorld
+- `2026_05_06/exp_4.py`: full SARSA run on GridWorld-loop
 - `2026_05_18/exp_0.py`: tune SPMD+CTD on GridWorld 
 - `2026_05_18/exp_1.py`: full run SPMD+CTD on GridWorld 
 - `2026_05_18/exp_2.py`: full run SPMD+CTD on GridWorld (aggressive parameters) 
@@ -102,10 +103,12 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_19/exp_1.py`: tune SPMD on GridWorld with Tsallis
 - `2026_05_19/exp_2.py`: full SPMD on GARNET with Tsallis
 - `2026_05_19/exp_3.py`: full SPMD on GridWorld with Tsallis
+- `2026_05_19/exp_4.py`: full SPMD on GridWorld-loop with Tsallis
 - `2026_05_20/exp_0.py`: GARNET OPT
 - `2026_05_20/exp_1.py`: GridWorld OPT (TBD)
 - `2026_05_31/exp_0.py`: Full-ran tune of SPMD+CTD on GARNET
 - `2026_05_31/exp_1.py`: Full-ran tune of SPMD+CTD on GridWorld
+- `2026_05_31/exp_2.py`: Full-ran tune of SPMD+CTD on GridWorld-loop
 
 ## TODOs
 - Implement CTD (both tabular and general state)
