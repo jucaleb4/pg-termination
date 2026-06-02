@@ -32,7 +32,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     env_name_max_obs_arr = [
         # "gridworld_footnote", 
         ("garnet_200", int(1e6)),
-        ("garnet_1000", int(2e6)),
+        # ("garnet_1000", int(2e6)),
     ]
     update_rule_arr = [int(pmd.Update.KL_UPDATE), int(pmd.Update.TSALLIS_UPDATE)]
     gamma_arr = [0.9, 0.99, 0.995]
