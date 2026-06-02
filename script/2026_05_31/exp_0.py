@@ -63,7 +63,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
     ct = 0
     for ((env_name, max_obs), gamma, update, eta, iota_mult, ukappa, burn_in) in itertools.product(
-            env_name_max_obs_arr, gamma_arr, update_rule_arr, eta_arr, iota_arr, 
+            env_name_max_obs_arr, gamma_arr, update_rule_arr, eta_arr, iota_mult_arr, 
             ukappa_arr, burn_in_arr,
     ):
         od["env_name"] = env_name
@@ -73,7 +73,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         od["eta"] = eta
         od["ctd_iota_mult"] = iota_mult
         od["ukappa"] = ukappa
-        od["ctd_burn_in"] = ctd_burn_in
+        od["ctd_burn_in"] = burn_in
         od["ctd_N_mult"] = 1.-gamma
         od["min_obs"] = max_obs
 
@@ -84,7 +84,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
             print(row_format.format(ct, od["env_name"], od["gamma"], 
                 od["ctd_feature_size_ratio"], 
                 pmd.Update(od["update_rule"]).name[:7],
-                od["eta"], od["iota"], od["ukappa"], od["ctd_burn_in"])
+                od["eta"], od["ctd_iota_mult"], od["ukappa"], od["ctd_burn_in"])
             )
 
             if not(os.path.exists(od["log_folder"])):
