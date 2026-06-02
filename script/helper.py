@@ -17,6 +17,7 @@ def parse_sub_runs(sub_runs, total_runs):
 
 def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
     od = dict([
+        ("log_folder", ""),
         ("seed_0", seed_0), 
         ("n_seeds", n_seeds), 
         ("n_iters", n_iters),
@@ -38,12 +39,12 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("pi_threshold_mult", 1.0),
         ("eta", 0.01),
         ("skip_true_model", True),
-        ("ctd_feature_size_ratio", 0.), 
-        ("ctd_reg_ratio", 0.),
-        ("ctd_iota_mult", 40), # change to 1
-        ("ctd_state_expl", False), 
-        ("ctd_burn_in", False),
-        ("ctd_N_mult", 1.0),
+        ("ctd_feature_size_ratio", None),  # 0
+        ("ctd_reg_ratio", None), # 0
+        ("ctd_iota_mult", None), # 1
+        ("ctd_state_expl", None), # False
+        ("ctd_burn_in", None), # False
+        ("ctd_N_mult", None), # 1.0
         ("s_origin", None),
         ("tune_exploration", False),
         ("successive_half_trials", 16), # change to 4
@@ -54,6 +55,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
     ])
 
     od_info = [
+        ("log_folder", "Log folder"),
         ("seed_0", "start seed"), 
         ("n_seeds", "num seeds"), 
         ("n_iters", "num SPMD iters"),

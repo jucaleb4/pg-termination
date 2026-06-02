@@ -2,6 +2,15 @@ import argparse
 import yaml
 
 from pg_termination import pmd, policyiter, spmd, reinforce, trpo, qlearn, sarsa
+from script.helper import get_parameter_settings
+
+def check_key_settings_diff(settings):
+    base_settings = get_parameter_settings(settings['seed_0'], settings['n_seeds'], settings['n_iters'], False, "")
+
+    diff_keys = list(set(settings) - set(base_settings))
+
+    if len(diff_keys) > 0:
+        print(">>> Recieved %d extra keys in settings: %s" % (len(diff_keys), diff_keys))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -15,6 +24,7 @@ if __name__ == "__main__":
         except yaml.YAMLError as exc:
             print(exc)
 
+    check_key_settings_diff(settings)
     settings["parallel"] = args.parallel
 
     if settings['alg'] == 'pmd':
