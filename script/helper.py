@@ -39,13 +39,17 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("pi_threshold_mult", 1.0),
         ("eta", 0.01),
         ("skip_true_model", True),
+        ("ctd_feat_type", "Gaussian"),
+        ("ctd_feat_size", None),
         ("ctd_feature_size_ratio", None),  # 0
+        ("ctd_reg_val", None),
         ("ctd_reg_ratio", None), # 0
         ("ctd_iota_mult", None), # 1
         ("ctd_state_expl", None), # False
         ("ctd_burn_in", None), # False
         ("ctd_N_mult", None), # 1.0
         ("s_origin", None),
+        ("ctd_estimate_Phi_sigs", True),
         ("tune_exploration", False),
         ("successive_half_trials", 16), # change to 4
         ("min_T_mc", 100), # change to 1e2
@@ -74,13 +78,17 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("pi_threshold_mult", "constant factor in cut-off for sub-opt actions"),
         ("eta", "base step size"),
         ("skip_true_model", "skips validation on true model - only works for non-gym envs"),
+        ("ctd_feat_type", "Feature type. Should be 'Gaussian' or 'rff'"),
+        ("ctd_feat_size", "Feature size. If -1, full size"),
         ("ctd_feature_size_ratio", "feature size for CTD (only)"),
-        ("ctd_reg_ratio", "regularization added to features"),
+        ("ctd_reg_val", "regularization strength"),
+        ("ctd_reg_ratio", "relative (to sig vals) regularization added to features"),
         ("ctd_iota_mult", "User chosen CTD stepsize multiplier"),
         ("ctd_state_expl", "Apply explicit state exploration [if func-approx unknown]"), 
         ("ctd_burn_in", "Burn in for CTD operator to use all discounted sums"),
         ("ctd_N_mult", "CTD iterations multiplier"),
         ("s_origin", "Origin rule for CTD. None for reset, otherwise 'rand' for empirical distribution"),
+        ("ctd_estimate_Phi_sigs", "Estimate singular values. If false, sets all sig vals to 1"),
         ("tune_exploration", "Tune exploration time in Monte Carlo"),
         ("successive_half_trials", "Number of trials in successive halving tuning"),
         ("min_T_mc", "Minimum Monte Carlo exploration time in tuning"),

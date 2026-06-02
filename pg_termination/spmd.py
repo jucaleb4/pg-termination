@@ -269,16 +269,44 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep,
     if settings["estimate_Q"] == "ctd": 
         if is_finite_state: # finite state and action
             n_Z = env.n_states*env.n_actions
-            Phi = env.rng.normal(size=(n_Z, n_Z))
-            s_time = time.time()
-            Phi_max = utils.rand_l2(Phi, env.rng) # la.norm(Phi, ord=2) <- too slow
-            print("Finished estimating l2 of feature matrix (time=%.2fs)" % (time.time() - s_time))
-            Phi += (settings["ctd_reg_ratio"]*Phi_max)*np.eye(n_Z)
+            Phi_max = None
+            if settings['ctd_feat_type'] == 'Gaussian':
+                Phi = env.rng.normal(size=(n_Z, n_Z))
+            elif settings['ctd_feat_type'] == 'rff':
+                rbf_gamma = 1.0
+                sigma = 1.
+                W = (2 * rbf_gamma)**0.5 * env.rng.normal(size=(n_Z, n_Z))
+                Phi = np.sqrt(2./W.shape[0]) * np.cos(sigma * W)
+            else:
+                raise Exception("Unknown CTD feature type %s" % settings['ctd_feat_type'])
 
-            d = min(n_Z, int(settings["ctd_feature_size_ratio"] * n_Z))
+            # check absolute value, then ratio
+            if settings['ctd_reg_val'] is not None:
+                ctd_reg = settings['ctd_reg_val']
+            else:
+                s_time = time.time()
+                Phi_max = utils.rand_l2(Phi, env.rng) # la.norm(Phi, ord=2) <- too slow
+                print("Finished estimating l2 of feature matrix (time=%.2fs)" % (time.time() - s_time))
+                ctd_reg = settings["ctd_reg_ratio"]*Phi_max
+            Phi += ctd_reg*np.eye(n_Z)
+
+            # check absolute value, then ratio
+            if settings['ctd_feat_size'] is not None:
+                d = min(n_Z, settings['ctd_feat_size']) if settings['ctd_feat_size'] > 0 else n_Z
+            else:
+                d = min(n_Z, int(settings["ctd_feature_size_ratio"] * n_Z))
             Phi = Phi[:,:d]
-            Phi_min = max(1.0, settings["ctd_reg_ratio"]*Phi_max)
-            Phi_max = max(1.0, Phi_max + settings["ctd_reg_ratio"]*Phi_max)
+
+            if settings["ctd_estimate_Phi_sigs"]:
+                if Phi_max is None:
+                    s_time = time.time()
+                    Phi_max = utils.rand_l2(Phi, env.rng) # la.norm(Phi, ord=2) <- too slow
+                    print("Finished estimating l2 of feature matrix (time=%.2fs)" % (time.time() - s_time))
+                Phi_min = max(1.0, settings["ctd_reg_ratio"]*Phi_max)
+                Phi_max = max(1.0, Phi_max + settings["ctd_reg_ratio"]*Phi_max)
+            else:
+                Phi_min = 1.0
+                Phi_max = 1.0
         else: # finite action and continuous state
             Phi = env.rng.normal(size=(env.n_states, env.n_state_dim, d))
 
