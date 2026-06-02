@@ -31,17 +31,17 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
     env_name_max_obs_arr = [
         # "gridworld_footnote", 
-        ("gridworld_small", int(1e7)),
-        ("gridworld_large", int(2e7)),
+        ("gridworld_small", int(1e6)),
+        ("gridworld_large", int(2e6)),
     ]
     update_rule_arr = [int(pmd.Update.KL_UPDATE), int(pmd.Update.TSALLIS_UPDATE)]
     gamma_arr = [0.9, 0.99, 0.995]
-    eta_arr = [5e-3, 5e-1]
+    eta_arr = [5e-1, 5e-3]
     ukappa_arr = [1e0,1e0/(10**0.25)] # [1e0, 2e-1]
     for i in range(len(ukappa_arr)):
         ukappa_arr[i] = int(1e3*ukappa_arr[i])/1e3
-    ctd_iota_arr = [5e-3, 5e-1]
-    ctd_burn_in_arr = [False, True]
+    iota_mult_arr = [5e-1, 5e-3]
+    burn_in_arr = [False, True]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
@@ -54,7 +54,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "feat frac", "update", "eta", "iota", "ukappa", "burn_in"]
+    exp_metadata = ["Exp id", "Env name", "gamma", "feat frac", "update", "eta", "iota_mult", "ukappa", "burn_in"]
     row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
@@ -62,18 +62,18 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("-" * (95+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, max_obs), gamma, update, eta, iota, ukappa, ctd_burn_in) in itertools.product(
-            env_name_max_obs_arr, gamma_arr, update_rule_arr, eta_arr, ctd_iota_arr, 
-            ukappa_arr, ctd_burn_in_arr,
+    for ((env_name, max_obs), gamma, update, eta, iota_mult, ukappa, burn_in) in itertools.product(
+            env_name_max_obs_arr, gamma_arr, update_rule_arr, eta_arr, iota_arr, 
+            ukappa_arr, burn_in_arr,
     ):
         od["env_name"] = env_name
         od["max_obs"] = max_obs
         od["gamma"] = gamma
         od["update_rule"] = update
         od["eta"] = eta
-        od["iota"] = iota
+        od["ctd_iota_mult"] = iota_mult
         od["ukappa"] = ukappa
-        od["ctd_burn_in"] = ctd_burn_in
+        od["ctd_burn_in"] = burn_in
         od["ctd_N_mult"] = 1.-gamma
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
