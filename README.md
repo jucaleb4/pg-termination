@@ -111,10 +111,5 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_31/exp_2.py`: Full-ran tune of SPMD+CTD on GridWorld-loop
 
 ## TODOs
-- Implement CTD (both tabular and general state)
-- Convert MDPModel into gym style
+- Implement CTD (general state)
 - Implement PPO, DQN
-- Add time to logging of all methods
-- Planner:
-    - Prefer validation incomplete
-    - Also decide between loop vs non-loop
