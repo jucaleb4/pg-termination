@@ -115,6 +115,7 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_31/exp_6.py`: full (via enhanced tuned) SPMD+CTD on GridWorld
 - `2026_05_31/exp_7.py`: shorter full (via enhanced tuned) SPMD+CTD on GARNET 
 - `2026_05_31/exp_8.py`: shorter full (via enhanced tuned) SPMD+CTD on GridWorld
+- `2026_05_31/exp_9.py`: full (via enhanced tuned from exp_6) SPMD+CTD on GridWorld-loop
 
 ## TODOs
 - Implement CTD (general state)
