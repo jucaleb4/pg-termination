@@ -39,11 +39,11 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         (int(pmd.Update.KL_UPDATE), 'rff', 100)
     ]
     gamma_arr = [0.9, 0.99, 0.995]
-    eta_arr = [5e-1, 1e-3]
+    eta_arr = [1e2, 5e-1, 1e-3]
     ukappa_arr = [1e0,1e0/(10**0.25)] # [1e0, 2e-1]
     for i in range(len(ukappa_arr)):
         ukappa_arr[i] = int(1e3*ukappa_arr[i])/1e3
-    iota_mult_arr = [5e-1, 1e-3]
+    iota_mult_arr = [1e2, 5e-1, 1e-3]
     burn_in_arr = [False, True]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
