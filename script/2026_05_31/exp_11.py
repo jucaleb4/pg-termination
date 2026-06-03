@@ -14,7 +14,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Full-run tune SPMD+CTD on GridWorld-loop. Decrease ctd_N by 1-gamma"
+ABOUT = "Full-run tune SPMD+CTD on GridWorld. Larger stepsizes (exp_4.py policy barely changed)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -24,23 +24,26 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 3600
-    od["ctd_reg_ratio"] = 1.0
-    od["ctd_feature_size_ratio"] = 1.0
+    # od["ctd_reg_ratio"] = 1.0
+    # od["ctd_feature_size_ratio"] = 1.0
     od["max_obs"] = math.inf
     od["s_origin"] = None
+    od["ctd_reg_ratio"] = 1.0
 
     env_name_max_obs_arr = [
-        # "gridworld_footnote", 
-        ("gridworld_small_loop", int(1e6)),
-        ("gridworld_large_loop", int(2e6)),
+        ("gridworld_small", int(1e6)),
+        ("gridworld_large", int(2e6)),
     ]
-    update_rule_arr = [int(pmd.Update.KL_UPDATE), int(pmd.Update.TSALLIS_UPDATE)]
+    update_type_ctd_feat_params_arr = [
+        (int(pmd.Update.TSALLIS_UPDATE), 'Gaussian', -1), 
+        (int(pmd.Update.KL_UPDATE), 'rff', 100)
+    ]
     gamma_arr = [0.9, 0.99, 0.995]
-    eta_arr = [5e-1, 5e-3]
+    eta_arr = [5e-1, 1e-3]
     ukappa_arr = [1e0,1e0/(10**0.25)] # [1e0, 2e-1]
     for i in range(len(ukappa_arr)):
         ukappa_arr[i] = int(1e3*ukappa_arr[i])/1e3
-    iota_mult_arr = [5e-1, 5e-3]
+    iota_mult_arr = [5e-1, 1e-3]
     burn_in_arr = [False, True]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -54,23 +57,25 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "update", "eta", "iota_mult", "ukappa", "burn_in"]
-    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "feat type", "feat size", "update", "eta", "iota_mult", "ukappa", "burn_in"]
+    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
         print("-" * (95+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, max_obs), gamma, update, eta, iota_mult, ukappa, burn_in) in itertools.product(
-            env_name_max_obs_arr, gamma_arr, update_rule_arr, eta_arr, iota_mult_arr, 
-            ukappa_arr, burn_in_arr,
+    for ((env_name, max_obs), gamma, (update, feat_type, feat_size), eta, iota_mult, ukappa, burn_in) in itertools.product(
+            env_name_max_obs_arr, gamma_arr, update_type_ctd_feat_params_arr, 
+            eta_arr, iota_mult_arr, ukappa_arr, burn_in_arr,
     ):
         od["env_name"] = env_name
         od["max_obs"] = max_obs
         od["gamma"] = gamma
         od["update_rule"] = update
         od["eta"] = eta
+        od["ctd_feat_type"] = feat_type
+        od["ctd_feat_size"] = feat_size
         od["ctd_iota_mult"] = iota_mult
         od["ukappa"] = ukappa
         od["ctd_burn_in"] = burn_in
@@ -81,6 +86,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
         if not skip_save:
             print(row_format.format(ct, od["env_name"], od["gamma"], 
+                od["ctd_feat_type"], od["ctd_feat_size"], 
                 pmd.Update(od["update_rule"]).name[:7],
                 od["eta"], od["ctd_iota_mult"], od["ukappa"], od["ctd_burn_in"])
             )
@@ -120,6 +126,8 @@ if __name__ == "__main__":
     n_iters = 1_000
 
     if args.setup:
+        if args.mode == "full":
+            n_seeds = 10
         setup_setting_files(seed_0, n_seeds, n_iters, args.print_info)
     elif args.run:
         max_runs = setup_setting_files(seed_0, n_seeds, n_iters, args.print_info, True)
