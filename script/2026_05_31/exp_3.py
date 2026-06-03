@@ -28,15 +28,16 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     # od["ctd_feature_size_ratio"] = 1.0
     od["max_obs"] = math.inf
     od["s_origin"] = None
-    od["ctd_reg_val"] = 0
-    od["ctd_estimate_Phi_sigs"] = False
+    od["ctd_reg_ratio"] = 1.0
 
     env_name_max_obs_arr = [
         ("garnet_200", int(1e6)),
         ("garnet_1000", int(2e6)),
     ]
-    ctd_feat_type_arr = ['Gaussian', 'rff']
-    update_type_ctd_feat_size_arr = [(int(pmd.Update.TSALLIS_UPDATE), -1), (int(pmd.Update.KL_UPDATE), 100)]
+    update_type_ctd_feat_params_arr = [
+        (int(pmd.Update.TSALLIS_UPDATE), 'Gaussian', -1), 
+        (int(pmd.Update.KL_UPDATE), 'rff', 100)
+    ]
     gamma_arr = [0.9, 0.99, 0.995]
     eta_arr = [5e-1, 1e-3]
     ukappa_arr = [1e0,1e0/(10**0.25)] # [1e0, 2e-1]
@@ -64,9 +65,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("-" * (95+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, max_obs), gamma, (update, feat_size), eta, feat_type, iota_mult, ukappa, burn_in) in itertools.product(
-            env_name_max_obs_arr, gamma_arr, update_type_ctd_feat_size_arr, eta_arr, 
-            ctd_feat_type_arr, iota_mult_arr, ukappa_arr, burn_in_arr,
+    for ((env_name, max_obs), gamma, (update, feat_type, feat_size), eta, iota_mult, ukappa, burn_in) in itertools.product(
+            env_name_max_obs_arr, gamma_arr, update_type_ctd_feat_params_arr, 
+            eta_arr, iota_mult_arr, ukappa_arr, burn_in_arr,
     ):
         if feat_size == -1 and env_name == "garnet_1000":
             continue

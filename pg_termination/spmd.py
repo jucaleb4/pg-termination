@@ -265,48 +265,54 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep,
         settings["pi_threshold_mult"] = 1.
     settings["pi_threshold"] = settings["pi_threshold_mult"] * (1.-env.gamma)/env.n_actions
 
-    Phi_max = 1.; Phi_min = 1.0
+    Phi_max = Phi_min = 1.0
     if settings["estimate_Q"] == "ctd": 
         if is_finite_state: # finite state and action
+            # 1) Compute size. Check absolute value, then ratio
             n_Z = env.n_states*env.n_actions
-            Phi_max = None
-            if settings['ctd_feat_type'] == 'Gaussian':
-                Phi = env.rng.normal(size=(n_Z, n_Z))
-            elif settings['ctd_feat_type'] == 'rff':
-                rbf_gamma = 1.0
-                sigma = 1.
-                W = (2 * rbf_gamma)**0.5 * env.rng.normal(size=(n_Z, n_Z))
-                Phi = np.sqrt(2./W.shape[0]) * np.cos(sigma * W)
-            else:
-                raise Exception("Unknown CTD feature type %s" % settings['ctd_feat_type'])
-
-            # check absolute value, then ratio
-            if settings['ctd_reg_val'] is not None:
-                ctd_reg = settings['ctd_reg_val']
-            else:
-                s_time = time.time()
-                Phi_max = utils.rand_l2(Phi, env.rng) # la.norm(Phi, ord=2) <- too slow
-                print("Finished estimating l2 of feature matrix (time=%.2fs)" % (time.time() - s_time))
-                ctd_reg = settings["ctd_reg_ratio"]*Phi_max
-            Phi += ctd_reg*np.eye(n_Z)
-
-            # check absolute value, then ratio
             if settings['ctd_feat_size'] is not None:
                 d = min(n_Z, settings['ctd_feat_size']) if settings['ctd_feat_size'] > 0 else n_Z
             else:
                 d = min(n_Z, int(settings["ctd_feature_size_ratio"] * n_Z))
-            Phi = Phi[:,:d]
 
-            if settings["ctd_estimate_Phi_sigs"]:
-                if Phi_max is None:
-                    s_time = time.time()
-                    Phi_max = utils.rand_l2(Phi, env.rng) # la.norm(Phi, ord=2) <- too slow
-                    print("Finished estimating l2 of feature matrix (time=%.2fs)" % (time.time() - s_time))
-                Phi_min = max(1.0, settings["ctd_reg_ratio"]*Phi_max)
-                Phi_max = max(1.0, Phi_max + settings["ctd_reg_ratio"]*Phi_max)
+            # 2) Compute feature matrix
+            Phi_max = None
+            if settings['ctd_feat_type'] == 'Gaussian':
+                Phi = env.rng.normal(size=(n_Z, d))
+            elif settings['ctd_feat_type'] == 'rff':
+                rbf_gamma = 1.0
+                sigma = 1.
+                W = (2 * rbf_gamma)**0.5 * env.rng.normal(size=(n_Z, d))
+                Phi = np.sqrt(2./W.shape[0]) * np.cos(sigma * W)
             else:
-                Phi_min = 1.0
-                Phi_max = 1.0
+                raise Exception("Unknown CTD feature type %s" % settings['ctd_feat_type'])
+
+            # 3) regularize, either by add regularization (square) or QR (rectangular)
+            Phi_max = Phi_min = 1.0
+            if n_Z == d:
+                ctd_reg = 1.0
+                s_time = time.time()
+                Phi_max = utils.rand_l2(Phi, env.rng) # la.norm(Phi, ord=2) <- too slow
+                print("Finished estimating l2 of feature matrix (time=%.2fs)" % (time.time() - s_time))
+
+                if settings['ctd_reg_val'] is not None:
+                    ctd_reg = settings['ctd_reg_val']
+                elif settings["ctd_reg_ratio"] is not None:
+                    ctd_reg = settings["ctd_reg_ratio"]*Phi_max
+                else:
+                    warnings.warn("For square matrix, you must add regularization which is omitted.")
+
+                Phi += ctd_reg*np.eye(n_Z)
+                Phi_min = max(1.0, ctd_reg)
+                Phi_max = max(Phi_min, Phi_max + ctd_reg)
+            elif d < n_Z:
+                s_time = time.time()
+                Q,R = la.qr(Phi)
+                Phi = Q
+                print("Finished QR-factor of feature matrix of size %dx%d (time=%.2fs)" % (n_Z, d, time.time() - s_time))
+            else:
+                raise Exception("Number of features %d exceeds |Z|=%d" % (d, n_Z))
+
         else: # finite action and continuous state
             Phi = env.rng.normal(size=(env.n_states, env.n_state_dim, d))
 
