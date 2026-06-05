@@ -377,7 +377,7 @@ class MDPModel():
     def estimate_advantage_online_ctd(
             self, pi, Phi, Phi_max, Phi_min, ukappa, iota_mult, state_expl,
             is_finite_state, time_limit=np.inf, max_obs=np.inf, s_origin=None,
-            burn_in=False, N_mult=1.0,
+            burn_in=False, N_mult=1.0, ell_0_mult=1.0,
     ):
         """
         Forms nearly unbiased TD estimator that is bounded w.h.p.
@@ -393,6 +393,7 @@ class MDPModel():
         :params max_obs: number of samples left (in sec)
         :params s_origin: Origin state. If 'None' (default), will choose reset
         :params N_mult: CTD N multiplier
+        :params ell_0_mult: ell_0 multiplier
         :returns early_terminate: whether time ran out
         :returns hpsi: estimate of advantage function
         :returns hV: estimate of state value
@@ -411,15 +412,16 @@ class MDPModel():
         theta = np.zeros(Phi.shape[1])
 
         # parameter setup (algorithmic terms)
-        ell_0 = max((L/umu)**2, C2/umu**2)
+        ell_0 = ell_0_mult * max((L/umu)**2, C2/umu**2)
         um   = (np.log(1./umu) + np.log(C1))/np.log(1./self.gamma)
         sig = C1*oTheta
         R    = np.sqrt(np.max([oTheta**2, sig**2/umu**2, np.sqrt(C2)/umu]))
         B_1  = np.max([
-                np.sqrt((1.-self.gamma)*ell_0)/oTheta, 
+                np.sqrt((1.-self.gamma)**2*ell_0)/oTheta, 
                 ((1.-self.gamma)*sig/umu)**2, 
                 ((1.-self.gamma)**4 * R**2 * C2)/(umu**2)
         ])
+        # TODO: Remove 1-gamma multiplier
         N    = int(max(1, N_mult*(1.-self.gamma)*max(B_1, ell_0))) # weak 1-gamma dependence
         # print("N=%d" % N)
         eps_expl_a = (1.-self.gamma)*ukappa

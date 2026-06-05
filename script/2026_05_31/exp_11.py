@@ -36,9 +36,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     ]
     update_type_ctd_feat_params_arr = [
         (int(pmd.Update.TSALLIS_UPDATE), 'Gaussian', -1), 
-        (int(pmd.Update.KL_UPDATE), 'rff', 100)
+        (int(pmd.Update.KL_UPDATE), 'rff', 1000)
     ]
-    gamma_arr = [0.9, 0.99, 0.995]
+    gamma_arr = [0.9, 0.99]
     eta_arr = [1e2, 5e-1, 1e-3]
     ukappa_arr = [1e0,1e0/(10**0.25)] # [1e0, 2e-1]
     for i in range(len(ukappa_arr)):
@@ -79,7 +79,8 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         od["ctd_iota_mult"] = iota_mult
         od["ukappa"] = ukappa
         od["ctd_burn_in"] = burn_in
-        od["ctd_N_mult"] = 1.-gamma
+        # od["ctd_N_mult"] = 1.-gamma
+        od["ctd_ell_0_mult"] = 1.-gamma
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)

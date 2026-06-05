@@ -163,11 +163,11 @@ def policy_eval(
     elif settings["estimate_Q"] == "online_mc_dynamic":
         (early_terminate, psi, V, n_samples) = env.estimate_advantage_online_mc_dynamic(pi, settings["eps"], settings["pi_threshold"], time_limit)
     elif settings["estimate_Q"] == "ctd": 
-        # TODO: Define 'ctd_state_expl'
         output = env.estimate_advantage_online_ctd(
             pi, Phi, Phi_max, Phi_min, ukappa, settings['ctd_iota_mult'], 
             settings['ctd_state_expl'], is_finite_state, time_limit, max_obs,
-            settings['s_origin'], settings['ctd_burn_in'], settings["ctd_N_mult"],
+            settings['s_origin'], settings['ctd_burn_in'], 
+            settings["ctd_N_mult"], settings['ctd_ell_0_mult'],
         )
         (early_terminate, psi, V, n_samples) = output
     else: 
@@ -350,6 +350,7 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep,
             break
 
         eta_t = stepsize_scheduler.get_stepsize(t, psi_t)
+
         update_success = policy_update(
             pi_t, psi_t, eta_t, is_finite_state, env.gamma, settings, pi_scratch
         ) 

@@ -47,7 +47,8 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("ctd_iota_mult", None), # 1
         ("ctd_state_expl", None), # False
         ("ctd_burn_in", None), # False
-        ("ctd_N_mult", None), # 1.0
+        ("ctd_N_mult", 1.0), 
+        ("ctd_ell_0_mult", 1.0),
         ("s_origin", None),
         ("tune_exploration", False),
         ("successive_half_trials", 16), # change to 4
@@ -86,6 +87,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("ctd_state_expl", "Apply explicit state exploration [if func-approx unknown]"), 
         ("ctd_burn_in", "Burn in for CTD operator to use all discounted sums"),
         ("ctd_N_mult", "CTD iterations multiplier"),
+        ("ctd_ell_0_mult", "CTD parameter ell_0 multiplier"),
         ("s_origin", "Origin rule for CTD. None for reset, otherwise 'rand' for empirical distribution"),
         ("tune_exploration", "Tune exploration time in Monte Carlo"),
         ("successive_half_trials", "Number of trials in successive halving tuning"),
