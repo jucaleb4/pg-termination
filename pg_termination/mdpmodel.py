@@ -377,7 +377,7 @@ class MDPModel():
     def estimate_advantage_online_ctd(
             self, pi, Phi, Phi_max, Phi_min, ukappa, iota_mult, state_expl,
             is_finite_state, time_limit=np.inf, max_obs=np.inf, s_origin=None,
-            burn_in=False, N_mult=1.0, ell_0_mult=1.0,
+            burn_in=False, N_mult=1.0, ell_0_mult=1.0, use_new_sig=False
     ):
         """
         Forms nearly unbiased TD estimator that is bounded w.h.p.
@@ -414,7 +414,11 @@ class MDPModel():
         # parameter setup (algorithmic terms)
         ell_0 = ell_0_mult * max((L/umu)**2, C2/umu**2)
         um   = (np.log(1./umu) + np.log(C1))/np.log(1./self.gamma)
+        # TODO: Remove old_sig
         sig = C1*oTheta
+        new_sig = np.sqrt(C2)*oTheta
+        if use_new_sig:
+            sig = new_sig
         R    = np.sqrt(np.max([oTheta**2, sig**2/umu**2, np.sqrt(C2)/umu]))
         B_1  = np.max([
                 np.sqrt((1.-self.gamma)**2*ell_0)/oTheta, 
@@ -424,6 +428,7 @@ class MDPModel():
         # TODO: Remove 1-gamma multiplier
         N    = int(max(1, N_mult*(1.-self.gamma)*max(B_1, ell_0))) # weak 1-gamma dependence
         # print("N=%d" % N)
+
         eps_expl_a = (1.-self.gamma)*ukappa
         eps_expl_s = (1.-self.gamma)/(-np.log(1.-self.gamma))**2 if state_expl else 0.
 

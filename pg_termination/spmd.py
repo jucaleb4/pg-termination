@@ -168,6 +168,7 @@ def policy_eval(
             settings['ctd_state_expl'], is_finite_state, time_limit, max_obs,
             settings['s_origin'], settings['ctd_burn_in'], 
             settings["ctd_N_mult"], settings['ctd_ell_0_mult'],
+            settings['ctd_use_new_sig'],
         )
         (early_terminate, psi, V, n_samples) = output
     else: 

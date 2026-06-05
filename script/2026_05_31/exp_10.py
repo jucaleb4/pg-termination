@@ -29,6 +29,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["max_obs"] = math.inf
     od["s_origin"] = None
     od["ctd_reg_ratio"] = 1.0
+    od["ctd_use_new_sig"] = True
 
     env_name_max_obs_arr = [
         ("garnet_200", int(1e6)),
