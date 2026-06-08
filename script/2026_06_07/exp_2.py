@@ -40,7 +40,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     ]
     gamma_arr = [0.9, 0.99]
     eta_arr = [1e2, 5e-1, 1e-3]
-    uLam_mult_arr = [-1./3, -1./2] 
+    uLam_mult_arr = [1, -1./3, -1./2] 
     for i in range(len(uLam_mult_arr)):
         uLam_mult_arr[i] = int(1e3*uLam_mult_arr[i])/1e3
     n_batches_arr = [1, 10]

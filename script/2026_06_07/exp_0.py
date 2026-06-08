@@ -20,6 +20,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
     od["estimate_Q"] = "online_mc_fixed"
     od["skip_true_model"] = False
+    od["validation_mode"] = "random_reset"
+    od["validation_k"] = 30
+    od["save_policy"] = True
 
     env_name_arr = [
         "gridworld_small_low_dim", 
