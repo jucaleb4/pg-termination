@@ -19,6 +19,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
     od["alg"] = "sarsa"
+    od["max_runtime_in_sec"] = 600
     od["skip_true_model"] = False
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
