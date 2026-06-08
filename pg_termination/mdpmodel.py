@@ -930,7 +930,7 @@ class Bandits(KnownModel):
         super().__init__(n_states, n_actions, c, P, gamma, rho, seed)
 
 class GridWorldWithTraps(KnownModel):
-    def __init__(self, length, n_traps, gamma, n_origins=-1, eps=0.05, time_limit=1024, seed=None, ergodic=False):
+    def __init__(self, length, n_traps, gamma, n_origins=-1, eps=0.05, time_limit=1024, seed=None, ergodic=False, low_dim=-1):
         """ Creates 2D gridworld with side length @length grid world with traps.
 
         Each step incurs a cost of +1
@@ -948,14 +948,23 @@ class GridWorldWithTraps(KnownModel):
         n_states = length*length
         n_actions = 4
         n_traps = min(n_traps, n_states-1)
+        n_targets = 1
         if n_origins == -1:
-            n_origins = n_states-n_traps-1
+            n_origins = n_states-n_traps-n_targets
 
         # have the same set of traps, origins, and traps
-        rng = np.random.default_rng(0)
-        rnd_pts = rng.choice(length*length, replace=False, size=n_traps+1+n_origins)
+        valid_points = np.arange(length*length)
+        if low_dim > 0:
+            valid_points_original = np.arange(low_dim * low_dim)
+            valid_points_proj_y = (valid_points_original // low_dim).astype('int')
+            valid_points_proj_x = (valid_points_original % low_dim).astype('int')
+            valid_points = valid_points_proj_y * length + valid_points_proj_x
 
-        rng = np.random.default_rng(seed)
+        rng = np.random.default_rng(0)
+        n_requested_pts = n_traps+n_targets+n_origins
+        n_rnd_pts = min(len(valid_points), n_requested_pts)
+        rnd_pts = rng.choice(valid_points, replace=False, size=n_rnd_pts)
+
         traps = rnd_pts[:n_traps]
         self.origins = rnd_pts[n_traps:n_traps+n_origins]
         rho = np.zeros(length*length, dtype=float)
@@ -1629,6 +1638,10 @@ def get_env(name, gamma, seed=None):
         env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_large":
         env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True)
+    elif name == "gridworld_small_low_dim":
+        env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, low_dim=10, time_limit=128)
+    elif name == "gridworld_large_low_dim":
+        env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True, low_dim=10, time_limit=128)
     elif name == "gridworld_hill_small":
         env = GridWorldWithTrapsAndHills(20, 20, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_hill_large":

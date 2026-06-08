@@ -116,8 +116,11 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_31/exp_7.py`: shorter full (via enhanced tuned) SPMD+CTD on GARNET 
 - `2026_05_31/exp_8.py`: shorter full (via enhanced tuned) SPMD+CTD on GridWorld
 - `2026_05_31/exp_9.py`: full (via enhanced tuned from exp_6) SPMD+CTD on GridWorld-loop
-- `2026_05_31/exp_10.py`: Full tune of SPMD+CTD on GARNET - enhanced + larger stepsizes
-- `2026_05_31/exp_11.py`: Full tune of SPMD+CTD on GridWorld - enhanced + larger stepsizes
+- `2026_05_31/exp_10.py`: Full tune of SPMD+CTD on GARNET - enhanced-v2 (new multipliers, mini-batch)
+- `2026_05_31/exp_11.py`: Full tune of SPMD+CTD on GridWorld - enhanced-v2 (new multipliers, mini-batch)
+- `2026_06_07/exp_0.py`: tune SPMD on GridWorld-lowdim
+- `2026_06_07/exp_1.py`: tune SARSA on GridWorld-lowdim
+- `2026_06_07/exp_2.py`: Full tune SPMD+CTD on GridWorld-lowdim - enhanced-v2 
 
 ## TODOs
 - Implement CTD (general state)
