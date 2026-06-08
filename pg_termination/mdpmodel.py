@@ -377,7 +377,7 @@ class MDPModel():
     def estimate_advantage_online_ctd(
             self, pi, Phi, Phi_max, Phi_min, ukappa, iota_mult, state_expl,
             is_finite_state, time_limit=np.inf, max_obs=np.inf, s_origin=None,
-            burn_in=False, N_mult=1.0, ell_0_mult=1.0, use_new_sig=False
+            burn_in=False, N_mult=1.0, uLam_mult=1.0,
     ):
         """
         Forms nearly unbiased TD estimator that is bounded w.h.p.
@@ -393,41 +393,38 @@ class MDPModel():
         :params max_obs: number of samples left (in sec)
         :params s_origin: Origin state. If 'None' (default), will choose reset
         :params N_mult: CTD N multiplier
-        :params ell_0_mult: ell_0 multiplier
+        :params uLam_mult: uLam multiplier
         :returns early_terminate: whether time ran out
         :returns hpsi: estimate of advantage function
         :returns hV: estimate of state value
         :returns cum_samples: total number of samples used
         """
-
         # parameter setup (for operator F)
         L = Phi_max**2
-        C1 = np.log(max(np.exp(1), Phi.shape[0]))*L
+        C1 = (Phi.shape[0]**2)*L
         C2 = L
 
         # parameter setup (for operator F with unknown kappa)
-        uLam = ukappa * Phi_min**2
-        umu  = (1.-self.gamma)*uLam
+        uLam = uLam_mult * ukappa * Phi_min**2
+        umu = (1.-self.gamma)*uLam
         oTheta = 1./np.sqrt((1.-self.gamma)*umu)
         theta = np.zeros(Phi.shape[1])
 
         # parameter setup (algorithmic terms)
-        ell_0 = ell_0_mult * max((L/umu)**2, C2/umu**2)
-        um   = (np.log(1./umu) + np.log(C1))/np.log(1./self.gamma)
-        # TODO: Remove old_sig
-        sig = C1*oTheta
-        new_sig = np.sqrt(C2)*oTheta
-        if use_new_sig:
-            sig = new_sig
+        ell_0 = max((L/umu)**2, C2/umu**2)
+        um   = max(np.log(1./umu), np.log(C1))/np.log(1./self.gamma)
+        sig = np.sqrt(C2)*oTheta
         R    = np.sqrt(np.max([oTheta**2, sig**2/umu**2, np.sqrt(C2)/umu]))
         B_1  = np.max([
                 np.sqrt((1.-self.gamma)**2*ell_0)/oTheta, 
                 ((1.-self.gamma)*sig/umu)**2, 
                 ((1.-self.gamma)**4 * R**2 * C2)/(umu**2)
         ])
-        # TODO: Remove 1-gamma multiplier
-        N    = int(max(1, N_mult*(1.-self.gamma)*max(B_1, ell_0))) # weak 1-gamma dependence
-        # print("N=%d" % N)
+        N    = int(max(1, N_mult*max(B_1, ell_0))) 
+        # only print CTD iterations first time
+        if not hasattr(self, "first_ctd_call"):
+            print("N=%d" % N)
+            self.first_ctd_call = False
 
         eps_expl_a = (1.-self.gamma)*ukappa
         eps_expl_s = (1.-self.gamma)/(-np.log(1.-self.gamma))**2 if state_expl else 0.
@@ -1544,7 +1541,7 @@ class Garnet(KnownModel):
        - b: branching factor, is number of next states transitions, where the probability is from Uni[0,1]
        - [sig_min_sq, sig_max_sq]: variance of cost at each c(s,a) - assume same mean of mu = 0.5
     """
-    def __init__(self, n_states, n_actions, gamma, b, sig_min_sq, sig_max_sq, seed=None):
+    def __init__(self, n_states, n_actions, gamma, b, sig_min_sq, sig_max_sq, time_limit_mult=20, seed=None):
         rng = np.random.default_rng(seed)
         n_states_remove = int((1.-b) * n_states)
         mu = 0
@@ -1560,7 +1557,7 @@ class Garnet(KnownModel):
         sigs_arr = np.sqrt(rng.uniform(sig_min_sq, sig_max_sq, size=((n_states, n_actions))))
         c = rng.normal(0, scale=sigs_arr)
         c = (c-np.min(c))/(np.max(c)-np.min(c))
-        time_limit = int(20/(1.-gamma))
+        time_limit = int(time_limit_mult/(1.-gamma))
 
         super().__init__(n_states, n_actions, c, P, gamma, time_limit=time_limit)
 

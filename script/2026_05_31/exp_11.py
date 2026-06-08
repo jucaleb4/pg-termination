@@ -24,12 +24,11 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 3600
-    # od["ctd_reg_ratio"] = 1.0
-    # od["ctd_feature_size_ratio"] = 1.0
     od["max_obs"] = math.inf
     od["s_origin"] = None
     od["ctd_reg_ratio"] = 1.0
-    od["ctd_use_new_sig"] = True
+    od["save_policy"] = True
+    od["ukappa"] = 1.0
 
     env_name_max_obs_arr = [
         ("gridworld_small", int(1e6)),
@@ -37,14 +36,18 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     ]
     update_type_ctd_feat_params_arr = [
         (int(pmd.Update.TSALLIS_UPDATE), 'Gaussian', -1), 
-        (int(pmd.Update.KL_UPDATE), 'rff', 1000)
+        (int(pmd.Update.KL_UPDATE), 'rff', 500)
     ]
     gamma_arr = [0.9, 0.99]
     eta_arr = [1e2, 5e-1, 1e-3]
-    ukappa_arr = [1e0,1e0/(10**0.25)] # [1e0, 2e-1]
-    for i in range(len(ukappa_arr)):
-        ukappa_arr[i] = int(1e3*ukappa_arr[i])/1e3
-    iota_mult_arr = [1e2, 5e-1, 1e-3]
+    uLam_mult_arr = [-1./3, -1./2] 
+    for i in range(len(uLam_mult_arr)):
+        uLam_mult_arr[i] = int(1e3*uLam_mult_arr[i])/1e3
+    n_batches_arr = [1, 10]
+    # ukappa_arr = [1e0,1e0/(10**0.25)] # [1e0, 2e-1]
+    # for i in range(len(ukappa_arr)):
+    #     ukappa_arr[i] = int(1e3*ukappa_arr[i])/1e3
+    iota_mult_arr = [1e2, 1e0]
     burn_in_arr = [False, True]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
@@ -58,40 +61,39 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "feat type", "feat size", "update", "eta", "iota_mult", "ukappa", "burn_in"]
-    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "feat type", "eta", "n_batches", "iota_mult", "uLam", "burn_in"]
+    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
         print("-" * (95+len(exp_metadata)-1))
 
     ct = 0
-    for ((env_name, max_obs), gamma, (update, feat_type, feat_size), eta, iota_mult, ukappa, burn_in) in itertools.product(
+    for ((env_name, max_obs), gamma, (update, feat_type, feat_size), eta, n_batches, iota_mult, uLam_mult, burn_in) in itertools.product(
             env_name_max_obs_arr, gamma_arr, update_type_ctd_feat_params_arr, 
-            eta_arr, iota_mult_arr, ukappa_arr, burn_in_arr,
-    ):
+            eta_arr, n_batches_arr, iota_mult_arr, uLam_mult_arr, burn_in_arr,
+    ):        
         od["env_name"] = env_name
         od["max_obs"] = max_obs
         od["gamma"] = gamma
         od["update_rule"] = update
         od["eta"] = eta
+        od["n_batches"] = n_batches
         od["ctd_feat_type"] = feat_type
         od["ctd_feat_size"] = feat_size
         od["ctd_iota_mult"] = iota_mult
-        od["ukappa"] = ukappa
+        od["ctd_uLam_mult"] = uLam_mult if uLam_mult > 0 else (1e-3*int(1e3*(1-gamma)**(uLam_mult)))
         od["ctd_burn_in"] = burn_in
-        # od["ctd_N_mult"] = 1.-gamma
-        od["ctd_ell_0_mult"] = 1.-gamma
+        od["ctd_N_mult"] = 1./n_batches
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
             print(row_format.format(ct, od["env_name"], od["gamma"], 
-                od["ctd_feat_type"], od["ctd_feat_size"], 
-                pmd.Update(od["update_rule"]).name[:7],
-                od["eta"], od["ctd_iota_mult"], od["ukappa"], od["ctd_burn_in"])
-            )
+                od["ctd_feat_type"], od["eta"], od["n_batches"], 
+                od["ctd_iota_mult"], od["ctd_uLam_mult"], od["ctd_burn_in"], 
+            ))
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])
