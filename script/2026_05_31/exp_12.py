@@ -32,12 +32,17 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     KL = int(pmd.Update.KL_UPDATE)
 
     env_name_params_arr = [
-        ("garnet_200", 0.9, "rff", 500, KL, 100, 1, 100, -1./3, 0),
-        ("garnet_200", 0.99, "rff", 500, KL, 100, 1, 100, -0.5, 0),
+        ("garnet_50", 0.9, "rff", 500, KL, 100, 10, 100, 1.0, 0),
+        ("garnet_50", 0.99,  "rff", 500, KL, 100, 10, 100, 1.0, 0),
+        ("garnet_50", 0.995, "rff", 500, KL, 100, 10, 100, 1.0, 0),
+        #
+        ("garnet_200", 0.9, "Gauss", -1, TS, 100, 1, 100, -0.5, 0),
+        ("garnet_200", 0.99,  "rff", 500, KL, 100, 1, 100, -0.5, 0),
         ("garnet_200", 0.995, "rff", 500, KL, 100, 1, 100, -0.5, 0),
-        ("garnet_1000", 0.9, "rff", 500, KL, 0.5, 1, 100, -0.5, 0),
-        ("garnet_1000", 0.99, "rff", 500, KL, 100, 1, 100, -1./3, 1),
-        ("garnet_1000", 0.995, "rff", 500, KL, 100, 1, 100, -1./3, 1),
+        #
+        ("garnet_1000", 0.9, "rff", 500, KL, 0.5, 10, 1, 1.0, 0),
+        ("garnet_1000", 0.99,  "rff", 500, KL, 100, 1, 100, -0.5, 0),
+        ("garnet_1000", 0.995, "rff", 500, KL, 100, 1, 100, -0.5, 0),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
