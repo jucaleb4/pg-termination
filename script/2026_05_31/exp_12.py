@@ -36,7 +36,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         ("garnet_200", 0.9, "rff", 500, KL, 100, 1, 100, -1./3, 0),
         ("garnet_200", 0.99, "rff", 500, KL, 100, 1, 100, -0.5, 0),
         ("garnet_200", 0.995, "rff", 500, KL, 100, 1, 100, -0.5, 0),
-        ("garnet_1000", 0.99, "rff", 500, KL, 0.5, 1, 100, -0.5, 0),
+        ("garnet_1000", 0.9, "rff", 500, KL, 0.5, 1, 100, -0.5, 0),
         ("garnet_1000", 0.99, "rff", 500, KL, 100, 1, 100, -1./3, 1),
         ("garnet_1000", 0.995, "rff", 500, KL, 100, 1, 100, -1./3, 1),
     ]

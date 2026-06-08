@@ -36,7 +36,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         ("gridworld_small", 0.9, "rff", 500, KL, 100, 10, 1, -1./3, 1),
         ("gridworld_small", 0.99, "rff", 500, KL, 100, 1, 100, -1./3, 1),
         ("gridworld_small", 0.995, "rff", 500, KL, 100, 1, 100, -1./3, 1),
-        ("gridworld_large", 0.99, "rff", 500, KL, 100, 10, 1, -0.5, 0),
+        ("gridworld_large", 0.9, "rff", 500, KL, 100, 10, 1, -0.5, 0),
         ("gridworld_large", 0.99, "rff", 500, KL, 100, 10, 100, -1./3, 1),
         ("gridworld_large", 0.995, "rff", 500, KL, 100, 10, 100, -1./3, 1),
     ]
