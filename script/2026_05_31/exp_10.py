@@ -23,7 +23,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
-    od["max_runtime_in_sec"] = 3600
+    od["max_runtime_in_sec"] = 600
     od["max_obs"] = math.inf
     od["s_origin"] = None
     od["ctd_reg_ratio"] = 1.0
@@ -40,7 +40,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         (int(pmd.Update.KL_UPDATE), 'rff', 500)
     ]
     gamma_arr = [0.9, 0.99]
-    eta_arr = [1e2, 5e-1, 1e-3]
+    eta_arr = [1e2, 5e-1] # 1e-3 rarely used
     uLam_mult_arr = [1, -1./2] 
     for i in range(len(uLam_mult_arr)):
         uLam_mult_arr[i] = int(1e3*uLam_mult_arr[i])/1e3
