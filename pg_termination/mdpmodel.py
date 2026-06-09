@@ -489,8 +489,11 @@ class MDPModel():
             (self.s, _, terminate) = self.step(a)
             cum_samples += 1
 
-        return (early_terminate, cum_samples)
+        # need to final check 
+        if ((time.time() - s_time) > time_limit) or (cum_samples > max_obs):
+            early_terminate = True
 
+        return (early_terminate, cum_samples)
 
     def _get_hF_estimate(
             self, pi, Phi, theta, m, eps_expl_a, eps_expl_s, time_limit, 
