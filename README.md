@@ -117,7 +117,9 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_31/exp_8.py`: shorter full (via enhanced tuned) SPMD+CTD on GridWorld (*DEPRECEATED* since unsure what we showed)
 - `2026_05_31/exp_9.py`: full (via enhanced tuned from exp_6) SPMD+CTD on GridWorld-loop
 - `2026_05_31/exp_10.py`: Full tune of SPMD+CTD on GARNET - enhanced-v2 (new multipliers, mini-batch)
-- `2026_05_31/exp_11.py`: Full tune of SPMD+CTD on GridWorld - enhanced-v2 (new multipliers, mini-batch)
+- `2026_05_31/exp_11.py`: full tune of spmd+ctd on gridworld - enhanced-v2 (new multipliers, mini-batch)
+- `2026_05_31/exp_12.py`: Full-run SPMD+CTD on GARNET using enhanced-v2 
+- `2026_05_31/exp_13.py`: full-run SPMD+CTD on gridworld using  enhanced-v2 
 - `2026_06_01/exp_0.py`: tune SPMD on GridWorld-lowdim
 - `2026_06_07/exp_0.py`: tune SPMD on GridWorld-lowdim
 - `2026_06_07/exp_1.py`: tune SARSA on GridWorld-lowdim
