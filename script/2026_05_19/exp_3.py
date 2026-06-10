@@ -28,9 +28,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
     estimator_arr = ["online_mc_fixed", "online_mc_estimate", "online_mc_dynamic"]
     env_gamma_T_eta_maxobs_arr = [
-        ("gridworld_footnote", 0.9, 400, 0.5, 5e6),
-        ("gridworld_footnote", 0.99, 400, 0.5, 5e6),
-        ("gridworld_footnote", 0.995, 2000, 0.02, 5e6),
+        ("gridworld_tiny", 0.9, 400, 0.5, 5e6),
+        ("gridworld_tiny", 0.99, 400, 0.5, 5e6),
+        ("gridworld_tiny", 0.995, 2000, 0.02, 5e6),
         ("gridworld_small", 0.9, 400, 0.02, 1e7),
         ("gridworld_small", 0.99, 2000, 0.5, 1e7), 
         ("gridworld_small", 0.995, 400, 0.5, 1e7), 
