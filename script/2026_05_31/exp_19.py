@@ -38,6 +38,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["ctd_feat_size"] = 1000
     od["ctd_burn_in"] = False
     od["ctd_N_mult"] = 1.
+    od["ctd_ortho_feat"] = True
 
     # tuning parameters
     env_name_arr = ["gridworld_tiny", "gridworld_small", "gridworld_large"]

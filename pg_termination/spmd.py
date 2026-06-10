@@ -311,7 +311,7 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep,
 
             # 3) regularize, either by add regularization (square) or QR (rectangular)
             Phi_max = Phi_min = 1.0
-            if n_Z == d:
+            if n_Z == d and (not settings['ctd_ortho_feat']):
                 ctd_reg = 1.0
                 s_time = time.time()
                 Phi_max = utils.rand_l2(Phi, env.rng) # la.norm(Phi, ord=2) <- too slow
@@ -325,12 +325,12 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep,
                 elif settings["ctd_reg_ratio"] is not None:
                     ctd_reg = settings["ctd_reg_ratio"]*Phi_max
                 else:
-                    warnings.warn("For square matrix, you must add regularization which is omitted.")
+                    warnings.warn("Omitted regularization for square matrix. Defaulting to ctd_reg=1")
 
                 Phi += ctd_reg*np.eye(n_Z)
                 Phi_min = max(1.0, ctd_reg)
                 Phi_max = max(Phi_min, Phi_max + ctd_reg)
-            elif d < n_Z:
+            elif d <= n_Z and settings['ctd_ortho_feat']:
                 s_time = time.time()
                 Q,R = la.qr(Phi)
                 Phi = Q
