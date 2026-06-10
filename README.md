@@ -106,6 +106,8 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_19/exp_4.py`: full SPMD on GridWorld-loop with Tsallis
 - `2026_05_19/exp_5.py`: Refined tuning-v1 SPMD-Dyn on GARNET
 - `2026_05_19/exp_6.py`: Refined tuning-v1 SPMD-Dyn on GridWorld
+- `2026_05_19/exp_7.py`: Full-run SPMD-Dyn on GARNET from Refined tuning-v1
+- `2026_05_19/exp_8.py`: Full-run SPMD-Dyn on GridWorld from Refined tuning-v1
 - `2026_05_20/exp_0.py`: GARNET OPT
 - `2026_05_20/exp_1.py`: GridWorld OPT (TBD)
 - `2026_05_31/exp_0.py`: Full-tune of SPMD+CTD on GARNET
@@ -124,6 +126,8 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_31/exp_13.py`: Full-run SPMD+CTD on Gridworld using  enhanced-v2 
 - `2026_05_31/exp_14.py`: Refined tuning-v1 SPMD+CTD on GARNET 
 - `2026_05_31/exp_15.py`: Refined tuning-v1 SPMD+CTD on gridworld 
+- `2026_05_31/exp_16.py`: Full-run SPMD+CTD on GARNET from refined tuning-v1
+- `2026_05_31/exp_17.py`: Full-run SPMD+CTD on GridWorld from refined tuning-v1
 - `2026_06_01/exp_0.py`: tune SPMD on GridWorld-lowdim
 - `2026_06_07/exp_0.py`: tune SPMD on GridWorld-lowdim
 - `2026_06_07/exp_1.py`: tune SARSA on GridWorld-lowdim
