@@ -104,6 +104,8 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_19/exp_2.py`: full SPMD on GARNET with Tsallis
 - `2026_05_19/exp_3.py`: full SPMD on GridWorld with Tsallis
 - `2026_05_19/exp_4.py`: full SPMD on GridWorld-loop with Tsallis
+- `2026_05_19/exp_5.py`: Refined tuning-v1 SPMD-Dyn on GARNET
+- `2026_05_19/exp_6.py`: Refined tuning-v1 SPMD-Dyn on GridWorld
 - `2026_05_20/exp_0.py`: GARNET OPT
 - `2026_05_20/exp_1.py`: GridWorld OPT (TBD)
 - `2026_05_31/exp_0.py`: Full-tune of SPMD+CTD on GARNET
@@ -117,9 +119,11 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_31/exp_8.py`: shorter full (via enhanced tuned) SPMD+CTD on GridWorld (*DEPRECEATED* since unsure what we showed)
 - `2026_05_31/exp_9.py`: full (via enhanced tuned from exp_6) SPMD+CTD on GridWorld-loop
 - `2026_05_31/exp_10.py`: Full tune of SPMD+CTD on GARNET - enhanced-v2 (new multipliers, mini-batch)
-- `2026_05_31/exp_11.py`: full tune of spmd+ctd on gridworld - enhanced-v2 (new multipliers, mini-batch)
+- `2026_05_31/exp_11.py`: Full tune of spmd+ctd on gridworld - enhanced-v2 (new multipliers, mini-batch)
 - `2026_05_31/exp_12.py`: Full-run SPMD+CTD on GARNET using enhanced-v2 
-- `2026_05_31/exp_13.py`: full-run SPMD+CTD on gridworld using  enhanced-v2 
+- `2026_05_31/exp_13.py`: Full-run SPMD+CTD on Gridworld using  enhanced-v2 
+- `2026_05_31/exp_14.py`: Refined tuning-v1 SPMD+CTD on GARNET 
+- `2026_05_31/exp_15.py`: Refined tuning-v1 SPMD+CTD on gridworld 
 - `2026_06_01/exp_0.py`: tune SPMD on GridWorld-lowdim
 - `2026_06_07/exp_0.py`: tune SPMD on GridWorld-lowdim
 - `2026_06_07/exp_1.py`: tune SARSA on GridWorld-lowdim
