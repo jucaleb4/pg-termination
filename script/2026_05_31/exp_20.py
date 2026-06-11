@@ -25,6 +25,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 3600
     od["max_obs"] = math.inf
+    od["min_obs"] = 1e7
     od["s_origin"] = None
     od["ukappa"] = 1.0
 
