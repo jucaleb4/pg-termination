@@ -136,6 +136,8 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_06_07/exp_0.py`: tune SPMD on GridWorld-lowdim
 - `2026_06_07/exp_1.py`: tune SARSA on GridWorld-lowdim
 - `2026_06_07/exp_2.py`: Full tune SPMD+CTD on GridWorld-lowdim - enhanced-v2 
+- `2026_06_12/exp_0.py`: Refined tuning-v3 SPMD+CTD on GARNET (zero func-err)
+- `2026_06_12/exp_1.py`: Refined tuning-v3 SPMD+CTD on GridWorld (zero func-err)
 
 ## TODOs
 - Implement CTD (general state)

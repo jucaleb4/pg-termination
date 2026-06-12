@@ -306,12 +306,17 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep,
                 sigma = 1.
                 W = (2 * rbf_gamma)**0.5 * env.rng.normal(size=(n_Z, d))
                 Phi = np.sqrt(2./W.shape[0]) * np.cos(sigma * W)
+            elif settings['ctd_feat_type'] == 'Id':
+                Phi = np.eye(n_Z)
+                d = n_Z
             else:
                 raise Exception("Unknown CTD feature type %s" % settings['ctd_feat_type'])
 
             # 3) regularize, either by add regularization (square) or QR (rectangular)
             Phi_max = Phi_min = 1.0
-            if n_Z == d and (not settings['ctd_ortho_feat']):
+            if settings['ctd_feat_type'] == 'Id':
+                pass
+            elif n_Z == d and (not settings['ctd_ortho_feat']):
                 ctd_reg = 1.0
                 s_time = time.time()
                 Phi_max = utils.rand_l2(Phi, env.rng) # la.norm(Phi, ord=2) <- too slow
