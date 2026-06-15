@@ -33,8 +33,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     # fixed parameters
     od["update_rule"] = KL
     od["n_batches"] = 1
-    od["ctd_feat_size"] = 1000
+    od["ctd_feat_size"] = 200
     od["ctd_ortho_feat"] = True
+    od["ctd_feat_type"] = 'Gaussian'
     od["ctd_burn_in"] = False
     od["ctd_N_mult"] = 1.
     od['s_origin'] = None
@@ -42,7 +43,6 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     # tuning parameters
     env_name_arr = ["garnet_1000", "garnet_5000"]
     gamma_arr = [0.9, 0.99]
-    ctd_feat_type_arr = ['Gaussian', 'Id']
     eta_arr = [1e4, 1e2, 1e0] 
     iota_mult_arr = [2e3, 5e1, 1e0]
     uLam_mult_arr = [1, -1./2] 
@@ -58,20 +58,19 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "feat_type", "eta", "iota_mult", "uLam"]
-    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "eta", "iota_mult", "uLam"]
+    row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (75+len(exp_metadata)-1))
+        print("-" * (65+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, gamma, feat_type, eta, iota_mult, uLam_mult) in itertools.product(
-            env_name_arr, gamma_arr, ctd_feat_type_arr, eta_arr, iota_mult_arr, uLam_mult_arr, 
+    for (env_name, gamma, eta, iota_mult, uLam_mult) in itertools.product(
+            env_name_arr, gamma_arr, eta_arr, iota_mult_arr, uLam_mult_arr, 
     ):
         od["env_name"] = env_name
         od["gamma"] = gamma
-        od["ctd_feat_type"] = feat_type
         od["eta"] = eta
         od["ctd_iota_mult"] = iota_mult
         od["ctd_uLam_mult"] = uLam_mult if uLam_mult > 0 else (1e-3*int(1e3*(1-gamma)**(uLam_mult)))
@@ -81,8 +80,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
         if not skip_save:
             print(row_format.format(ct, od["env_name"], od["gamma"], 
-                od["ctd_feat_type"], od["eta"], od["ctd_iota_mult"], 
-                od["ctd_uLam_mult"], 
+                od["eta"], od["ctd_iota_mult"], od["ctd_uLam_mult"], 
             ))
 
             if not(os.path.exists(od["log_folder"])):
