@@ -154,7 +154,7 @@ def policy_eval(
     avg_V = np.zeros(env.n_states, dtype=float)
     total_samples = 0
     total_est_samples = 0
-    tmix = nu = 0
+    tmix = unu = 0
 
     for i in range(settings["n_batches"]):
         time_left = time_limit - (time.time() - s_time)
