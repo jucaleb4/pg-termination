@@ -377,7 +377,7 @@ class MDPModel():
     def estimate_advantage_online_ctd(
             self, pi, Phi, Phi_max, Phi_min, ukappa, iota_mult, state_expl,
             is_finite_state, time_limit=np.inf, max_obs=np.inf, s_origin=None,
-            burn_in=False, N_mult=1.0, uLam_mult=1.0,
+            burn_in=False, N_mult=1.0, uLam_mult=1.0, traj_length=np.inf
     ):
         """
         Forms nearly unbiased TD estimator that is bounded w.h.p.
@@ -391,9 +391,10 @@ class MDPModel():
         :params is_finite_state: TODO - whether state space is finite
         :params time_limit: amount of time left (in sec)
         :params max_obs: number of samples left (in sec)
-        :params s_origin: Origin state. If 'None' (default), will choose reset
+        :params s_origin: Origin state. 'Reset' for reset on terminate. Else, None is fixed trajectory length
         :params N_mult: CTD N multiplier
         :params uLam_mult: uLam multiplier
+        :params traj_length: fixed trajectory length (only used if s_origin=None)
         :returns early_terminate: whether time ran out
         :returns hpsi: estimate of advantage function
         :returns hV: estimate of state value
@@ -413,6 +414,7 @@ class MDPModel():
         # parameter setup (algorithmic terms)
         ell_0 = max((L/umu)**2, C2/umu**2)
         um   = max(np.log(1./umu), np.log(C1))/np.log(1./self.gamma)
+
         sig = np.sqrt(C2)*oTheta
         R    = np.sqrt(np.max([oTheta**2, sig**2/umu**2, np.sqrt(C2)/umu]))
         B_1  = np.max([
@@ -450,7 +452,7 @@ class MDPModel():
             iota = iota_mult/((ell_0 + t)*umu)
             (early_terminate, hF_t, n_samples) = self._get_hF_estimate(
                 pi, Phi, theta, um, eps_expl_a, eps_expl_s, time_left, 
-                obs_left, s_origin, burn_in
+                obs_left, s_origin, burn_in, traj_length,
             )
             if early_terminate:
                 empty_psi = np.zeros((self.n_states, self.n_actions))
@@ -466,21 +468,24 @@ class MDPModel():
 
         return (early_terminate, hpsi, hV, cum_samples)
 
-    def _hF_waiting_period(self, pi, eps_expl_s, s_time, time_limit, max_obs, s_origin, cum_samples):
+    def _hF_waiting_period(self, pi, eps_expl_s, s_time, time_limit, max_obs, s_origin, cum_samples, traj_length):
         terminate = False # for env
         early_terminate = False # for budget
         checkpoint = 128
         is_s_origin_random = isinstance(s_origin, np.ndarray)
 
         pi_expl_s = (1.-eps_expl_s)*pi + (eps_expl_s/self.n_actions)
+        ct = 0
         while 1:
-            if (s_origin is None) and terminate:
+            if (s_origin is None) and (ct >= traj_length):
+                break
+            if (s_origin == 'reset') and terminate:
                 break
             if (not is_s_origin_random) and self.s == s_origin:
                 break
             if is_s_origin_random and (self.rng.random() < s_origin[self.s]):
                 break
-            if cum_samples == checkpoint:
+            if ct == checkpoint:
                 if ((time.time() - s_time) > time_limit) or (cum_samples > max_obs):
                     early_terminate = True
                     return (early_terminate, cum_samples)
@@ -488,6 +493,7 @@ class MDPModel():
             a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
             (self.s, _, terminate) = self.step(a)
             cum_samples += 1
+            ct += 1
 
         # need to final check 
         if ((time.time() - s_time) > time_limit) or (cum_samples > max_obs):
@@ -497,7 +503,7 @@ class MDPModel():
 
     def _get_hF_estimate(
             self, pi, Phi, theta, m, eps_expl_a, eps_expl_s, time_limit, 
-            max_obs, s_origin, burn_in, 
+            max_obs, s_origin, burn_in, traj_length
         ):
         """
         Forms stochastic TD estimator
@@ -510,6 +516,7 @@ class MDPModel():
         :params time_limit: amount of time left (in sec)
         :params s_origin: see 'estimate_advantage_online_ctd'
         :params burn_in: use burn in to construct hF estimate
+        :params traj_length: fixed trajectory length (only used if s_origin=None)
         :returns early_terminate: whether time ran out
         :returns hF: stochastic estimator
         :returns cum_samples: total number of samples used
@@ -521,11 +528,11 @@ class MDPModel():
         early_terminate = False
         hF = np.zeros(Phi.shape[1])
 
-        if rand_t >= m: 
+        if (s_origin is not None) and rand_t >= m: 
             return (early_terminate, hF, cum_samples)
 
         (early_terminate, cum_samples) = self._hF_waiting_period(
-            pi, eps_expl_s, s_time, time_limit, max_obs, s_origin, cum_samples
+            pi, eps_expl_s, s_time, time_limit, max_obs, s_origin, cum_samples, traj_length
         )
         if early_terminate:
             return (early_terminate, hF, cum_samples)
@@ -538,6 +545,7 @@ class MDPModel():
             (s_t_next, c_t, _) = self.step(a_t)
             cum_samples += 1
 
+            # TODO: Burn-in for non-s_origin
             for t in range(rand_t+1):
                 a_t_next = self.rng.choice(pi.shape[0], p=pi[:,s_t_next])
 
@@ -554,10 +562,11 @@ class MDPModel():
                 cum_samples += 1
 
         else:
-            for t in range(rand_t):
-                a = self.rng.choice(pi.shape[0], p=pi[:,self.s])
-                self.step(a)
-            cum_samples += rand_t
+            if s_origin is not None:
+                for t in range(rand_t):
+                    a = self.rng.choice(pi.shape[0], p=pi[:,self.s])
+                    self.step(a)
+                cum_samples += rand_t
 
             # form TD operator
             pi_expl_a = (1.-eps_expl_a)*pi + (eps_expl_a/self.n_actions)
@@ -1641,6 +1650,8 @@ def get_env(name, gamma, seed=None):
         env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_large":
         env = GridWorldWithTraps(50, 50, gamma, seed=seed, ergodic=True)
+    elif name == "gridworld_giant":
+        env = GridWorldWithTraps(100, 50, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_small_low_dim":
         env = GridWorldWithTraps(20, 20, gamma, seed=seed, ergodic=True, low_dim=10, time_limit=128)
     elif name == "gridworld_large_low_dim":
@@ -1681,8 +1692,8 @@ def get_env(name, gamma, seed=None):
         env = Garnet(500, 30, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "garnet_1000":
         env = Garnet(1000, 30, gamma, 0.2, 0.5, 2.0, seed=seed)
-    elif name == "garnet_2500":
-        env = Garnet(2500, 30, gamma, 0.2, 0.5, 2.0, seed=seed)
+    elif name == "garnet_10000":
+        env = Garnet(10_000, 4, gamma, 0.2, 0.5, 2.0, seed=seed)
     else:
         raise Exception("Unknown env_name=%s" % name)
 

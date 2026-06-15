@@ -14,7 +14,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Refined tuning-v3 SPMD+CTD on GARNET (zero func-err)"
+ABOUT = "Tuning SPMD+CTD comparisons on large GARNETs (s_origin = 'reset')"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -23,31 +23,29 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
-    od["max_runtime_in_sec"] = 1800
+    od["max_runtime_in_sec"] = 600
     od["max_obs"] = math.inf
-    od["s_origin"] = None
     od["ukappa"] = 1.0
 
     TS = int(pmd.Update.TSALLIS_UPDATE)
     KL = int(pmd.Update.KL_UPDATE)
 
     # fixed parameters
-    od["update_rule"] = TS
+    od["update_rule"] = KL
     od["n_batches"] = 1
-    od["ctd_feat_size"] = -1
+    od["ctd_feat_size"] = 1000
+    od["ctd_ortho_feat"] = True
     od["ctd_burn_in"] = False
     od["ctd_N_mult"] = 1.
+    od['s_origin'] = 'reset'
 
     # tuning parameters
-    env_name_arr = ["garnet_50", "garnet_200"]
+    env_name_arr = ["garnet_1000", "garnet_10000"]
     gamma_arr = [0.9, 0.99]
-
     ctd_feat_type_arr = ['Gaussian', 'Id']
     eta_arr = [1e4, 1e2, 1e0] 
     iota_mult_arr = [2e3, 5e1, 1e0]
     uLam_mult_arr = [1, -1./2] 
-    for i in range(len(uLam_mult_arr)):
-        uLam_mult_arr[i] = int(1e3*uLam_mult_arr[i])/1e3
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)

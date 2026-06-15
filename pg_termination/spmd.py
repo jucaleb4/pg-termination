@@ -154,6 +154,7 @@ def policy_eval(
     avg_V = np.zeros(env.n_states, dtype=float)
     total_samples = 0
     total_est_samples = 0
+    tmix = nu = 0
 
     for i in range(settings["n_batches"]):
         time_left = time_limit - (time.time() - s_time)
@@ -182,6 +183,21 @@ def policy_eval(
                 settings["ctd_N_mult"], settings['ctd_uLam_mult'],
             )
             (early_terminate, psi, V, n_samples) = output
+        elif settings["estimate_Q"] == "ctd_estimate": 
+            tmix, nu = env.get_mixing_time_ub(pi)
+            unu = np.min(nu)
+            (early_terminate, nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=unu, time_limit=time_left/2)
+            if early_terminate:
+                n_eval_samples = 0
+                return (early_terminate, avg_psi, avg_V, n_eval_samples, n_est_samples)
+            traj_length = int(1./(1-env.gamma) + (tmix_est*env.n_actions)/(np.min(nu_est)*(1.-env.gamma)) + 1)
+            output = env.estimate_advantage_online_ctd(
+                pi, Phi, Phi_max, Phi_min, ukappa, settings['ctd_iota_mult'], 
+                settings['ctd_state_expl'], is_finite_state, time_left, obs_left,
+                settings['s_origin'], settings['ctd_burn_in'], 
+                settings["ctd_N_mult"], settings['ctd_uLam_mult'], traj_length
+            )
+            (early_terminate, psi, V, n_samples) = output
         else: 
             raise Exception("Unknown estimate_Q setting %s" % settings["estimate_Q"])
 
@@ -194,7 +210,7 @@ def policy_eval(
         avg_psi = (1.-alpha)*avg_psi + alpha*psi
         avg_V = (1.-alpha)*avg_V + alpha*V
 
-    return (early_terminate, avg_psi, avg_V, total_samples, total_est_samples) 
+    return (early_terminate, avg_psi, avg_V, total_samples, total_est_samples, tmix, unu) 
 
 def print_spmd_progress(env, t, V_t, psi_t, agg_V_t, agg_psi_t, true_V_t, true_psi_t, logger):
     """ Print and updates SPMD certificates.
@@ -288,7 +304,7 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep,
 
     Phi_max = Phi_min = 1.0
     theta_0 = None
-    if settings["estimate_Q"] == "ctd": 
+    if settings["estimate_Q"] in ["ctd", "ctd_estimate"]:
         if is_finite_state: # finite state and action
             # 1) Compute size. Check absolute value, then ratio
             n_Z = env.n_states*env.n_actions
@@ -341,7 +357,7 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep,
                 Phi = Q
                 print("Finished QR-factor of feature matrix of size %dx%d (time=%.2fs)" % (n_Z, d, time.time() - s_time))
             else:
-                raise Exception("Number of features %d exceeds |Z|=%d" % (d, n_Z))
+                raise Exception("Number of features %d exceeds |Z|=%d (maybe you forgot to set 'ctd_ortho_feat=True')" % (d, n_Z))
 
         else: # finite action and continuous state
             Phi = env.rng.normal(size=(env.n_states, env.n_state_dim, d))
@@ -361,7 +377,11 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep,
         output = policy_eval(env, settings, pi_t, Phi, Phi_max, Phi_min, ukappa,
                 is_finite_state, time_left, obs_left,
         )
-        (early_terminate, psi_t, V_t, n_samples, n_est_samples) = output
+        (early_terminate, psi_t, V_t, n_samples, n_est_samples, tmix_temp, unu_temp) = output
+
+        if tmix_temp is not None:
+            tmix = tmix_temp
+            unu = unu_temp
 
         # log mixing information before possibly early termination
         cum_samples += n_samples

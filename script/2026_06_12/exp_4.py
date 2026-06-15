@@ -14,7 +14,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Refined tuning-v3 SPMD+CTD on GARNET (zero func-err)"
+ABOUT = "Manual full run of GARNET (derivative of exp_2.py)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -23,31 +23,35 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
-    od["max_runtime_in_sec"] = 1800
+    od["max_runtime_in_sec"] = 3600
     od["max_obs"] = math.inf
+    od["min_obs"] = 1e7
     od["s_origin"] = None
     od["ukappa"] = 1.0
 
     TS = int(pmd.Update.TSALLIS_UPDATE)
     KL = int(pmd.Update.KL_UPDATE)
-
-    # fixed parameters
-    od["update_rule"] = TS
+    # fixed
+    od["update_rule"] = KL
     od["n_batches"] = 1
     od["ctd_feat_size"] = -1
     od["ctd_burn_in"] = False
     od["ctd_N_mult"] = 1.
+    od["ctd_ortho_feat"] = True
 
-    # tuning parameters
-    env_name_arr = ["garnet_50", "garnet_200"]
-    gamma_arr = [0.9, 0.99]
-
-    ctd_feat_type_arr = ['Gaussian', 'Id']
-    eta_arr = [1e4, 1e2, 1e0] 
-    iota_mult_arr = [2e3, 5e1, 1e0]
-    uLam_mult_arr = [1, -1./2] 
-    for i in range(len(uLam_mult_arr)):
-        uLam_mult_arr[i] = int(1e3*uLam_mult_arr[i])/1e3
+    env_name_params_arr = [
+        ("garnet_50", 0.9, 'Id', 1e4, 5e1, 1), # match gamma=0.99
+        ("garnet_50", 0.99, 'Id', 1e4, 2e3, 1),
+        ("garnet_50", 0.995, 'Id', 1e4, 2e3, 1),
+        #
+        ("garnet_200", 0.9, 'Id', 1e4, 5e1, 1), # just copy garnet_50
+        ("garnet_200", 0.99, 'Id', 1e4, 2e3, 1),
+        ("garnet_200", 0.995, 'Id', 1e4, 2e3, 1),
+        # 
+        ("garnet_200", 0.9, 'Gaussian', 1e4, 5e1, 1), # just copy garnet_50
+        ("garnet_200", 0.99, 'Gaussian', 1e4, 2e3, 1),
+        ("garnet_200", 0.995, 'Gaussian', 1e4, 2e3, 1),
+    ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
@@ -60,7 +64,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "feat_type", "eta", "iota_mult", "uLam"]
+    exp_metadata = ["Exp id", "Env name", "feat_type", "gamma", "eta", "iota_mult", "uLam_mult"]
     row_format ="{:>10}|{:>15}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
@@ -68,12 +72,10 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("-" * (75+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, gamma, feat_type, eta, iota_mult, uLam_mult) in itertools.product(
-            env_name_arr, gamma_arr, ctd_feat_type_arr, eta_arr, iota_mult_arr, uLam_mult_arr, 
-    ):
+    for (env_name, gamma, ctd_feat_type, eta, iota_mult, uLam_mult) in env_name_params_arr:
         od["env_name"] = env_name
         od["gamma"] = gamma
-        od["ctd_feat_type"] = feat_type
+        od["ctd_feat_type"] = ctd_feat_type
         od["eta"] = eta
         od["ctd_iota_mult"] = iota_mult
         od["ctd_uLam_mult"] = uLam_mult if uLam_mult > 0 else (1e-3*int(1e3*(1-gamma)**(uLam_mult)))
@@ -84,7 +86,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         if not skip_save:
             print(row_format.format(ct, od["env_name"], od["gamma"], 
                 od["ctd_feat_type"], od["eta"], od["ctd_iota_mult"], 
-                od["ctd_uLam_mult"], 
+                od["ctd_uLam_mult"],
             ))
 
             if not(os.path.exists(od["log_folder"])):
