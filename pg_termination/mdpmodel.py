@@ -1692,6 +1692,8 @@ def get_env(name, gamma, seed=None):
         env = Garnet(500, 30, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "garnet_1000":
         env = Garnet(1000, 30, gamma, 0.2, 0.5, 2.0, seed=seed)
+    elif name == "garnet_5000":
+        env = Garnet(5000, 8, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "garnet_10000":
         env = Garnet(10_000, 4, gamma, 0.2, 0.5, 2.0, seed=seed)
     else:

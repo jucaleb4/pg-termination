@@ -40,7 +40,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od['s_origin'] = 'reset'
 
     # tuning parameters
-    env_name_arr = ["garnet_1000", "garnet_10000"]
+    env_name_arr = ["garnet_1000", "garnet_5000"]
     gamma_arr = [0.9, 0.99]
     ctd_feat_type_arr = ['Gaussian', 'Id']
     eta_arr = [1e4, 1e2, 1e0] 
