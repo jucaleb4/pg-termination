@@ -52,7 +52,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("ctd_N_mult", 1.0), 
         ("ctd_uLam_mult", 1),
         ("ctd_ortho_feat", False),
-        ("s_origin", None),
+        ("s_origin", 'reset'),
         ("tune_exploration", False),
         ("successive_half_trials", 16), # change to 4
         ("min_T_mc", 100), # change to 1e2
@@ -94,7 +94,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("ctd_N_mult", "CTD iterations multiplier"),
         ("ctd_uLam_mult", "CTD parameter uLam multiplier"),
         ("ctd_ortho_feat", "Orthogonalize feature matrix. Does it automatically if d < |Z|"),
-        ("s_origin", "Origin rule for CTD. None for reset, otherwise 'rand' for empirical distribution"),
+        ("s_origin", "Origin rule for CTD. None for fixed trajectory length, otherwise 'reset' or 'rand'"),
         ("tune_exploration", "Tune exploration time in Monte Carlo"),
         ("successive_half_trials", "Number of trials in successive halving tuning"),
         ("min_T_mc", "Minimum Monte Carlo exploration time in tuning"),
