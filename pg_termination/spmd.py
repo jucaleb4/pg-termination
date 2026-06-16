@@ -170,7 +170,7 @@ def policy_eval(
             (early_terminate, nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=unu, time_limit=time_left/2)
             if early_terminate:
                 n_eval_samples = 0
-                return (early_terminate, avg_psi, avg_V, n_eval_samples, n_est_samples)
+                return (early_terminate, avg_psi, avg_V, n_eval_samples, n_est_samples, tmix, unu)
             T = int(1./(1-env.gamma) + (tmix_est*env.n_actions)/(np.min(nu_est)*(1.-env.gamma)) + 1)
             (early_terminate, psi, V, n_samples) = env.estimate_advantage_online_mc(pi, T, settings["pi_threshold"], time_limit=time_left/2)
         elif settings["estimate_Q"] == "online_mc_dynamic":
@@ -189,7 +189,7 @@ def policy_eval(
             (early_terminate, nu_est, tmix_est, n_est_samples) = env.estimate_mixing_properties(pi, 0, tmix=tmix, nu=unu, time_limit=time_left/2)
             if early_terminate:
                 n_eval_samples = 0
-                return (early_terminate, avg_psi, avg_V, n_eval_samples, n_est_samples)
+                return (early_terminate, avg_psi, avg_V, n_eval_samples, n_est_samples, tmix, unu)
             traj_length = int(1./(1-env.gamma) + (tmix_est*env.n_actions)/(np.min(nu_est)*(1.-env.gamma)) + 1)
             output = env.estimate_advantage_online_ctd(
                 pi, Phi, Phi_max, Phi_min, ukappa, settings['ctd_iota_mult'], 
