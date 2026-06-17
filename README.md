@@ -145,6 +145,7 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_06_14/exp_1.py`: Tuning SPMD+CTD comparisons on large GARNETs (s_origin = None)
 - `2026_06_14/exp_2.py`: Full run SPMD+CTD-estimate on large GARNETs (includes estimate and reset)
 - `2026_06_15/exp_0.py`: Full run of SPMD+CTD-estimate on GARNET with refined tuning-v3
+- `2026_06_15/exp_1.py`: Full run of SPMD+CTD-estimate on GridWorld with refined tuning-v3
 
 ## TODOs
 - Implement CTD (general state)
