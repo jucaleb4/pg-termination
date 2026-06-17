@@ -32,6 +32,10 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         ("garnet_1000", 0.9, 1e-5, int(2e7)),
         ("garnet_1000", 0.99, 1e-5, int(2e7)),
         ("garnet_1000", 0.995, 1e-5, int(2e7)),
+        #
+        ("garnet_50", 0.9, 1e-5, int(5e6)), # we only test gamma=0.99, added three to keep same experimental structure
+        ("garnet_50", 0.99, 1e-5, int(2.5e7)), # test longer to compare SPMD+CTD
+        ("garnet_50", 0.995, 1e-5, int(5e6)),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
