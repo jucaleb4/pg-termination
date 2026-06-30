@@ -4,6 +4,7 @@ import itertools
 import argparse
 import yaml
 import re
+import math
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "."+".", "."+"."))
 sys.path.insert(0, parent_dir)
@@ -22,7 +23,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = True
     od["update_rule"] = int(pmd.Update.TSALLIS_UPDATE)
     od["n_iters"] = 1_000
-    od["max_obs"] = np.inf
+    od["max_obs"] = math.inf
     od["max_runtime_in_sec"] = 1800
     od["no_validation_gamma"] = True
 
