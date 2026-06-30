@@ -132,7 +132,7 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_31/exp_19.py`: Refined tuning-v2 SPMD+CTD on gridworld 
 - `2026_05_31/exp_20.py`: Full-run SPMD+CTD on GARNET from refined tuning-v2
 - `2026_05_31/exp_21.py`: Full-run SPMD+CTD on GridWorld from refined tuning-v2
-- `2026_06_01/exp_0.py`: tune SPMD on GridWorld-lowdim
+- `2026_06_01/exp_0.py`: Baselines (uniform random policy) for GARNET, GW, and GridWorld-lodim
 - `2026_06_07/exp_0.py`: tune SPMD on GridWorld-lowdim
 - `2026_06_07/exp_1.py`: tune SARSA on GridWorld-lowdim
 - `2026_06_07/exp_2.py`: Full tune SPMD+CTD on GridWorld-lowdim - enhanced-v2 
@@ -146,6 +146,9 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_06_14/exp_2.py`: Full run SPMD+CTD-estimate on large GARNETs (includes estimate and reset)
 - `2026_06_15/exp_0.py`: Full run of SPMD+CTD-estimate on GARNET with refined tuning-v3
 - `2026_06_15/exp_1.py`: Full run of SPMD+CTD-estimate on GridWorld with refined tuning-v3
+- `2026_06_30/exp_0.py`: Tune SPMD MC-Dyn on Discreteized-Inventory 
+- `2026_06_30/exp_1.py`: Tune SPMD MC+CTD-Dyn on Discreteized-Inventory 
+- `2026_06_30/exp_2.py`: Tune PPO on Discreteized-Inventory 
 
 ## TODOs
 - Implement CTD (general state)

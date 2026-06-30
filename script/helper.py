@@ -28,6 +28,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("eps", math.exp(-10)),
         ("delta", 1e-2),
         ("save_policy", False),
+        ("no_validation_gamma", False),
         ("stepsize_rule", int(pmd.StepSize.SUBLINEAR)), 
         ("update_rule", int(pmd.Update.KL_UPDATE)),
         ("estimate_Q", "online_mc_fixed"),
@@ -59,6 +60,20 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("max_T_mc", 2e6), # change to 1e4
         ("qlearn_alpha", -1),
         ("ukappa", 1),
+        ("ppo_cuda", False),
+        ("ppo_lr", 2.5e-4),
+        ("ppo_rollout_len", 128),
+        ("ppo_anneal_lr", True),
+        ("ppo_gae_lambda", 0.95),
+        ("ppo_num_minibatches", 1),
+        ("ppo_update_epochs", 4),
+        ("ppo_norm_adv", True),
+        ("ppo_clip_coef", 0.2),
+        ("ppo_clip_vloss", True),
+        ("ppo_ent_coef", 0.01),
+        ("ppo_vf_coef", 0.5),
+        ("ppo_max_grad_norm", 0.5),
+        ("ppo_target_kl", None),
     ])
 
     od_info = [
@@ -71,6 +86,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("eps", "acc tolerance. Used for dynamic mixing time and CTD"),
         ("delta", "failure rate (only used by CTD for robust est)"),
         ("save_policy", "Save last-iterate policy"),
+        ("no_validation_gamma", "Remove discount factor from eval"),
         ("stepsize_rule", "stepsize rule (const, decr). See pmd.StepSizeint enum"),
         ("update_rule", "pmd update (euc, kl, tsallis)"),
         ("estimate_Q", "how to estimate Q (generative, online_mc_fixed, online_mc_estimate, online_mc_dynamic)"),
@@ -100,76 +116,20 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("min_T_mc", "Minimum Monte Carlo exploration time in tuning"),
         ("max_T_mc", "Maximum Monte Carlo exploration time in tuning"),
         ("ukappa", "Lower bound on kappa"),
-    ]
-
-    if print_info:
-        print("About:\n\t%s" % about)
-        exp_metadata = ["setting", "description"]
-        row_format ="{:<20}|{:<60}"
-        print("")
-        print(row_format.format(*exp_metadata))
-        print("-" * (80+len(exp_metadata)-1))
-        for name, description in od_info:
-            print(row_format.format(name, description))
-        print("-" * (80+len(exp_metadata)-1))
-
-    return od
-
-def get_clean_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
-    od = dict([
-        ("seed_0", seed_0), 
-        ("n_seeds", n_seeds), 
-        ("num_iterations", n_iters), 
-        ("max_runtime_in_sec", 3600),
-        ("alg", "clean_ppo"),
-        ("env_name", "gridworld_small"), 
-        ("gamma", 0.99),
-        ("torch_deterministic", True),
-        ("cuda", False),
-        ("num_steps: 128"), # tune this
-        ("total_timesteps", 500_000),
-        ("learning_rate", 2.5e-4), # tune this
-        ("anneal_lr", True),
-        ("gae_lambda", 0.95),
-        ("num_minibatches", 4),
-        ("update_epochs", 4),
-        ("norm_adv", True),
-        ("clip_coef", 0.2),
-        ("clip_vloss", True),
-        ("ent_coef", 0.01),
-        ("vf_coef", 0.5),
-        ("max_grad_norm", 0.5),
-        ("target_kl", None),
-        ("ukappa", 1),
-    ])
-
-    # TODO: Update this
-    od_info = [
-        ("seed_0", "start seed"), 
-        ("n_seeds", "num seeds"), 
-        ("n_iters", "num SPMD iters"),
-        ("max_runtime_in_sec", "max runtime before SPMD early terminates (only for SPMD)"),
-        ("alg", "which algorithm to run ('pmd', 'spmd', 'policyiter')"),
-        ("eps", "acc tolerance. Used for dynamic mixing time and CTD"),
-        ("delta", "failure rate (only used by CTD for robust est)"),
-        ("stepsize_rule", "stepsize rule (const, decr). See pmd.StepSizeint enum"),
-        ("update_rule", "pmd update (euc, kl, tsallis)"),
-        ("estimate_Q", "how to estimate Q (generative, online_mc_fixed, online_mc_estimate, online_mc_dynamic)"),
-        ("env_name", "environment"),
-        ("gamma", "discount factor"),
-        ("N_mc", "number of replications in estimating Q (only for gen)"),
-        ("T_mc", "Monte Carlo estimation length (only for gen, non-dynamic mc)"), 
-        ("validation_k", "offline validation step replication amt"),
-        ("pi_threshold_mult", "constant factor in cut-off for sub-opt actions"),
-        ("eta", "base step size"),
-        ("skip_true_model", "skips validation on true model - only works for non-gym envs"),
-        ("ctd_feature_size", "feature size for CTD (only)"),
-        ("ctd_iota_mult", "User chosen CTD stepsize multiplier"),
-        ("tune_exploration", "Tune exploration time in Monte Carlo"),
-        ("successive_half_trials", "Number of trials in successive halving tuning"),
-        ("min_T_mc", "Minimum Monte Carlo exploration time in tuning"),
-        ("max_T_mc", "Maximum Monte Carlo exploration time in tuning"),
-        ("ukappa", "Lower bound on kappa"),
+        ("ppo_cuda", "If toggled, cuda will be enabled by default"),
+        ("ppo_lr", "the learning rate of the optimizer"),
+        ("ppo_rollout_len", "the number of steps to run in each environment per policy rollout"),
+        ("ppo_anneal_lr", "Toggle learning rate annealing for policy and value networks"),
+        ("ppo_gae_lambda", "the lambda for the general advantage estimation"),
+        ("ppo_num_minibatches", "the number of mini-batches"),
+        ("ppo_update_epochs", "the K epochs to update the policy"),
+        ("ppo_norm_adv", "Toggles advantages normalization"),
+        ("ppo_clip_coef", "the surrogate clipping coefficient"),
+        ("ppo_clip_vloss", "Toggles whether or not to use a clipped loss for the value function."),
+        ("ppo_ent_coef", "coefficient of the entropy"),
+        ("ppo_vf_coef", "coefficient of the value function"),
+        ("ppo_max_grad_norm", "the maximum norm for the gradient clipping"),
+        ("ppo_target_kl", "target_kl"),
     ]
 
     if print_info:

@@ -45,7 +45,6 @@ def get_loggers(settings):
     logger_validation = BasicLogger(
         fname=os.path.join(settings["log_folder"], "validation_seed=%d.csv" % seed), 
         keys=["value", "opt_lb", "uni_opt_lb", "true value", "true opt_lb", "true uni_opt_lb"],
-
         dtypes=['f'] * 6,
     )
     logger_mixing = BasicLogger(
@@ -275,7 +274,8 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep,
     seed = settings['seed']
 
     # initialization
-    env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
+    validation_gamma = settings['gamma'] if (not settings['no_validation_gamma']) else 1.0
+    env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed, validation_gamma)
     if pi_0 is None:
         pi_0 = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
     pi_t = pi_0
@@ -482,6 +482,7 @@ def train(settings):
                 _train_with_tuning(customized_settings)
             else:
                 _train(customized_settings)
+            # skips line below
             continue
 
         if len(worker_queue) == num_workers:

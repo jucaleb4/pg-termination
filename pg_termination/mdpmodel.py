@@ -5,6 +5,7 @@ import numpy.linalg as la
 import abc
 import time
 
+import gym_examples
 import gymnasium as gym
 
 TOL = 1e-10
@@ -23,12 +24,20 @@ class MDPModel():
     require `step(a)`, where `a` is the input action
 
     """
-    def __init__(self, gamma, seed=None):
+    def __init__(self, gamma, seed=None, validation_gamma=-1):
         assert 0 < gamma < 1, "Input discount gamma must be (0,1), recieved %f" % gamma
         self.rng = np.random.default_rng(seed)
         self.gamma = gamma
+        self.validation_gamma = validation_gamma if validation_gamma > 0 else self.gamma
 
-    @abc.abstractmethod
+        # initialize for tracking episode cost
+        self.curr_ep_len = 0
+        self.ep_cum_cost = 0.
+        self.ep_cum_cost_arr = np.zeros(1024, dtype=float)
+        self.ep_len_arr = np.zeros(1024, dtype=int)
+        self.ep_cum_samps_arr = np.zeros(1024, dtype=int)
+        self.ep_ct = 0
+
     def step(self, a):
         """ 
         Takes a single time step of the MDP.
@@ -38,7 +47,36 @@ class MDPModel():
         :return c: cost
         :return terminate: termination/reset
         """
-        return
+        self.ep_cum_cost += self.validation_gamma**(self.curr_ep_len) * self.c
+        self.curr_ep_len += 1
+
+        if self.terminated:
+            self.has_terminated = True
+            self.ep_cum_cost_arr[self.ep_ct] = self.ep_cum_cost
+            self.ep_len_arr[self.ep_ct] = self.curr_ep_len
+            self.ep_cum_samps_arr[self.ep_ct] = \
+                self.ep_cum_samps_arr[max(0, self.ep_ct-1)] + self.curr_ep_len
+
+            self.ep_ct += 1
+            if self.ep_ct == len(self.ep_cum_cost_arr):
+                self.ep_cum_cost_arr = np.append(
+                    self.ep_cum_cost_arr, 
+                    np.zeros(self.ep_ct, dtype=self.ep_cum_cost_arr.dtype)
+                )
+                self.ep_len_arr = np.append(
+                    self.ep_len_arr, 
+                    np.zeros(self.ep_ct, dtype=self.ep_len_arr.dtype)
+                )
+                self.ep_cum_samps_arr = np.append(
+                    self.ep_cum_samps_arr, 
+                    np.zeros(self.ep_ct, dtype=self.ep_cum_samps_arr.dtype)
+                )
+
+            self.ep_cum_cost = 0
+            self.curr_ep_len = 0
+
+        # these should be set before
+        return (self.s, self.c, self.terminated)
 
     @abc.abstractmethod
     def get_mixing_time_ub(self, pi):
@@ -704,17 +742,24 @@ class MDPModel():
         V_lb = V - max(0, np.max(-psi))/(1.-self.gamma)
         uni_V_lb = -np.inf
 
-        if settings["skip_true_model"]:
+        if settings["skip_true_model"] and hasattr(self, 'get_advantage'):
             (true_psi, true_V) = self.get_advantage(pi)
         true_V_rho = np.dot(self.rho, true_V)
         true_V_lb = np.dot(self.rho, true_V - np.max(-true_psi, axis=1)/(1.-self.gamma))
         true_uni_V_lb = np.dot(self.rho, true_V) - np.max(-true_psi)/(1.-self.gamma)
         return (V, V_lb, uni_V_lb, true_V_rho, true_V_lb, true_uni_V_lb)
 
+    def get_cum_cost_and_len_arr(self):
+        return (
+            self.ep_cum_cost_arr[:self.ep_ct], 
+            self.ep_len_arr[:self.ep_ct],
+            self.ep_cum_samps_arr[:self.ep_ct],
+        )
+
 class KnownModel(MDPModel):
     """ Known (S,A,c,P,gamma) """
     def __init__(self, n_states, n_actions, c, P, gamma, rho=None, seed=None, term_map=None, time_limit=np.inf):
-        super().__init__(gamma, seed)
+        super().__init__(gamma, gamma, seed)
 
         assert len(c.shape) == 2, "Input cost vector c must be a 2-D vector, recieved %d dimensions" % len(c.shape)
         assert len(P.shape) == 3, "Input cost vector c must be a 3-D tensor, recieved %d dimensions" % len(P.shape)
@@ -756,58 +801,17 @@ class KnownModel(MDPModel):
         # initialize rbf for solving with linear function approx
         self.init_linear = False
 
-        # initialize for tracking episode cost
-        self.curr_ep_len = 0
-        self.ep_cum_cost = 0.
-        self.ep_cum_cost_arr = np.zeros(1024, dtype=float)
-        self.ep_len_arr = np.zeros(1024, dtype=int)
-        self.ep_cum_samps_arr = np.zeros(1024, dtype=int)
-        self.ep_ct = 0
-
     def step(self, a):
-        c = self.c[self.s, a]
+        self.c = c = self.c[self.s, a]
         curr_s = self.s
         self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s, a])
-        terminated = 0 if (self.term_map is None) else self.term_map[self.s, curr_s, a]
-        self.ep_cum_cost += self.gamma**(self.curr_ep_len) * c
+        self.terminated = 0 if (self.term_map is None) else self.term_map[self.s, curr_s, a]
         self.t += 1
-        self.curr_ep_len += 1
 
-        if self.curr_ep_len % self.time_limit == 0:
-            terminated = True
+        if self.curr_ep_len % (self.time_limit+1) == 0:
+            self.terminated = True
 
-        if terminated:
-            self.ep_cum_cost_arr[self.ep_ct] = self.ep_cum_cost
-            self.ep_len_arr[self.ep_ct] = self.curr_ep_len
-            self.ep_cum_samps_arr[self.ep_ct] = \
-                self.ep_cum_samps_arr[max(0, self.ep_ct-1)] + self.curr_ep_len
-
-            self.ep_ct += 1
-            if self.ep_ct == len(self.ep_cum_cost_arr):
-                self.ep_cum_cost_arr = np.append(
-                    self.ep_cum_cost_arr, 
-                    np.zeros(self.ep_ct, dtype=self.ep_cum_cost_arr.dtype)
-                )
-                self.ep_len_arr = np.append(
-                    self.ep_len_arr, 
-                    np.zeros(self.ep_ct, dtype=self.ep_len_arr.dtype)
-                )
-                self.ep_cum_samps_arr = np.append(
-                    self.ep_cum_samps_arr, 
-                    np.zeros(self.ep_ct, dtype=self.ep_cum_samps_arr.dtype)
-                )
-
-            self.ep_cum_cost = 0
-            self.curr_ep_len = 0
-
-        return (self.s, c, terminated)
-
-    def get_cum_cost_and_len_arr(self):
-        return (
-            self.ep_cum_cost_arr[:self.ep_ct], 
-            self.ep_len_arr[:self.ep_ct],
-            self.ep_cum_samps_arr[:self.ep_ct],
-        )
+        return super().step(a)
 
     def get_stationary(self, pi):
         P_pi = np.einsum('psa,as->ps', self.P, pi)
@@ -1502,9 +1506,10 @@ class SimpleBattery(KnownModel):
 class DiscretizedGymnasiumModel(MDPModel):
     """
     We form an approximate Gymnasium model by discretizing the state space.
+    # TAG
     """
-    def __init__(self, env_name, gamma, resolution, seed=None, max_space_val=np.inf):
-        super().__init__(gamma, seed)
+    def __init__(self, env_name, gamma, resolution, seed=None, max_space_val=np.inf, validation_gamma=-1):
+        super().__init__(gamma, seed, validation_gamma)
         # self.env = gym.make(env_name, render_mode="human")
         self.env = gym.make(env_name)
 
@@ -1517,7 +1522,7 @@ class DiscretizedGymnasiumModel(MDPModel):
         self.diff = self.high - self.low
         state_dim = len(self.low)
         self.state_flatten_mult_arr = np.power(resolution, np.arange(state_dim)[::-1])
-        self.resolution = resolution
+        self.resolution = resolution-1 # -1 for zero-based index
         self.n_states = resolution**state_dim
         self.n_actions = self.env.action_space.n
         self.ct = seed
@@ -1534,21 +1539,22 @@ class DiscretizedGymnasiumModel(MDPModel):
         return (self.state_discretize(self.s_0), self.s_0)
 
     def state_discretize(self, s_cont):
-        s_bucket = np.round(np.divide(s_cont - self.low, self.diff) * self.resolution)
+        s_bucket = np.floor(np.divide(s_cont - self.low, self.diff) * self.resolution)
         return int(np.dot(s_bucket, self.state_flatten_mult_arr))
 
     def step(self, a):
         s_cont, r, terminated, truncated, _ = self.env.step(a)
-        terminated = terminated or truncated
+        self.terminated = terminated or truncated
+        self.c = -r
 
         # see: https://gymnasium.farama.org/api/env/#gymnasium.Env.reset
-        if terminated:
+        if self.terminated:
             s_cont, _ = self.env.reset(seed=self.ct) 
             self.ct += 1
 
         self.s = self.state_discretize(s_cont)
 
-        return (self.s, -r, terminated)
+        return super().step(a)
 
     def get_mixing_time_ub(self, pi):
         return 0, np.zeros(1)
@@ -1636,7 +1642,7 @@ class BlackJack(KnownModel):
 
         super().__init__(n_states, n_actions, c, P, gamma)
 
-def get_env(name, gamma, seed=None):
+def get_env(name, gamma, seed=None, validation_gamma=-1):
     if name == "bandits":
         env = Bandits(4, gamma, seed=seed)
     elif name == "gridworld_footnote":
@@ -1679,9 +1685,9 @@ def get_env(name, gamma, seed=None):
     elif name == "battery":
         env = SimpleBattery(3, 2, 4, gamma, seed=seed)
     elif name == "discrete_mountaincar":
-        env = DiscretizedGymnasiumModel("MountainCar-v0", gamma, 100, seed=seed)
+        env = DiscretizedGymnasiumModel("MountainCar-v0", gamma, 100, seed=seed, validation_gamma=validation_gamma)
     elif name == "discrete_cartpole":
-        env = DiscretizedGymnasiumModel("CartPole-v1", gamma, 100, seed=seed, max_space_val=100.)
+        env = DiscretizedGymnasiumModel("CartPole-v1", gamma, 100, seed=seed, max_space_val=100., validation_gamma=validation_gamma)
     elif name == "garnet_50":
         env = Garnet(50, 5, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "garnet_100":
@@ -1696,6 +1702,8 @@ def get_env(name, gamma, seed=None):
         env = Garnet(5000, 8, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "garnet_10000":
         env = Garnet(10_000, 4, gamma, 0.2, 0.5, 2.0, seed=seed)
+    elif name == "discrete_inventory":
+        env = DiscretizedGymnasiumModel("gym_examples/InventoryEnv-v0", gamma, resolution=81, seed=seed, validation_gamma=validation_gamma) # [-40,40]
     else:
         raise Exception("Unknown env_name=%s" % name)
 
