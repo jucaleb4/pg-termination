@@ -22,8 +22,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = True
     od["update_rule"] = int(pmd.Update.TSALLIS_UPDATE)
     od["n_iters"] = 1_000
-    od["max_obs"] = 1_250_000
-    od["max_runtime_in_sec"] = 600
+    od["max_obs"] = np.inf
+    od["max_runtime_in_sec"] = 1800
+    od["no_validation_gamma"] = True
 
     env_name_arr = [
         "discrete_inventory"

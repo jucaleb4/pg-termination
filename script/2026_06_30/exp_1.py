@@ -24,10 +24,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 1800
-    od["max_obs"] = 1_250_000
+    od["max_obs"] = np.inf
     od["s_origin"] = "reset"
     od["ukappa"] = 1.0
-    od["max_runtime_in_sec"] = 600
     od["no_validation_gamma"] = True
 
     TS = int(pmd.Update.TSALLIS_UPDATE)
