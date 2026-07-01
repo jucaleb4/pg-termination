@@ -16,7 +16,6 @@ from pg_termination.logger import BasicLogger
 def make_env(env_name):
     def thunk():
         env = gym.make(env_name)
-        env = gym.wrappers.TransformReward(env, lambda c: -c)
         return gym.wrappers.RecordEpisodeStatistics(env)
 
     return thunk
