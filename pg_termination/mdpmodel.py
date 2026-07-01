@@ -276,6 +276,8 @@ class MDPModel():
                 T_time_adjusted = int(55*t)
             elif t > T_time_adjusted:
                 early_terminate = True
+                unvisited_states = np.any(unvisited_sa, axis=0)
+                print("Dynamic MC stopped due to time. Missed states: ", np.where(unvisited_states), " (out of %d states)" % self.n_states)
                 return (early_terminate, psi, V_pi, t)
 
         # form advantage (DP style)

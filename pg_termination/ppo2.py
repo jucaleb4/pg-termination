@@ -29,8 +29,21 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 class Agent(nn.Module):
-    def __init__(self, envs):
+    def __init__(self, envs, linear_only=False):
         super().__init__()
+        if linear_only:
+            self.critic = nn.Sequential(
+                layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+                layer_init(nn.Linear(64, 64)),
+                layer_init(nn.Linear(64, 1), std=1.0),
+            )
+            self.actor = nn.Sequential(
+                layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+                layer_init(nn.Linear(64, 64)),
+                layer_init(nn.Linear(64, envs.single_action_space.n), std=0.01),
+            )
+            return
+
         self.critic = nn.Sequential(
             layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
             nn.Tanh(),
@@ -94,7 +107,7 @@ def _train(settings):
     )
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
 
-    agent = Agent(envs).to(device)
+    agent = Agent(envs, settings["ppo_linear_only"]).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=settings["ppo_lr"], eps=1e-5)
 
     # ALGO Logic: Storage setup

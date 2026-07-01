@@ -149,9 +149,15 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_06_30/exp_0.py`: Tune SPMD MC-Dyn on Discretized-Inventory 
 - `2026_06_30/exp_1.py`: Tune SPMD MC+CTD-Dyn on Discretized-Inventory 
 - `2026_06_30/exp_2.py`: Tune PPO on Discretized-Inventory 
+- `2026_06_30/exp_3.py`: Tune PPO (linear only) on Discretized-Inventory 
+- `2026_06_30/exp_4.py`: Full-run SPMD MC-Dyn on Discretized-Inventory 
+- `2026_06_30/exp_5.py`: Full-run SPMD MC+CTD-Dyn on Discretized-Inventory 
+- `2026_06_30/exp_6.py`: Full-run PPO on Discretized-Inventory 
+- `2026_06_30/exp_7.py`: Full-run PPO (linear only) on Discretized-Inventory 
 - `2026_07_01/exp_0.py`: Tune SPMD MC-Dyn on Discretized-CartPole
 - `2026_07_01/exp_1.py`: Tune SPMD MC+CTD-Dyn on Discretized-CartPole
 - `2026_07_01/exp_2.py`: Tune PPO on Discretized-CartPole
+- `2026_07_01/exp_3.py`: Tune PPO (linear only) on Discretized-CartPole
 
 ## TODOs
 - Implement CTD (general state)
