@@ -133,6 +133,7 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_05_31/exp_20.py`: Full-run SPMD+CTD on GARNET from refined tuning-v2
 - `2026_05_31/exp_21.py`: Full-run SPMD+CTD on GridWorld from refined tuning-v2
 - `2026_06_01/exp_0.py`: Baselines (uniform random policy) for GARNET, GW, and GridWorld-lodim
+- `2026_06_01/exp_1.py`: Baselines (uniform random policy) for Inventory and CartPole
 - `2026_06_07/exp_0.py`: tune SPMD on GridWorld-lowdim
 - `2026_06_07/exp_1.py`: tune SARSA on GridWorld-lowdim
 - `2026_06_07/exp_2.py`: Full tune SPMD+CTD on GridWorld-lowdim - enhanced-v2 

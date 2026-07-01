@@ -602,7 +602,6 @@ class MDPModel():
 
                 # terminate early if we break...
                 if self.terminated:
-                    import ipdb; ipdb.set_trace()
                     break
 
         else:
