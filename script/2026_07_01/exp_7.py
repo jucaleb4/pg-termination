@@ -14,40 +14,27 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Full run of SPMD+CTD-Dyn on Inventory"
+ABOUT = "Full run of PPO (linear-only) on CartPole"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
-    od["estimate_Q"] = "ctd"
-    od["skip_true_model"] = True
+    od["alg"] = "ppo"
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 3600
-    od["max_obs"] = math.inf
-    od["s_origin"] = "reset"
-    od["ukappa"] = 1.0
-    od["no_validation_gamma"] = True
-
-    TS = int(pmd.Update.TSALLIS_UPDATE)
-    KL = int(pmd.Update.KL_UPDATE)
-
-    # fixed parameters
-    od["update_rule"] = TS
-    od["n_batches"] = 1
-    od["ctd_feat_size"] = -1
-    od["ctd_burn_in"] = False
-    od["ctd_N_mult"] = 1.
-    od["ctd_feat_type"] = "Gaussian"
+    od["max_obs"] = int(1e9)
+    od["ppo_linear_only"] = True
 
     # tuning parameters
-    env_name_arr = ["discrete_inventory"]
+    env_name_arr = ["CartPole-v1"]
 
     # tune
-    params_arr = [
-        (0.9, 1.0, 50.0, 1),
-        (0.99, 1.0, 2000.0, -0.5),
-    ]
+    od["gamma"] = 0.9
+    od["ppo_lr"] = 2.5e-4
+    od["ppo_rollout_len"] = 128
+    od["ppo_num_minibatches"] = 16
+    od["ppo_update_epochs"] = 4
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
@@ -60,26 +47,22 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "eta", "iota_mult", "uLam_mult"]
-    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name"]
+    row_format ="{:>10}|{:>20}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (70+len(exp_metadata)-1))
+        print("-" * (30+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, (gamma, eta, iota_mult, uLam_mult)) in itertools.product(env_name_arr, params_arr):
+    for (env_name) in env_name_arr:
         od["env_name"] = env_name
-        od["gamma"] = gamma
-        od["eta"] = eta
-        od["ctd_iota_mult"] = iota_mult
-        od["ctd_uLam_mult"] = uLam_mult if uLam_mult > 0 else (1e-3*int(1e3*(1-gamma)**(uLam_mult)))
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], gamma, eta, iota_mult, uLam_mult))
+            print(row_format.format(ct, od["env_name"]))
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])

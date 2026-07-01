@@ -14,7 +14,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Full run of SPMD+CTD-Dyn on Inventory"
+ABOUT = "Full run of SPMD+CTD-Dyn on CartPole"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -33,20 +33,21 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     KL = int(pmd.Update.KL_UPDATE)
 
     # fixed parameters
-    od["update_rule"] = TS
+    od["update_rule"] = KL 
     od["n_batches"] = 1
-    od["ctd_feat_size"] = -1
+    od["ctd_feat_size"] = 500
+    od["ctd_ortho_feat"] = True # QR
     od["ctd_burn_in"] = False
     od["ctd_N_mult"] = 1.
     od["ctd_feat_type"] = "Gaussian"
 
     # tuning parameters
-    env_name_arr = ["discrete_inventory"]
+    env_name_arr = ["discrete_cartpole"]
 
     # tune
     params_arr = [
-        (0.9, 1.0, 50.0, 1),
-        (0.99, 1.0, 2000.0, -0.5),
+        (0.9, 1.0, 2000.0, 1),
+        (0.99, 100.0, 50.0, -0.5),
     ]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
