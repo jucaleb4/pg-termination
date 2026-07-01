@@ -1,7 +1,7 @@
 import argparse
 import yaml
 
-from pg_termination import pmd, policyiter, spmd, reinforce, trpo, qlearn, sarsa
+from pg_termination import pmd, policyiter, spmd, reinforce, trpo, qlearn, sarsa, ppo2
 from script.helper import get_parameter_settings
 
 def check_key_settings_diff(settings):
@@ -41,5 +41,7 @@ if __name__ == "__main__":
         qlearn.train(settings)
     elif settings['alg'] == 'sarsa':
         sarsa.train(settings)
+    elif settings['alg'] == 'ppo':
+        ppo2.train(settings)
     else:
         print("Unknown alg %s" % settings['alg'])

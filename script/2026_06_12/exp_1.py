@@ -25,7 +25,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 1800
     od["max_obs"] = math.inf
-    od["s_origin"] = None
+    od["s_origin"] = None # TODO: Should this be "reset"?
     od["ukappa"] = 1.0
 
     TS = int(pmd.Update.TSALLIS_UPDATE)
