@@ -339,7 +339,7 @@ class MDPModel():
         while replic_id < n_replicates:
             a = self.rng.choice(pi.shape[0], p=pi[:,s])
             (s, c, terminate) = self.step(a)
-            curr_V += (self.gamma**t) * c
+            curr_V += (self.validation_gamma**t) * c
             t += 1
             if terminate:
                 replic_id += 1
@@ -391,7 +391,7 @@ class MDPModel():
                 a = action_id
                 
             (s, c, terminate) = self.step(a)
-            curr_Q[action_id] += (self.gamma**t) * c
+            curr_Q[action_id] += (self.validation_gamma**t) * c
             t += 1
             if terminate:
                 t = 0
