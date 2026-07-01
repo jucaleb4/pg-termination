@@ -22,7 +22,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["alg"] = "ppo"
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
-    od["max_runtime_in_sec"] = 1800
+    od["max_runtime_in_sec"] = 900
     od["max_obs"] = int(1e9)
 
     # tuning parameters
