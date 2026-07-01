@@ -74,6 +74,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("ppo_vf_coef", 0.5),
         ("ppo_max_grad_norm", 0.5),
         ("ppo_target_kl", None),
+        ("gym_max_episode_steps", -1)
     ])
 
     od_info = [
@@ -130,6 +131,7 @@ def get_parameter_settings(seed_0, n_seeds, n_iters, print_info, about):
         ("ppo_vf_coef", "coefficient of the value function"),
         ("ppo_max_grad_norm", "the maximum norm for the gradient clipping"),
         ("ppo_target_kl", "target_kl"),
+        ("gym_max_episode_steps", "Max number of steps per episode in Gymnasium (-1 if default)")
     ]
 
     if print_info:

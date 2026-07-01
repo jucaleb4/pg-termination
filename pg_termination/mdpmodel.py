@@ -1508,19 +1508,39 @@ class DiscretizedGymnasiumModel(MDPModel):
     We form an approximate Gymnasium model by discretizing the state space.
     # TAG
     """
-    def __init__(self, env_name, gamma, resolution, seed=None, max_space_val=np.inf, validation_gamma=-1):
+    def __init__(self, env_name, gamma, resolution, seed=None, space_lim=None, normalize_space=False, validation_gamma=-1, max_episode_steps=-1):
         super().__init__(gamma, seed, validation_gamma)
         # self.env = gym.make(env_name, render_mode="human")
-        self.env = gym.make(env_name)
+        if max_episode_steps > 0:
+            self.env = gym.make(env_name, max_episode_steps=max_episode_steps)
+        else:
+            self.env = gym.make(env_name)
 
         assert isinstance(self.env.action_space, gym.spaces.discrete.Discrete), "Discretized env's act. space must be discrete (was %s)" % type(self.env.action_space)
         assert isinstance(self.env.observation_space, gym.spaces.box.Box), "Space %s cannot be discretized" % type(self.env.observation_space)
 
-        self.low, self.high = self.env.observation_space.low, self.env.observation_space.high
-        self.low = np.maximum(-max_space_val, self.low)
-        self.high = np.minimum(max_space_val, self.high)
+        if isinstance(space_lim, np.ndarray):
+            self.low, self.high = -space_lim, space_lim
+        else:
+            self.low, self.high = self.env.observation_space.low, self.env.observation_space.high
         self.diff = self.high - self.low
         state_dim = len(self.low)
+        if normalize_space:
+            assert not np.any(np.isinf(self.low)), "Inf in obs_space.low is invalid for normalize_space=True"
+            assert not np.any(np.isinf(self.high)), "Inf in obs_space.high is invalid for normalize_space=True"
+            # transforms between [-1,1]
+            low_copy = self.low.copy()
+            diff_copy = self.diff.copy()
+            obs_space_copy = self.env.observation_space
+            env = gym.wrappers.TransformObservation(
+                self.env, 
+                lambda obs : 2*np.divide(obs - low_copy, diff_copy)-1,
+                obs_space_copy,
+            )
+            self.low = -np.ones(state_dim, dtype=float)
+            self.high = np.ones(state_dim, dtype=float)
+            self.diff = self.high - self.low
+
         self.state_flatten_mult_arr = np.power(resolution, np.arange(state_dim)[::-1])
         self.resolution = resolution-1 # -1 for zero-based index
         self.n_states = resolution**state_dim
@@ -1546,6 +1566,9 @@ class DiscretizedGymnasiumModel(MDPModel):
         s_cont, r, terminated, truncated, _ = self.env.step(a)
         self.terminated = terminated or truncated
         self.c = -r
+        # exceed bounds
+        if not (np.all(self.low <= s_cont) and np.all(s_cont <= self.high)):
+            self.terminated = True
 
         # see: https://gymnasium.farama.org/api/env/#gymnasium.Env.reset
         if self.terminated:
@@ -1687,7 +1710,20 @@ def get_env(name, gamma, seed=None, validation_gamma=-1):
     elif name == "discrete_mountaincar":
         env = DiscretizedGymnasiumModel("MountainCar-v0", gamma, 100, seed=seed, validation_gamma=validation_gamma)
     elif name == "discrete_cartpole":
-        env = DiscretizedGymnasiumModel("CartPole-v1", gamma, 100, seed=seed, max_space_val=100., validation_gamma=validation_gamma)
+        # found by random sampling and absolute bounds 
+        # link: https://gymnasium.farama.org/environments/classic_control/cart_pole/
+        resolution = 16
+        space_lim = np.array([2.4, 3.2182531, 0.27032015, 3.5986433])
+        env = DiscretizedGymnasiumModel(
+            "CartPole-v1", 
+            gamma, 
+            resolution, 
+            seed, 
+            space_lim, 
+            normalize_space=True,
+            validation_gamma=validation_gamma,
+            max_episode_steps=200,
+        )
     elif name == "garnet_50":
         env = Garnet(50, 5, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "garnet_100":
@@ -1703,7 +1739,14 @@ def get_env(name, gamma, seed=None, validation_gamma=-1):
     elif name == "garnet_10000":
         env = Garnet(10_000, 4, gamma, 0.2, 0.5, 2.0, seed=seed)
     elif name == "discrete_inventory":
-        env = DiscretizedGymnasiumModel("gym_examples/InventoryEnv-v0", gamma, resolution=81, seed=seed, validation_gamma=validation_gamma) # [-40,40]
+        resolution = 81 # [-40,40]
+        env = DiscretizedGymnasiumModel(
+            "gym_examples/InventoryEnv-v0", 
+            gamma, 
+            resolution, 
+            seed=seed, 
+            validation_gamma=validation_gamma
+        ) 
     else:
         raise Exception("Unknown env_name=%s" % name)
 

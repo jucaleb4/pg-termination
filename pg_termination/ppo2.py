@@ -13,9 +13,12 @@ from torch.distributions.categorical import Categorical
 
 from pg_termination.logger import BasicLogger
 
-def make_env(env_name):
+def make_env(env_name, max_episode_steps):
     def thunk():
-        env = gym.make(env_name)
+        if max_episode_steps > 0:
+            env = gym.make(env_name, max_episode_steps=max_episode_steps)
+        else:
+            env = gym.make(env_name)
         return gym.wrappers.RecordEpisodeStatistics(env)
 
     return thunk
@@ -87,7 +90,7 @@ def _train(settings):
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
-        [make_env(settings["env_name"]) for i in range(settings["num_envs"])],
+        [make_env(settings["env_name"], settings["gym_max_episode_steps"]) for i in range(settings["num_envs"])],
     )
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
 
