@@ -509,7 +509,6 @@ class MDPModel():
         return (early_terminate, hpsi, hV, cum_samples)
 
     def _hF_waiting_period(self, pi, eps_expl_s, s_time, time_limit, max_obs, s_origin, cum_samples, traj_length):
-        terminate = False # for env
         early_terminate = False # for budget
         checkpoint = 128
         is_s_origin_random = isinstance(s_origin, np.ndarray)
@@ -519,7 +518,7 @@ class MDPModel():
         while 1:
             if (s_origin is None) and (ct >= traj_length):
                 break
-            if (s_origin == 'reset') and terminate:
+            if (s_origin == 'reset') and self.terminated:
                 break
             if (not is_s_origin_random) and self.s == s_origin:
                 break
@@ -531,7 +530,7 @@ class MDPModel():
                     return (early_terminate, cum_samples)
                 checkpoint *= 2
             a = self.rng.choice(pi.shape[0], p=pi_expl_s[:,self.s])
-            (self.s, _, terminate) = self.step(a)
+            (self.s, _, self.terminated) = self.step(a)
             cum_samples += 1
             ct += 1
 
@@ -582,7 +581,7 @@ class MDPModel():
             s_t = self.s
             a_t = self.rng.choice(pi.shape[0], p=pi[:,s_t])
             z_t_idx = s_t*self.n_actions + a_t
-            (s_t_next, c_t, _) = self.step(a_t)
+            (s_t_next, c_t, self.terminated) = self.step(a_t)
             cum_samples += 1
 
             # TODO: Burn-in for non-s_origin
@@ -598,8 +597,13 @@ class MDPModel():
 
                 s_t = s_t_next
                 a_t = a_t_next 
-                (s_t_next, c_t, _) = self.step(a_t)
+                (s_t_next, c_t, self.terminated) = self.step(a_t)
                 cum_samples += 1
+
+                # terminate early if we break...
+                if self.terminated:
+                    import ipdb; ipdb.set_trace()
+                    break
 
         else:
             if s_origin is not None:
@@ -799,6 +803,7 @@ class KnownModel(MDPModel):
         # initialize a 
         self.s = self.rng.integers(0, self.n_states)
         self.t = 0
+        self.terminated = True # initialize
 
         # initialize rbf for solving with linear function approx
         self.init_linear = False
@@ -1071,13 +1076,13 @@ class GridWorldWithTraps(KnownModel):
         return self.target
 
     def step(self, a):
-        (s, c, terminated) = super().step(a)
+        (self.s, c, self.terminated) = super().step(a)
 
         # means we just reset due to termination (either time limit or reach target)
-        if terminated:
+        if self.terminated:
             self.s = self.rng.choice(self.origins)
 
-        return (s, c, terminated)
+        return (self.s, c, self.terminated)
 
 class GridWorldWithTrapsAndHills(KnownModel):
     def __init__(self, length, n_traps, gamma, eps=0.05, seed=None, ergodic=False):
@@ -1552,6 +1557,7 @@ class DiscretizedGymnasiumModel(MDPModel):
         s_cont, _ = self.env.reset(seed=self.ct) 
         self.s = self.state_discretize(s_cont)
         self.s_0 = np.copy(self.s)
+        self.terminated=True # initial state
         self.ct += 1
 
         self.rho = np.zeros(self.n_states)

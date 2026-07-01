@@ -41,6 +41,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
 
     # tuning parameters
     env_name_arr = ["discrete_inventory"]
+    ctd_burn_in_arr = [False, True]
     gamma_arr = [0.9, 0.99]
 
     ctd_feat_type_arr = ['Gaussian', 'Id']
@@ -61,18 +62,19 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "feat_type", "eta", "iota_mult", "uLam"]
-    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "burn_in", "gamma", "feat_type", "eta", "iota_mult", "uLam"]
+    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (80+len(exp_metadata)-1))
+        print("-" * (90+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, gamma, feat_type, eta, iota_mult, uLam_mult) in itertools.product(
-            env_name_arr, gamma_arr, ctd_feat_type_arr, eta_arr, iota_mult_arr, uLam_mult_arr, 
+    for (env_name, burn_in, gamma, feat_type, eta, iota_mult, uLam_mult) in itertools.product(
+            env_name_arr, ctd_burn_in_arr, gamma_arr, ctd_feat_type_arr, eta_arr, iota_mult_arr, uLam_mult_arr, 
     ):
         od["env_name"] = env_name
+        od["ctd_burn_in"] = burn_in
         od["gamma"] = gamma
         od["ctd_feat_type"] = feat_type
         od["eta"] = eta
@@ -83,9 +85,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], od["gamma"], 
-                od["ctd_feat_type"], od["eta"], od["ctd_iota_mult"], 
-                od["ctd_uLam_mult"], 
+            print(row_format.format(ct, od["env_name"], 
+                od["ctd_burn_in"], od["gamma"], od["ctd_feat_type"], od["eta"], 
+                od["ctd_iota_mult"], od["ctd_uLam_mult"], 
             ))
 
             if not(os.path.exists(od["log_folder"])):
