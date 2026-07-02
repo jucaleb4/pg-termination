@@ -161,6 +161,8 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 - `2026_07_01/exp_3.py`: Tune PPO (linear only) on Discretized-CartPole
 - `2026_07_02/exp_0.py`: Tune SPMD SARAS on Discretized-Inventory (not episodic)
 - `2026_07_02/exp_1.py`: Tune SPMD+CTD-Dyn on Discretized-Inventory (not episode)
+- `2026_07_02/exp_0.py`: Full-run SPMD SARAS on Discretized-Inventory (not episodic)
+- `2026_07_02/exp_1.py`: Full-run SPMD+CTD-Dyn on Discretized-Inventory (not episode)
 - `2026_07_03/exp_0.py`: Tune SPMD SARAS on CartPole
 - `2026_07_03/exp_1.py`: Tune SPMD+CTD-Dyn on Discretized-CartPole (not episode)
 - `2026_07_03/exp_2.py`: Tune SPMD MC-Dyn on Discretized-CartPole (not episode)
