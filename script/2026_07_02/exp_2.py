@@ -26,7 +26,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["max_runtime_in_sec"] = 900
     od["max_obs"] = 100_000
 
-    env_name_arr = ["discrete_cartpole"]
+    env_name_arr = ["discrete_inventory"]
     params_arr = [
         (0.9, 1e-5, 5e6),
         (0.99, 1e-5, 1e7),
