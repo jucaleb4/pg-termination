@@ -34,9 +34,10 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     # fixed parameters
     od["update_rule"] = KL
     od["n_batches"] = 1
-    od["ctd_feat_size"] = 500 # (20^4*2) * 500 = 160MB
+    od["ctd_feat_size"] = 250 # (20^4*2) * 200 = 80MB
     od["ctd_burn_in"] = False
     od["ctd_N_mult"] = 1.
+    od["ctd_ortho_feat"] = True
 
     # tuning parameters
     env_name_arr = ["discrete_cartpole"]
