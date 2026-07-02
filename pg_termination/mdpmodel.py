@@ -56,6 +56,7 @@ class MDPModel():
             self.ep_len_arr[self.ep_ct] = self.curr_ep_len
             self.ep_cum_samps_arr[self.ep_ct] = \
                 self.ep_cum_samps_arr[max(0, self.ep_ct-1)] + self.curr_ep_len
+            # print("At terminate, cost: %.1f and cum: %d" % (self.ep_cum_cost, self.ep_cum_samps_arr[self.ep_ct]))
 
             self.ep_ct += 1
             if self.ep_ct == len(self.ep_cum_cost_arr):
@@ -1514,13 +1515,15 @@ class DiscretizedGymnasiumModel(MDPModel):
     We form an approximate Gymnasium model by discretizing the state space.
     # TAG
     """
-    def __init__(self, env_name, gamma, resolution, seed=None, space_lim=None, normalize_space=False, validation_gamma=-1, max_episode_steps=-1):
+    def __init__(self, env_name, gamma, resolution, seed=None, space_lim=None, normalize_space=False, validation_gamma=-1, max_episode_steps=-1, flatten_space=False):
         super().__init__(gamma, seed, validation_gamma)
         # self.env = gym.make(env_name, render_mode="human")
         if max_episode_steps > 0:
             self.env = gym.make(env_name, max_episode_steps=max_episode_steps)
         else:
             self.env = gym.make(env_name)
+        if flatten_space:
+            self.env = gym.wrappers.FlattenObservation(self.env)
 
         assert isinstance(self.env.action_space, gym.spaces.discrete.Discrete), "Discretized env's act. space must be discrete (was %s)" % type(self.env.action_space)
         assert isinstance(self.env.observation_space, gym.spaces.box.Box), "Space %s cannot be discretized" % type(self.env.observation_space)
@@ -1538,7 +1541,7 @@ class DiscretizedGymnasiumModel(MDPModel):
             low_copy = self.low.copy()
             diff_copy = self.diff.copy()
             obs_space_copy = self.env.observation_space
-            env = gym.wrappers.TransformObservation(
+            self.env = gym.wrappers.TransformObservation(
                 self.env, 
                 lambda obs : 2*np.divide(obs - low_copy, diff_copy)-1,
                 obs_space_copy,
@@ -1753,6 +1756,18 @@ def get_env(name, gamma, seed=None, validation_gamma=-1):
             resolution, 
             seed=seed, 
             validation_gamma=validation_gamma
+        ) 
+    elif name == "discrete_battery":
+        resolution = 64
+        env = DiscretizedGymnasiumModel(
+            "gym_examples/BatteryEnv-v0", 
+            gamma, 
+            resolution, 
+            seed=seed, 
+            normalize_space=True,
+            validation_gamma=validation_gamma,
+            max_episode_steps=4*24, # one day (RT is 15m over 1 day)
+            flatten_space=True,
         ) 
     else:
         raise Exception("Unknown env_name=%s" % name)

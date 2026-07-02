@@ -18,7 +18,8 @@ MSG_1 = "We changed 'pi_threshold'->'pi_threshold_mult'.Please update the yaml f
 
 def get_loggers(settings):
     seed = settings['seed']
-    env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed)
+    validation_gamma = settings['gamma'] if (not settings['no_validation_gamma']) else 1.0
+    env = mdpmodel.get_env(settings['env_name'], settings['gamma'], seed, validation_gamma)
     logger = BasicLogger(
         fname=os.path.join(settings["log_folder"], "seed=%d.csv" % seed), 
         keys=["iter", "point value", "point opt_lb", "point uni_opt_lb", 
@@ -162,7 +163,7 @@ def _sarsa(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep
         if (not has_first_log) and \
             ((t == settings["n_iters"]//1000) or (e_time + time.time() >= settings["max_runtime_in_sec"]/1000)):
             has_first_log = True
-            T_log_freq = t
+            T_log_freq = max(1, t)
         # only save about 1000 logs
         if has_first_log and (t % T_log_freq == 0):
             if not settings["skip_true_model"]:
