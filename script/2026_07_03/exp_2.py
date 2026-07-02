@@ -4,6 +4,7 @@ import itertools
 import argparse
 import yaml
 import re
+import math
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "."+".", "."+"."))
 sys.path.insert(0, parent_dir)
@@ -13,23 +14,26 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Tune SARSA on Inventory"
+ABOUT = "Tune SPMD MC-Dyn on CartPole"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
-    od["alg"] = "sarsa"
+    od["estimate_Q"] = "online_mc_dynamic"
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 900
-    od["max_obs"] = 100_000
+    od["max_obs"] = math.inf
 
-    env_name_arr = ["discrete_inventory"]
+    od["update_rule"] = int(pmd.Update.TSALLIS_UPDATE)
+    od["n_iters"] = 1_000
+
+    env_name_arr = ["discrete_battery"]
     gamma_arr = [0.9, 0.99]
     # we will set total budget to half a million
     total_samples = 100_000
-    alpha_arr = [-1, 1e-2, 1./total_samples]
+    eta_arr = [5e-1, 5e0, 2e1]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
@@ -42,25 +46,24 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "n_iters", "alpha"]
-    row_format ="{:>10}|{:>25}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "eta"]
+    row_format ="{:>10}|{:>20}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (65+len(exp_metadata)-1))
+        print("-" * (50+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, gamma, alpha) in itertools.product(env_name_arr, gamma_arr, alpha_arr):
+    for (env_name, gamma, eta) in itertools.product(env_name_arr, gamma_arr, eta_arr):
         od["env_name"] = env_name
         od["gamma"] = gamma
-        od["n_iters"] = total_samples
-        od["qlearn_alpha"] = alpha
+        od["eta"] = eta
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], od["gamma"], od["n_iters"], od["qlearn_alpha"]))
+            print(row_format.format(ct, od["env_name"], od["gamma"], od["eta"]))
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])

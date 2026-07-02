@@ -4,6 +4,7 @@ import itertools
 import argparse
 import yaml
 import re
+import math
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "."+".", "."+"."))
 sys.path.insert(0, parent_dir)
@@ -13,23 +14,40 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Tune SARSA on Inventory"
+ABOUT = "Tuning SPMD+CTD on CartPole (differs from 2026_07_02 since we do not do episode eval anymore)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
-    od["alg"] = "sarsa"
+    od["estimate_Q"] = "ctd"
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 900
-    od["max_obs"] = 100_000
+    od["max_obs"] = math.inf
+    od["s_origin"] = "reset"
+    od["ukappa"] = 1.0
 
-    env_name_arr = ["discrete_inventory"]
+    TS = int(pmd.Update.TSALLIS_UPDATE)
+    KL = int(pmd.Update.KL_UPDATE)
+
+    # fixed parameters
+    od["update_rule"] = TS
+    od["n_batches"] = 1
+    od["ctd_feat_size"] = -1
+    od["ctd_burn_in"] = False
+    od["ctd_N_mult"] = 1.
+
+    # tuning parameters
+    env_name_arr = ["discrete_cartpole"]
     gamma_arr = [0.9, 0.99]
-    # we will set total budget to half a million
-    total_samples = 100_000
-    alpha_arr = [-1, 1e-2, 1./total_samples]
+
+    ctd_feat_type_arr = ['Gaussian', 'Id']
+    eta_arr = [1e4, 1e2, 1e0] 
+    iota_mult_arr = [2e3, 5e1, 1e0]
+    uLam_mult_arr = [1, -1./2] 
+    for i in range(len(uLam_mult_arr)):
+        uLam_mult_arr[i] = int(1e3*uLam_mult_arr[i])/1e3
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
@@ -42,25 +60,32 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "n_iters", "alpha"]
-    row_format ="{:>10}|{:>25}|{:>10}|{:>10}|{:>10}"
+    exp_metadata = ["Exp id", "Env name", "gamma", "feat_type", "eta", "iota_mult", "uLam"]
+    row_format ="{:>10}|{:>20}|{:>10}|{:>10}|{:>10}|{:>10}|{:>10}"
     if not skip_save:
         print("")
         print(row_format.format(*exp_metadata))
-        print("-" * (65+len(exp_metadata)-1))
+        print("-" * (90+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, gamma, alpha) in itertools.product(env_name_arr, gamma_arr, alpha_arr):
+    for (env_name, gamma, feat_type, eta, iota_mult, uLam_mult) in itertools.product(
+            env_name_arr, gamma_arr, ctd_feat_type_arr, eta_arr, iota_mult_arr, uLam_mult_arr, 
+    ):
         od["env_name"] = env_name
         od["gamma"] = gamma
-        od["n_iters"] = total_samples
-        od["qlearn_alpha"] = alpha
+        od["ctd_feat_type"] = feat_type
+        od["eta"] = eta
+        od["ctd_iota_mult"] = iota_mult
+        od["ctd_uLam_mult"] = uLam_mult if uLam_mult > 0 else (1e-3*int(1e3*(1-gamma)**(uLam_mult)))
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], od["gamma"], od["n_iters"], od["qlearn_alpha"]))
+            print(row_format.format(ct, od["env_name"], 
+                od["gamma"], od["ctd_feat_type"], od["eta"], 
+                od["ctd_iota_mult"], od["ctd_uLam_mult"], 
+            ))
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])
@@ -94,9 +119,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seed_0 = 0
     n_seeds = 1
-    n_iters = 40
+    n_iters = 1_000
 
     if args.setup:
+        if args.mode == "full":
+            n_seeds = 10
         setup_setting_files(seed_0, n_seeds, n_iters, args.print_info)
     elif args.run:
         max_runs = setup_setting_files(seed_0, n_seeds, n_iters, args.print_info, True)

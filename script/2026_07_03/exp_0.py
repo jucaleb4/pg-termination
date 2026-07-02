@@ -13,7 +13,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Tune SARSA on Inventory"
+ABOUT = "Tune SARSA on CartPole"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -25,7 +25,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["max_runtime_in_sec"] = 900
     od["max_obs"] = 100_000
 
-    env_name_arr = ["discrete_inventory"]
+    env_name_arr = ["discrete_cartpole"]
     gamma_arr = [0.9, 0.99]
     # we will set total budget to half a million
     total_samples = 100_000
