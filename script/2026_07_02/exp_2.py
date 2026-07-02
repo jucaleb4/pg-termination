@@ -23,8 +23,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
-    od["max_runtime_in_sec"] = 900
-    od["max_obs"] = 100_000
+    od["max_runtime_in_sec"] = 3600
 
     env_name_arr = ["discrete_inventory"]
     params_arr = [
