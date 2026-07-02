@@ -29,7 +29,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["update_rule"] = int(pmd.Update.TSALLIS_UPDATE)
     od["n_iters"] = 1_000
 
-    env_name_arr = ["discrete_battery"]
+    env_name_arr = ["discrete_cartpole"]
     gamma_arr = [0.9, 0.99]
     # we will set total budget to half a million
     total_samples = 100_000
