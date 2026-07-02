@@ -32,9 +32,9 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     KL = int(pmd.Update.KL_UPDATE)
 
     # fixed parameters
-    od["update_rule"] = TS
+    od["update_rule"] = KL
     od["n_batches"] = 1
-    od["ctd_feat_size"] = -1
+    od["ctd_feat_size"] = 500 # (20^4*2) * 500 = 160MB
     od["ctd_burn_in"] = False
     od["ctd_N_mult"] = 1.
 
@@ -42,7 +42,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     env_name_arr = ["discrete_cartpole"]
     gamma_arr = [0.9, 0.99]
 
-    ctd_feat_type_arr = ['Gaussian', 'Id']
+    ctd_feat_type_arr = ['Gaussian']
     eta_arr = [1e4, 1e2, 1e0] 
     iota_mult_arr = [2e3, 5e1, 1e0]
     uLam_mult_arr = [1, -1./2] 

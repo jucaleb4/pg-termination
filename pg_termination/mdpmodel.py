@@ -1722,7 +1722,7 @@ def get_env(name, gamma, seed=None, validation_gamma=-1):
     elif name == "discrete_cartpole":
         # found by random sampling and absolute bounds 
         # link: https://gymnasium.farama.org/environments/classic_control/cart_pole/
-        resolution = 16
+        resolution = 20
         space_lim = np.array([2.4, 3.2182531, 0.27032015, 3.5986433])
         env = DiscretizedGymnasiumModel(
             "CartPole-v1", 
