@@ -140,7 +140,7 @@ def _sarsa(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep
     pi_t_s = np.zeros(env.n_actions)
 
     # SPMD main for-loop
-    for t in range(settings["n_iters"]):
+    for t in range(int(settings["n_iters"])):
         (s_next,c,term) = env.step(a_curr)
 
         eps_t = 1./(t+1)
