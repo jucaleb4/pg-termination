@@ -137,16 +137,16 @@ def _sarsa(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep
     T_log_freq = -1
 
     a_curr = env.rng.choice(env.n_actions)
-    pi_t_s = np.zeros(env.n_actions)
+    pi_t_s = np.ones((env.n_actions, env.n_states), dtype=float)/env.n_actions
 
     # SPMD main for-loop
     for t in range(int(settings["n_iters"])):
         (s_next,c,term) = env.step(a_curr)
 
         eps_t = 1./(t+1)
-        pi_t_s[:] = eps_t/env.n_actions
-        pi_t_s[np.argmin(Q_t[s_next,:])] += 1-eps_t
-        a_next = env.rng.choice(env.n_actions, p=pi_t_s)
+        pi_t_s[:, s_next] = eps_t/env.n_actions
+        pi_t_s[np.argmin(Q_t[s_next,:]), s_next] += 1-eps_t
+        a_next = env.rng.choice(env.n_actions, p=pi_t_s[:,s_next])
 
         td_err_t = c + env.gamma*Q_t[s_next,a_next] - Q_t[s_curr,a_curr]
         if settings['qlearn_alpha'] < 0:
@@ -178,15 +178,24 @@ def _sarsa(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep
             print("=== Breaking early because we exceeded the max runtime ===")
             break
 
-    utils.set_greedy_policy(greedy_pi_t, Q_t)
-    eps_t = 1./(settings["n_iters"])
-    greedy_pi_t *= (1-eps_t)
-    greedy_pi_t += eps_t/env.n_actions
+    """
+    The reason we do not do greedy is that it differs from the policy in SARSA.
+    Notice in SARSA, Q_t is still going to be zero in some places, meaning we have not visited yet
+    But the greedy will assign some action to that s-a pair, which will be meaningless 
+    since the Q_t value therein is meaningless. So we instead use the same policy
+    from SARSA instead of greedy rounding. We also saw severe degradation in performance,
+    which does not reflect the on-training of SARSA
+    """
+
+    # utils.set_greedy_policy(greedy_pi_t, Q_t)
+    # eps_t = 1./(settings["n_iters"])
+    # greedy_pi_t *= (1-eps_t)
+    # greedy_pi_t += eps_t/env.n_actions
     if not settings["skip_true_model"]:
-        (true_psi, true_V) = env.get_advantage(greedy_pi_t)
+        (true_psi, true_V) = env.get_advantage(pi_t_s)
 
     if settings["validation_mode"] == "random_reset":
-        output = env.policy_validation_random_reset(greedy_pi_t, settings)
+        output = env.policy_validation_random_reset(pi_t_s, settings)
         (V, V_lb, uni_V_lb, true_V, true_V_lb, true_uni_V_lb) = output
         logger_validation.log(*output)
     else:
