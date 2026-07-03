@@ -357,7 +357,7 @@ def _spmd(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep,
                 Phi = Q
                 print("Finished QR-factor of feature matrix of size %dx%d (time=%.2fs)" % (n_Z, d, time.time() - s_time))
             else:
-                raise Exception("Number of features %d exceeds |Z|=%d (maybe you forgot to set 'ctd_ortho_feat=True')" % (d, n_Z))
+                raise Exception("Number of features %d <= |Z|=%d without ortho (maybe forgot 'ctd_ortho_feat=True')" % (d, n_Z))
 
         else: # finite action and continuous state
             Phi = env.rng.normal(size=(env.n_states, env.n_state_dim, d))

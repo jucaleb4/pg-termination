@@ -1757,6 +1757,16 @@ def get_env(name, gamma, seed=None, validation_gamma=-1):
             seed=seed, 
             validation_gamma=validation_gamma
         ) 
+    elif name == "discrete_inventory_adaptlen":
+        resolution = 81 # [-40,40]
+        env = DiscretizedGymnasiumModel(
+            "gym_examples/InventoryEnv-v0", 
+            gamma, 
+            resolution, 
+            seed=seed, 
+            validation_gamma=validation_gamma,
+            max_episode_steps=int(1 + 3*(1.-gamma)**(-1)),
+        ) 
     elif name == "discrete_battery":
         resolution = 64
         env = DiscretizedGymnasiumModel(

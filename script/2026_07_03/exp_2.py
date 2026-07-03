@@ -23,8 +23,8 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
-    od["max_runtime_in_sec"] = 900
-    od["max_obs"] = math.inf
+    od["max_runtime_in_sec"] = 1200
+    od["max_obs"] = 5e6
 
     od["update_rule"] = int(pmd.Update.TSALLIS_UPDATE)
     od["n_iters"] = 1_000

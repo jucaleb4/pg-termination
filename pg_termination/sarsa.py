@@ -179,6 +179,9 @@ def _sarsa(settings, ukappa, logger, logger_validation, logger_mixing, logger_ep
             break
 
     utils.set_greedy_policy(greedy_pi_t, Q_t)
+    eps_t = 1./(settings["n_iters"])
+    greedy_pi_t *= (1-eps_t)
+    greedy_pi_t += eps_t/env.n_actions
     if not settings["skip_true_model"]:
         (true_psi, true_V) = env.get_advantage(greedy_pi_t)
 

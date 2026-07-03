@@ -23,8 +23,8 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
-    od["max_runtime_in_sec"] = 900
-    od["max_obs"] = math.inf
+    od["max_runtime_in_sec"] = 1200
+    od["max_obs"] = 5e6
     od["s_origin"] = "reset"
     od["ukappa"] = 1.0
 
@@ -39,10 +39,10 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["ctd_N_mult"] = 1.
 
     # tuning parameters
-    env_name_arr = ["discrete_inventory"]
+    env_name_arr = ["discrete_inventory_adaptlen"]
     gamma_arr = [0.9, 0.99]
 
-    ctd_feat_type_arr = ['Gaussian', 'Id']
+    ctd_feat_type_arr = ['Gaussian']
     eta_arr = [1e4, 1e2, 1e0] 
     iota_mult_arr = [2e3, 5e1, 1e0]
     uLam_mult_arr = [1, -1./2] 

@@ -22,13 +22,13 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
-    od["max_runtime_in_sec"] = 900
-    od["max_obs"] = 100_000
+    od["max_runtime_in_sec"] = 1200
+    total_samples = 5e6
+    od["max_obs"] = total_samples
 
-    env_name_arr = ["discrete_inventory"]
+    env_name_arr = ["discrete_inventory_adaptlen"]
     gamma_arr = [0.9, 0.99]
     # we will set total budget to half a million
-    total_samples = 100_000
     alpha_arr = [-1, 1e-2, 1./total_samples]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
