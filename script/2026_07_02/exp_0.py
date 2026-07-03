@@ -23,7 +23,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 1200
-    total_samples = 5e6
+    total_samples = 1e6
     od["max_obs"] = total_samples
 
     env_name_arr = ["discrete_inventory_adaptlen"]

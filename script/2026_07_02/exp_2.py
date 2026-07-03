@@ -14,22 +14,26 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Full run of SARSA on Inventory (not episodic)"
+ABOUT = "Tune SPMD MC-Dyn on Inventory (non-episodic)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
 
-    od["alg"] = "sarsa"
+    od["estimate_Q"] = "online_mc_dynamic"
     od["skip_true_model"] = True
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
-    od["max_runtime_in_sec"] = 3600
+    od["max_runtime_in_sec"] = 1200
+    od["max_obs"] = 1e6
 
-    env_name_arr = ["discrete_inventory"]
-    params_arr = [
-        (0.9, 1e-5, 5e6),
-        (0.99, 1e-5, 1e7),
-    ]
+    od["update_rule"] = int(pmd.Update.TSALLIS_UPDATE)
+    od["n_iters"] = 1_000
+
+    env_name_arr = ["discrete_inventory_adaptlen"]
+    gamma_arr = [0.9, 0.99]
+    # we will set total budget to half a million
+    total_samples = 100_000
+    eta_arr = [5e-1, 5e0, 2e1]
 
     log_folder_base = os.path.join("logs", DATE, "exp_%s" % EXP_ID)
     setting_folder_base = os.path.join("settings", DATE, "exp_%s" % EXP_ID)
@@ -42,7 +46,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("Saving setting files to %s" % setting_folder_base)
 
     # https://stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    exp_metadata = ["Exp id", "Env name", "gamma", "alpha"]
+    exp_metadata = ["Exp id", "Env name", "gamma", "eta"]
     row_format ="{:>10}|{:>20}|{:>10}|{:>10}"
     if not skip_save:
         print("")
@@ -50,17 +54,16 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
         print("-" * (50+len(exp_metadata)-1))
 
     ct = 0
-    for (env_name, (gamma, alpha, total_samples)) in itertools.product(env_name_arr, params_arr):
+    for (env_name, gamma, eta) in itertools.product(env_name_arr, gamma_arr, eta_arr):
         od["env_name"] = env_name
         od["gamma"] = gamma
-        od["n_iters"] = total_samples
-        od["qlearn_alpha"] = alpha
+        od["eta"] = eta
 
         setting_fname = os.path.join(setting_folder_base,  "run_%s.yaml" % ct)
         od["log_folder"] = os.path.join(log_folder_base, "run_%s" % ct)
 
         if not skip_save:
-            print(row_format.format(ct, od["env_name"], od["gamma"], od["qlearn_alpha"]))
+            print(row_format.format(ct, od["env_name"], od["gamma"], od["eta"]))
 
             if not(os.path.exists(od["log_folder"])):
                 os.makedirs(od["log_folder"])
@@ -94,11 +97,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     seed_0 = 0
     n_seeds = 1
-    n_iters = 1_000
+    n_iters = 40
 
     if args.setup:
-        if args.mode == "full":
-            n_seeds = 10
         setup_setting_files(seed_0, n_seeds, n_iters, args.print_info)
     elif args.run:
         max_runs = setup_setting_files(seed_0, n_seeds, n_iters, args.print_info, True)

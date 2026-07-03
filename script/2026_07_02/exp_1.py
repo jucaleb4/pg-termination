@@ -14,7 +14,7 @@ from script.helper import get_parameter_settings, parse_sub_runs
 
 DATE =  os.path.dirname(__file__).split("/")[-1] # "2025_12_24"
 EXP_ID = int(re.search(r'\d+', os.path.splitext(os.path.basename(__file__))[0]).group()) # 0
-ABOUT = "Tuning SPMD+CTD on Inventory (differs from 2026_06_30 since we do not do episode eval anymore)"
+ABOUT = "Tuning SPMD+CTD on Inventory (non-episodic, while 2026_06_30 is episodic)"
 
 def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od = get_parameter_settings(seed_0, n_seeds, n_iters, False, ABOUT)
@@ -24,7 +24,7 @@ def setup_setting_files(seed_0, n_seeds, n_iters, print_info, skip_save=False):
     od["validation_mode"] = "random_reset"
     od["validation_k"] = 30
     od["max_runtime_in_sec"] = 1200
-    od["max_obs"] = 5e6
+    od["max_obs"] = 1e6
     od["s_origin"] = "reset"
     od["ukappa"] = 1.0
 
