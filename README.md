@@ -18,7 +18,6 @@ Experiment for [inventory](#inventory) requires a separate installation.
 We defer the details therein.
 
 ## Strong-polynomial runtime 
-Paper DOI: https://doi.org/10.1007/s10107-026-02356-y
 
 ### Tuning Step size tuning for stochastic PMD
 For gamma=0.9, run
@@ -74,14 +73,14 @@ python plot/parse_2024_10_19.py --env_name taxi --gamma 0.9
 python plot/parse_2024_10_19.py --env_name taxi --gamma 0.99
 ```
 
-### Citation
+### Source and Citation
+Paper DOI: https://doi.org/10.1007/s10107-026-02356-y
+
 This code is freely available for everyone to use. If you would like to acknowledge the usage of this code, please cite the following paper:
-```
+
 Ju, Caleb, and Guanghui Lan. "Strongly-polynomial time and validation analysis of policy gradient methods." Mathematical Programming (2026): 1-45.
-```
 
 ## Auto-exploration 
-Paper link: https://arxiv.org/abs/2512.06244 
 
 ### Re-create results from paper
 We ran on four environments: GARNET, GridWorld, Inventory (newsvendor), and CartPole.
@@ -150,10 +149,9 @@ python script/2026_05_31/exp_17.py --run
 Before you can setup the Inventory environment, you first need Gymnasium.
 See the instructions from [CartPole](#cartPole).
 Once Gymnasium is installed, you will need to install a custom Gymnasium package.
-This is straightforward.
-To do so:
+This is straightforward:
 1. Clone our customized [gym_examples repo](https://github.com/jucaleb4/gym-examples#setting-up-batteryenv-with-gymnasium). More info in the README therein, which can be safely skipped for now.
-2. After cloning, go into the root directory and run `pip install -e .`.
+2. After cloning, go into the root directory of `gym_examples` and run `pip install -e .`.
 
 After installing gym_examples, you can run the following scripts.
 ```
@@ -171,12 +169,13 @@ python script/2026_07_02/exp_2.py --run
 ```
 
 #### CartPole
-To run gymnasium, you will need to first install Gymnasium. This is straightforward with pip and the following steps:
+To run [CartPole](https://gymnasium.farama.org/environments/classic_control/cart_pole/), you first need to install Gymnasium. This is straightforward with pip and the following steps:
 1. Run `pip install "gymnasium[classic-control]"`
-```
 See the [Gymnasium documentation](https://gymnasium.farama.org) for more info.
 
 After installing Gymnasium, you can run the following scripts.
+
+```
 # SARSA
 python script/2026_07_03/exp_0.py --setup --mode full
 python script/2026_07_03/exp_0.py --run
@@ -200,113 +199,13 @@ We also included Jupyter notebooks to create plots in the paper after completing
 
 Figures are saved in separate folders in the `plot` folder.
 
-### Citation
+### Source and Citation
+Paper link: https://arxiv.org/abs/2512.06244 
+
 This code is freely available for everyone to use. If you would like to acknowledge the usage of this code, please cite the following paper:
-```
+
 Ju, Caleb, and Guanghui Lan. "Auto-exploration for online reinforcement learning." arXiv preprint arXiv:2512.06244 (2025).
-```
 
 # All experiments (internal use)
-Below is the entire list of all experiments (e.g., tuning, full runs).
-This is more for internal use to keep track of what has been done, what works, what does not, etc.
-- `2025_12_05/exp_0.py`: initial testing of fixed, estimated, dynamic MC, and CTD on 5x5 GridWorld
-- `2025_12_11/exp_0.py`: setup simple BatteryModel
-- `2025_12_11/exp_1.py`: successive hyper-tuning (one with noisy oracle, one with exact oracle)
-- `2025_12_11/exp_2.py`: running with best fixed exploration time from `exp_1.py` above
-- `2025_12_24/exp_0.py`: testing CTD on discretized MountainCar
-
-- `2026_04_08/exp_0.py`: tune SPMD for GARNET (5-100)
-- `2026_04_08/exp_1.py`: opt on GARNET
-- `2026_04_08/exp_2.py`: full SPMD on GARNET (*DEPRECEATED* use 2026_05_05/exp_0.py)
-- `2026_04_09/exp_0.py`: tune SPMD for GridWorld *DEPRECEATED*
-- `2026_04_09/exp_1.py`: GridWorld OPT *DEPRECEATED*
-- `2026_04_09/exp_2.py`: full SPMD on GridWorld *DEPRECEATED*
-- `2026_04_13/exp_0.py`: Initial ppo_clean
-- `2026_04_14/exp_0.py`: tune SPMD+CTD on GridWorld *DEPRECEATED*
-- `2026_04_15/exp_0.py`: tune SPMD on GridWorld 
-- `2026_04_15/exp_1.py`: GridWorld OPT
-- `2026_04_15/exp_2.py`: full SPMD on GridWorld 
-- `2026_04_16/exp_0.py`: tune Q-learn on GridWorld (*DEPRECEATED* since no more Q-learn)
-- `2026_04_16/exp_1.py`: opt on GridWorld (*DEPRECEATED* since no more Q-learn)
-- `2026_04_16/exp_2.py`: full Q-learn on GridWorld (*DEPRECEATED* since no more Q-learn)
-- `2026_04_25/exp_0.py`: tune SARSA on Garnet (*DEPRECEATED* since duplicate)
-- `2026_04_25/exp_2.py`: SARSA on Garnet (*DEPRECEATED* since duplicate)
-- `2026_05_05/exp_0.py`: SPMD full run on Garnet (w/ min sample count) (*DEPRECEATED* since duplicate)
-- `2026_05_05/exp_1.py`: SARSA full run on Garnet (w/ min sample count) (*DEPRECEATED* since duplicate)
-- `2026_05_05/exp_2.py`: SPMD full run on GridWorld (w/ min sample count) (*DEPRECEATED* since duplicate)
-- `2026_05_05/exp_3.py`: SARSA full run on GridWorld (w/ min sample count) (*DEPRECEATED* since duplicate)
-- `2026_05_06/exp_0.py`: tune SARSA on Garnet
-- `2026_05_06/exp_1.py`: full SARSA run on Garnet
-- `2026_05_06/exp_2.py`: tune SARSA on GridWorld
-- `2026_05_06/exp_3.py`: full SARSA run on GridWorld
-- `2026_05_06/exp_4.py`: full SARSA run on GridWorld-loop
-- `2026_05_18/exp_0.py`: tune SPMD+CTD on GridWorld 
-- `2026_05_18/exp_1.py`: full run SPMD+CTD on GridWorld 
-- `2026_05_18/exp_2.py`: full run SPMD+CTD on GridWorld (aggressive parameters) 
-- `2026_05_19/exp_0.py`: tune SPMD on GARNET with Tsallis
-- `2026_05_19/exp_1.py`: tune SPMD on GridWorld with Tsallis
-- `2026_05_19/exp_2.py`: full SPMD on GARNET with Tsallis
-- `2026_05_19/exp_3.py`: full SPMD on GridWorld with Tsallis
-- `2026_05_19/exp_4.py`: full SPMD on GridWorld-loop with Tsallis
-- `2026_05_19/exp_5.py`: Refined tuning-v1 SPMD-Dyn on GARNET
-- `2026_05_19/exp_6.py`: Refined tuning-v1 SPMD-Dyn on GridWorld
-- `2026_05_19/exp_7.py`: Full-run SPMD-Dyn on GARNET from Refined tuning-v1
-- `2026_05_19/exp_8.py`: Full-run SPMD-Dyn on GridWorld from Refined tuning-v1
-- `2026_05_20/exp_0.py`: GARNET OPT
-- `2026_05_20/exp_1.py`: GridWorld OPT (TBD)
-- `2026_05_31/exp_0.py`: Full-tune of SPMD+CTD on GARNET
-- `2026_05_31/exp_1.py`: Full-tune of SPMD+CTD on GridWorld
-- `2026_05_31/exp_2.py`: Full-tune of SPMD+CTD on GridWorld-loop
-- `2026_05_31/exp_3.py`: Full-tune of SPMD+CTD on GARNET - more feature tuning
-- `2026_05_31/exp_4.py`: Full-tune of SPMD+CTD on GridWorld - more feature tuning
-- `2026_05_31/exp_5.py`: full (via enhanced tuned) SPMD+CTD on GARNET 
-- `2026_05_31/exp_6.py`: full (via enhanced tuned) SPMD+CTD on GridWorld
-- `2026_05_31/exp_7.py`: shorter full (via enhanced tuned) SPMD+CTD on GARNET (*DEPRECEATED* since unsure what we showed)
-- `2026_05_31/exp_8.py`: shorter full (via enhanced tuned) SPMD+CTD on GridWorld (*DEPRECEATED* since unsure what we showed)
-- `2026_05_31/exp_9.py`: full (via enhanced tuned from exp_6) SPMD+CTD on GridWorld-loop
-- `2026_05_31/exp_10.py`: Full tune of SPMD+CTD on GARNET - enhanced-v2 (new multipliers, mini-batch)
-- `2026_05_31/exp_11.py`: Full tune of spmd+ctd on gridworld - enhanced-v2 (new multipliers, mini-batch)
-- `2026_05_31/exp_12.py`: Full-run SPMD+CTD on GARNET using enhanced-v2 
-- `2026_05_31/exp_13.py`: Full-run SPMD+CTD on Gridworld using  enhanced-v2 
-- `2026_05_31/exp_14.py`: Refined tuning-v1 SPMD+CTD on GARNET 
-- `2026_05_31/exp_15.py`: Refined tuning-v1 SPMD+CTD on gridworld 
-- `2026_05_31/exp_16.py`: Full-run SPMD+CTD on GARNET from refined tuning-v1
-- `2026_05_31/exp_17.py`: Full-run SPMD+CTD on GridWorld from refined tuning-v1
-- `2026_05_31/exp_18.py`: Refined tuning-v2 SPMD+CTD on GARNET 
-- `2026_05_31/exp_19.py`: Refined tuning-v2 SPMD+CTD on gridworld 
-- `2026_05_31/exp_20.py`: Full-run SPMD+CTD on GARNET from refined tuning-v2
-- `2026_05_31/exp_21.py`: Full-run SPMD+CTD on GridWorld from refined tuning-v2
-- `2026_06_01/exp_0.py`: Baselines (uniform random policy) for GARNET, GW, and GridWorld-lodim
-- `2026_06_01/exp_1.py`: Baselines (uniform random policy) for Inventory and CartPole
-- `2026_06_07/exp_0.py`: tune SPMD on GridWorld-lowdim
-- `2026_06_07/exp_1.py`: tune SARSA on GridWorld-lowdim
-- `2026_06_07/exp_2.py`: Full tune SPMD+CTD on GridWorld-lowdim - enhanced-v2 
-- `2026_06_12/exp_0.py`: Refined tuning-v3 SPMD+CTD on GARNET (zero func-err)
-- `2026_06_12/exp_1.py`: Refined tuning-v3 SPMD+CTD on GridWorld (zero func-err)
-- `2026_06_12/exp_2.py`: Full run of SPMD+CTD on GARNET with refined tuning-v3
-- `2026_06_12/exp_3.py`: Full run of SPMD+CTD on GridWorld with refined tuning-v3
-- `2026_06_12/exp_4.py`: Manual full run of GARNET (derivative of exp_2.py)
-- `2026_06_14/exp_0.py`: Tuning SPMD+CTD comparisons on large GARNETs (s_origin = 'reset')
-- `2026_06_14/exp_1.py`: Tuning SPMD+CTD comparisons on large GARNETs (s_origin = None)
-- `2026_06_14/exp_2.py`: Full run SPMD+CTD-estimate on large GARNETs (includes estimate and reset)
-- `2026_06_15/exp_0.py`: Full run of SPMD+CTD-estimate on GARNET with refined tuning-v3
-- `2026_06_15/exp_1.py`: Full run of SPMD+CTD-estimate on GridWorld with refined tuning-v3
-- `2026_06_30/exp_0.py`: Tune SPMD MC-Dyn on Discretized-Inventory 
-- `2026_06_30/exp_1.py`: Tune SPMD MC+CTD-Dyn on Discretized-Inventory 
-- `2026_06_30/exp_2.py`: Tune PPO on Discretized-Inventory 
-- `2026_06_30/exp_3.py`: Tune PPO (linear only) on Discretized-Inventory 
-- `2026_06_30/exp_4.py`: Full-run SPMD MC-Dyn on Discretized-Inventory 
-- `2026_06_30/exp_5.py`: Full-run SPMD MC+CTD-Dyn on Discretized-Inventory 
-- `2026_06_30/exp_6.py`: Full-run PPO on Discretized-Inventory 
-- `2026_06_30/exp_7.py`: Full-run PPO (linear only) on Discretized-Inventory 
-- `2026_07_01/exp_0.py`: Tune SPMD MC-Dyn on Discretized-CartPole
-- `2026_07_01/exp_1.py`: Tune SPMD+CTD-Dyn on Discretized-CartPole
-- `2026_07_01/exp_2.py`: Tune PPO on Discretized-CartPole
-- `2026_07_01/exp_3.py`: Tune PPO (linear only) on Discretized-CartPole
-- `2026_07_02/exp_0.py`: Tune SPMD SARAS on Discretized-Inventory (not episodic)
-- `2026_07_02/exp_1.py`: Tune SPMD+CTD-Dyn on Discretized-Inventory (not episode)
-- `2026_07_02/exp_0.py`: Full-run SPMD SARAS on Discretized-Inventory (not episodic)
-- `2026_07_02/exp_1.py`: Full-run SPMD+CTD-Dyn on Discretized-Inventory (not episode)
-- `2026_07_03/exp_0.py`: Tune SPMD SARAS on CartPole (not episodic)
-- `2026_07_03/exp_1.py`: Tune SPMD+CTD-Dyn on Discretized-CartPole (not episodic)
-- `2026_07_03/exp_2.py`: Tune SPMD MC-Dyn on Discretized-CartPole (not episodic)
+See ALLEXPERIMENTS.txt.
+This is to track experiments (including failed experiments) and more for internal use.
