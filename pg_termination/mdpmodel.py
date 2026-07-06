@@ -5,8 +5,12 @@ import numpy.linalg as la
 import abc
 import time
 
-import gym_examples
 import gymnasium as gym
+try:
+    import gym_examples
+except ImportError as e:
+    print("Missing gym_examples, skipping. Warning: will fail if you run discrete_inventory or discrete_battery.")
+    print("Full warning: %s" % e)
 
 TOL = 1e-10
 
@@ -47,7 +51,7 @@ class MDPModel():
         :return c: cost
         :return terminate: termination/reset
         """
-        self.ep_cum_cost += self.validation_gamma**(self.curr_ep_len) * self.c
+        self.ep_cum_cost += self.validation_gamma**(self.curr_ep_len) * self.curr_c
         self.curr_ep_len += 1
 
         if self.terminated:
@@ -77,7 +81,7 @@ class MDPModel():
             self.curr_ep_len = 0
 
         # these should be set before
-        return (self.s, self.c, self.terminated)
+        return (self.s, self.curr_c, self.terminated)
 
     @abc.abstractmethod
     def get_mixing_time_ub(self, pi):
@@ -765,7 +769,8 @@ class MDPModel():
 class KnownModel(MDPModel):
     """ Known (S,A,c,P,gamma) """
     def __init__(self, n_states, n_actions, c, P, gamma, rho=None, seed=None, term_map=None, time_limit=np.inf):
-        super().__init__(gamma, gamma, seed)
+        validation_gamma = gamma
+        super().__init__(gamma, seed, validation_gamma)
 
         assert len(c.shape) == 2, "Input cost vector c must be a 2-D vector, recieved %d dimensions" % len(c.shape)
         assert len(P.shape) == 3, "Input cost vector c must be a 3-D tensor, recieved %d dimensions" % len(P.shape)
@@ -809,7 +814,7 @@ class KnownModel(MDPModel):
         self.init_linear = False
 
     def step(self, a):
-        self.c = c = self.c[self.s, a]
+        self.curr_c = self.c[self.s, a]
         curr_s = self.s
         self.s = self.rng.choice(self.P.shape[0], p=self.P[:,self.s, a])
         self.terminated = 0 if (self.term_map is None) else self.term_map[self.s, curr_s, a]
@@ -1575,7 +1580,7 @@ class DiscretizedGymnasiumModel(MDPModel):
     def step(self, a):
         s_cont, r, terminated, truncated, _ = self.env.step(a)
         self.terminated = terminated or truncated
-        self.c = -r
+        self.curr_c = -r
         # exceed bounds
         if not (np.all(self.low <= s_cont) and np.all(s_cont <= self.high)):
             self.terminated = True

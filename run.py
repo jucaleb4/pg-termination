@@ -1,7 +1,12 @@
 import argparse
 import yaml
 
-from pg_termination import pmd, policyiter, spmd, reinforce, trpo, qlearn, sarsa, ppo2
+from pg_termination import pmd, policyiter, spmd, reinforce, trpo, qlearn, sarsa
+try:
+    from pg_termination import ppo2
+except ImportError as e:
+    print("PPO cannot be run", e)
+
 from script.helper import get_parameter_settings
 
 def check_key_settings_diff(settings):
