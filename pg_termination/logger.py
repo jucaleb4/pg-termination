@@ -23,16 +23,26 @@ class BasicLogger():
         if self.ct == len(self.data):
             self.data = np.vstack((self.data, np.zeros(self.data.shape, dtype=self.data.dtype)))
 
-    def save(self):
+    def save(self, max_size=np.inf):
         if not self.fname.endswith(".csv"):
             self.fname += ".csv"
         fp = open(self.fname, "w+")
-        fmt = ','.join(["%d" if self.dtypes[i] == "d" else "%.6e" for i in range(len(self.dtypes))])
+        fmt = ','.join(["%d" if self.dtypes[i] == "d" else "%.2e" for i in range(len(self.dtypes))])
         fp.write("%s\n" % (','.join(self.keys)))
         m = self.data.shape[1]
-        for i in range(self.ct):
+
+        if self.ct == 0:
+            fp.close()
+            return
+
+        # partial indices to prevent overflow size
+        idxs = np.arange(0, self.ct, int(self.ct//min(self.ct, max_size)))
+        if idxs[-1] != self.ct-1:
+            idxs = np.append(idxs, self.ct-1)
+
+        for i in idxs:
             for j in range(m):
-                fp.write(("%d" if self.dtypes[j] == "d" else "%.6e") % self.data[i,j])
+                fp.write(("%d" if self.dtypes[j] == "d" else "%.2e") % self.data[i,j])
                 if j < m-1:
                     fp.write(",")
                 else:
