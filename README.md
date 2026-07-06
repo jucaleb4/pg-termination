@@ -1,4 +1,4 @@
-# Policy Gradient Termination
+# Stochastic policy mirror descent experiments
 This code provides reproductable experiments in a scripting-based manner for (stochastic) policy mirror papers.
 The two papers included so far are:
 
