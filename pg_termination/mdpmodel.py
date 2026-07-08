@@ -41,6 +41,7 @@ class MDPModel():
         self.ep_len_arr = np.zeros(1024, dtype=int)
         self.ep_cum_samps_arr = np.zeros(1024, dtype=int)
         self.ep_ct = 0
+        self.terminated=False
 
     def step(self, a):
         """ 
@@ -331,7 +332,7 @@ class MDPModel():
         s_time = time.time()
 
         # run until reset
-        terminate = 0
+        terminate = self.terminated
         s = 0
         while (not terminate):
             a = self.rng.choice(pi.shape[0], p=pi[:,s])
@@ -820,7 +821,7 @@ class KnownModel(MDPModel):
         self.terminated = 0 if (self.term_map is None) else self.term_map[self.s, curr_s, a]
         self.t += 1
 
-        if self.curr_ep_len % (self.time_limit+1) == 0:
+        if (self.curr_ep_len+1) % self.time_limit == 0:
             self.terminated = True
 
         return super().step(a)
@@ -1685,7 +1686,6 @@ def get_env(name, gamma, seed=None, validation_gamma=-1):
         env = Bandits(4, gamma, seed=seed)
     elif name == "gridworld_footnote":
         env = GridWorldWithTraps(5, 3, gamma, seed=seed, ergodic=True)
-    # TEMP
     elif name == "gridworld_verytiny":
         env = GridWorldWithTraps(2, 0, gamma, seed=seed, ergodic=True)
     elif name == "gridworld_tiny":

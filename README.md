@@ -189,6 +189,23 @@ python script/2026_07_03/exp_2.py --setup --mode full
 python script/2026_07_03/exp_2.py --run
 ```
 
+#### Baslines
+This code provides baselines for a uniform random policy to compare against.
+Make sure you follow the same installations as the subsections above for Inventory and CartPole.
+```
+# GARNET and GridWorld
+python script/2026_06_01/exp_0.py --setup --mode full
+python script/2026_06_01/exp_0.py --run
+
+# Inventory
+python script/2026_06_01/exp_1.py --setup --mode full
+python script/2026_06_01/exp_1.py --run
+
+# CartPole
+python script/2026_06_01/exp_2.py --setup --mode full
+python script/2026_06_01/exp_2.py --run
+```
+
 ### Plotting
 We also included Jupyter notebooks to create plots in the paper after completing the experiments.
 
